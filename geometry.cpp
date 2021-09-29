@@ -47,13 +47,11 @@ namespace EyeTracker::Geometry {
          * p and c are the unknowns in (7-9). Having found c using (2-4), we can now find p. */
         // (3):
         Vector loqo = xt::linalg::cross(light - nodalPoint, reflection - nodalPoint);
-        float loqoo = xt::linalg::dot(loqo, nodalPoint)();
         // Now dot(loqo, c) = dot(loqo, o) - a plane on which c must lie.
         // (4):
         Vector lqoq = (light - reflection) * xt::linalg::norm(nodalPoint - reflection);
         Vector oqlq = (nodalPoint - reflection) * xt::linalg::norm(light - reflection);
         Vector oqlqlqoq = oqlq - lqoq;
-        float oqlqlqoqq = xt::linalg::dot(oqlqlqoq, reflection)();
         // Now dot(oqlqlqoq, c) = dot(oqlqlqoq, q) - another plane containing c.
         // The intersection of these two planes is a line.
         // xt::vstack/xt::hstack don't work for some reason (maybe https://github.com/xtensor-stack/xtensor/issues/2372)
@@ -69,7 +67,7 @@ namespace EyeTracker::Geometry {
         }
         else { // Far more likely
             // We now consider z = 0 and z = 1, and find two points (x, y, 0) and (x', y', 1), which define the line.
-            Matrix<2> b({loqoo, oqlqlqoqq});
+            Matrix<2> b({xt::linalg::dot(loqo, nodalPoint)(), xt::linalg::dot(oqlqlqoq, reflection)()});
             Matrix<2> lastRow({loqo(2), oqlqlqoq(2)});
             Matrix<2> pointA_xy = xt::linalg::solve(squarePlaneMatrix, b); // z = 0
             Matrix<2> pointB_xy = xt::linalg::solve(squarePlaneMatrix, b - lastRow); // z = 1
@@ -94,7 +92,6 @@ namespace EyeTracker::Geometry {
             // Now we find p in a somewhat similar way.
             // (7):
             Vector roco = xt::linalg::cross(pupil - nodalPoint, *corneaCurvatureCentre - nodalPoint);
-            float rocoo = xt::linalg::dot(roco, nodalPoint)();
             // Now dot(roco, p) = dot(roco, o) - a plane containing p.
             // (8): n_1 · ‖o - r‖ / ‖(r - c) × (o - r)‖ = ‖p - r‖ / ‖(r - c) × (p - r)‖
             float n1orrcor = n1 * xt::linalg::norm(nodalPoint - pupil)
