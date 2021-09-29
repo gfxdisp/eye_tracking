@@ -1,5 +1,5 @@
 #pragma once
-#include <opencv2/opencv.hpp> // cv::Point2f
+#include <opencv2/core/types.hpp> // cv::Point2f
 #include <cstdint> // uint8_t
 #include <limits> // std::numeric_limits
 namespace EyeTracker::ImageProcessing {

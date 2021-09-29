@@ -1,7 +1,9 @@
-#include <opencv2/opencv.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/video/tracking.hpp> // cv::KalmanFilter
+#include <opencv2/videoio.hpp> // cv::VideoCapture
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
-#include <opencv2/cudafilters.hpp>
 #include <algorithm> // std::min_element, std::transform
 #include <chrono>
 #include <iostream>

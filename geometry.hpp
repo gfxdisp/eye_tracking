@@ -1,5 +1,5 @@
 #pragma once
-#include <opencv2/opencv.hpp> // cv::Point2i
+#include <opencv2/core/types.hpp> // cv::Point2i
 #include <xtensor-blas/xlinalg.hpp>
 #include <xtensor/xfixed.hpp>
 #include <optional>

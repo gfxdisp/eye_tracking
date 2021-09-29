@@ -1,5 +1,5 @@
 #pragma once
-#include <opencv2/opencv.hpp> // cv::Rect
+#include <opencv2/core/types.hpp> // cv::Rect
 namespace EyeTracker::Camera {
     constexpr float FPS = 60;
     constexpr int RESOLUTION_X = 1280; // px
