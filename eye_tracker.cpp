@@ -2,12 +2,12 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/video/tracking.hpp> // cv::KalmanFilter
 #include <opencv2/videoio.hpp> // cv::VideoCapture
+#include <opencv2/videoio/registry.hpp> // cv::videio_registry
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <algorithm> // std::min_element, std::transform
 #include <chrono>
 #include <iostream>
-#include <memory> // std::unique_ptr
 #include <sstream> // std::ostringstream
 #include <string>
 #include <vector>
@@ -15,9 +15,6 @@
 #include <cstdlib> // std::strtoul
 #include "geometry.hpp"
 #include "image_processing.hpp"
-#ifdef HAVE_UEYE
-    #include "idslib/IDSVideoCapture.h"
-#endif
 using namespace cv;
 using namespace std::chrono_literals;
 using namespace EyeTracker;
@@ -60,7 +57,8 @@ namespace EyeTracker {
                 std::cerr << "Error: no CUDA device with the given index was found.";
                 break;
             case Error::BUILT_WITHOUT_UEYE:
-                std::cerr << "Error: use of IDS camera requested, but the program was compiled without uEye support.";
+                std::cerr << "Error: use of IDS camera requested, but OpenCV was compiled without uEye support.";
+		break;
             default:
                 std::cerr << "Unknown error.";
                 break;
@@ -72,7 +70,7 @@ namespace EyeTracker {
 
 int main(int argc, char* argv[]) {
     // Use a pointer to abstract away the type of VideoCapture (either a video file or an IDS camera)
-    std::unique_ptr<VideoCapture> video(nullptr);
+    VideoCapture video;
     VideoWriter vwInput, vwOutput;
     const int fourcc = VideoWriter::fourcc('m', 'p', '4', 'v');
     bool isRealtime = false;
@@ -86,19 +84,18 @@ int main(int argc, char* argv[]) {
         if (mode == "file") {
             if (argc < 3) return fail(EyeTracker::Error::ARGUMENTS); // No file path specified
             else {
-                video = std::make_unique<VideoCapture>(argv[2]);
-                if (!video->isOpened()) return fail(EyeTracker::Error::FILE_NOT_FOUND);
+                video.open(argv[2]);
+                if (!video.isOpened()) return fail(EyeTracker::Error::FILE_NOT_FOUND);
             }
         }
         else if (mode == "ids" || mode == "ueye") {
-            #ifdef HAVE_UEYE
+            if (videoio_registry::hasBackend(CAP_UEYE)) {
                 unsigned long cameraIndex = argc >= 3 ? std::strtoul(argv[2], nullptr, 10) : 0;
-                video = std::make_unique<IDSVideoCapture>(cameraIndex);
-                if (!video->isOpened()) return fail(EyeTracker::Error::UEYE_NOT_FOUND);
+                video.open(cameraIndex, CAP_UEYE);
+                if (!video.isOpened()) return fail(EyeTracker::Error::UEYE_NOT_FOUND);
                 isRealtime = true;
-            #else
-                return fail(EyeTracker::Error::BUILT_WITHOUT_UEYE);
-            #endif
+            }
+            else return fail(EyeTracker::Error::BUILT_WITHOUT_UEYE);
         }
         else return fail(EyeTracker::Error::ARGUMENTS);
     }
@@ -136,7 +133,7 @@ int main(int argc, char* argv[]) {
         cuda::Stream streamDisplay;
     #endif
     while (true) {
-        if (!video->read(frameBGRCPU) || frameBGRCPU.empty()) break; // Video has ended
+        if (!video.read(frameBGRCPU) || frameBGRCPU.empty()) break; // Video has ended
         /* Complicated logic here depending on:
          * - whether we are running in headless mode
          * - whether the input is BGR or monochrome
@@ -280,7 +277,7 @@ int main(int argc, char* argv[]) {
         #endif
     }
 
-    video->release();
+    video.release();
     #ifndef HEADLESS
         destroyAllWindows();
     #endif

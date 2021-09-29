@@ -12,6 +12,11 @@ CUDA can be installed from the NVIDIA website, or from the Ubuntu repositories:
 
 Tested with version 10.1.243-3. Use `nvcc --version` to check whether CUDA is installed.
 
+### [IDS Software Suite](https://en.ids-imaging.com/ids-software-suite.html) (required for IDS uEye support)
+
+Select your camera model, create an account, download and install the 64-bit Linux Debian packages.
+You will need all of the included packages, as well as `libomp5` (OpenMP) from the Ubuntu repositories.
+
 ### OpenCV
 
 OpenCV can be found in the Ubuntu repositories, but it seems to be built without CUDA support.
@@ -30,7 +35,9 @@ OpenCV can be found in the Ubuntu repositories, but it seems to be built without
           -DWITH_CUDA=ON -DCUDA_FAST_MATH=ON -DWITH_FFMPEG=ON \
           -DWITH_OPENGL=ON -DWITH_LAPACK=ON \
           -DINSTALL_C_EXAMPLES=OFF -DINSTALL_PYTHON_EXAMPLES=OFF \
-          -DCMAKE_C_COMPILER=/usr/bin/gcc-8 -DCMAKE_CXX_COMPILER=/usr/bin/g++-8 ../
+          -DCMAKE_C_COMPILER=/usr/bin/gcc-8 -DCMAKE_CXX_COMPILER=/usr/bin/g++-8 \
+          -DWITH_UEYE=ON -DUEYE_ROOT=/opt/ids/ueye ../
+    # Remove WITH_UEYE if not using uEye
     make -j8
     make -j8 install
 
@@ -67,11 +74,6 @@ You will also need to install OpenBLAS and LAPACK.
 Tested with libopenblas64-dev version 0.3.8+ds-1ubuntu0.20.04.1,
 liblapack-dev version 3.9.0-1build1,
 and xtensor-blas commit 7ceb791 (after release 0.19.1).
-
-### [IDS Software Suite](https://en.ids-imaging.com/ids-software-suite.html) (required for IDS uEye support)
-
-Select your camera model, create an account, download and install the 64-bit Linux Debian packages.
-You will need all of the included packages, as well as `libomp5` (OpenMP) from the Ubuntu repositories.
 
 ### [xsimd](https://github.com/xtensor-stack/xsimd) (optional)
 
