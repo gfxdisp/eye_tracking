@@ -1,28 +1,14 @@
 #pragma once
 #include <opencv2/core/types.hpp> // cv::Point2i
 #include <xtensor-blas/xlinalg.hpp>
-#include <xtensor/xfixed.hpp>
-#include <optional>
 #include <vector>
-#include "camera.hpp"
-#include "eye.hpp"
+#include "params.hpp"
+#include "types.hpp"
 namespace EyeTracker::Geometry {
+    using namespace Params;
     using namespace Camera;
     using namespace Eye;
-    template<unsigned long... I> using Matrix = xt::xtensor_fixed<float, xt::xshape<I...>>;
-    using Vector = Matrix<3>;
-    struct EyePosition {
-        std::optional<Vector> corneaCurvatureCentre, pupilCentre, eyeCentre; // c, p, d
-        inline operator bool() const {
-            return eyeCentre and pupilCentre and corneaCurvatureCentre;
-        }
-    };
-    /* One-letter variable names are as defined by Guestrin & Eizenman, unless defined in comments.
-     * All constants are in millimetres unless otherwise indicated. */
-    constexpr float LAMBDA = 27.119;
-    const Vector o({0, 0, -320});
-    const Matrix<3, 3> rotation({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}); // dimensionless
-    const Vector light = o + Vector({0, -50, 0});
+    using namespace Positions;
 
     // Conversions between coordinate systems
     inline Vector pixelToCCS(cv::Point2i point) {
@@ -32,11 +18,11 @@ namespace EyeTracker::Geometry {
     }
 
     inline Vector CCStoWCS(Vector point) {
-        return xt::linalg::dot(rotation, point) + o;
+        return xt::linalg::dot(rotation, point) + nodalPoint;
     }
 
     inline Vector WCStoCCS(Vector point) {
-        return xt::linalg::solve(rotation, point - o);
+        return xt::linalg::solve(rotation, point - nodalPoint);
     }
 
     inline cv::Point2i CCStoPixel(Vector point) {
@@ -50,6 +36,20 @@ namespace EyeTracker::Geometry {
 
     inline cv::Point2i WCStoPixel(Vector point) {
         return CCStoPixel(WCStoCCS(point));
+    }
+
+    const static float CAMERA_EYE_PROJECTION_FACTOR = CAMERA_EYE_DISTANCE / LAMBDA;
+
+    inline Vector project(Vector point) {
+        return nodalPoint + CAMERA_EYE_PROJECTION_FACTOR * (nodalPoint - point);
+    }
+
+    inline Vector project(cv::Point2i point) {
+        return project(pixelToWCS(point));
+    }
+
+    inline cv::Point2i unproject(Vector point) {
+        return WCStoPixel((point - (1 + CAMERA_EYE_PROJECTION_FACTOR) * nodalPoint)/-CAMERA_EYE_PROJECTION_FACTOR);
     }
 
     /* Given the centre of a sphere, its radius, a position vector for a point on a line, and a direction vector

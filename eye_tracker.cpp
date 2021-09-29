@@ -21,23 +21,15 @@
 using namespace cv;
 using namespace std::chrono_literals;
 using namespace EyeTracker;
-using namespace Camera;
 using namespace ImageProcessing;
+using namespace Params::Camera;
+using namespace Params::Eye;
+using Params::makePixelKalmanFilter;
 
 namespace EyeTracker {
-    const static Point2i None = {-1, -1};
-    using KFMat = Mat_<float>;
     #ifndef HEADLESS
         const char* windowName = "frame";
     #endif
-
-    inline Point toPoint(Mat m) {
-        return Point(m.at<float>(0, 0), m.at<float>(0, 1));
-    }
-
-    inline Mat toMat(Point p) {
-        return (Mat_<float>(2, 1) << p.x, p.y);
-    }
 
     enum class Error : int {
         SUCCESS = 0,
@@ -124,49 +116,13 @@ int main(int argc, char* argv[]) {
     Mat frameBGRCPU;
     cuda::GpuMat frameBGR, frame, correlation;
 
-    constexpr float DT = 1/FPS;
-    constexpr float VELOCITY_DECAY = 0.9;
-    const Mat TRANSITION_MATRIX  = (KFMat(4, 4) << 1, 0, DT, 0,
-                                                   0, 1, 0, DT,
-                                                   0, 0, VELOCITY_DECAY, 0,
-                                                   0, 0, 0, VELOCITY_DECAY);
-    const Mat MEASUREMENT_MATRIX = (KFMat(2, 4) << 1, 0, 0, 0,
-                                                   0, 1, 0, 0);
-    const Mat PROCESS_NOISE_COV     = Mat::eye(4, 4, CV_32F) * 100;
-    const Mat MEASUREMENT_NOISE_COV = Mat::eye(2, 2, CV_32F) * 50;
-    const Mat ERROR_COV_POST = Mat::eye(4, 4, CV_32F) * 0.1;
-    const Mat STATE_POST = (KFMat(4, 1) << RESOLUTION_X/2.0, RESOLUTION_Y/2.0, 0, 0);
-
-    KalmanFilter KF_reflection(4, 2);
-    // clone() is needed as, otherwise, the matrices will be used by reference, and all the filters will be the same
-    KF_reflection.transitionMatrix  = TRANSITION_MATRIX.clone();
-    KF_reflection.measurementMatrix = MEASUREMENT_MATRIX.clone();
-    KF_reflection.processNoiseCov   = PROCESS_NOISE_COV.clone();
-    KF_reflection.measurementNoiseCov = MEASUREMENT_NOISE_COV.clone();
-    KF_reflection.errorCovPost      = ERROR_COV_POST.clone();
-    KF_reflection.statePost         = STATE_POST.clone();
-    KF_reflection.predict(); // Without this line, OpenCV complains about incorrect matrix dimensions
-    KalmanFilter KF_pupil(4, 2);
-    KF_pupil.transitionMatrix  = TRANSITION_MATRIX.clone();
-    KF_pupil.measurementMatrix = MEASUREMENT_MATRIX.clone();
-    KF_pupil.processNoiseCov   = PROCESS_NOISE_COV.clone();
-    KF_pupil.measurementNoiseCov = MEASUREMENT_NOISE_COV.clone();
-    KF_pupil.errorCovPost      = ERROR_COV_POST.clone();
-    KF_pupil.statePost         = STATE_POST.clone();
-    KF_pupil.predict();
-    KalmanFilter KF_head(4, 2);
-    KF_head.transitionMatrix  = TRANSITION_MATRIX;
-    KF_head.measurementMatrix = MEASUREMENT_MATRIX;
-    KF_head.processNoiseCov   = PROCESS_NOISE_COV;
-    KF_head.measurementNoiseCov = MEASUREMENT_NOISE_COV;
-    KF_head.errorCovPost      = ERROR_COV_POST;
-    KF_head.statePost         = STATE_POST;
-    KF_head.predict();
+    KalmanFilter KF_reflection = makePixelKalmanFilter();
+    KalmanFilter KF_pupil      = makePixelKalmanFilter();
+    KalmanFilter KF_head       = makePixelKalmanFilter();
 
     Point2i reflection = None, pupil = None, head = None;
 
     std::chrono::time_point<std::chrono::steady_clock> last_frame_time = std::chrono::steady_clock::now();
-    constexpr int FRAMES_FOR_FPS_MEASUREMENT = 8;
     int frameIndex = 0;
     std::ostringstream fpsText;
     fpsText << std::fixed << std::setprecision(2);
@@ -188,8 +144,8 @@ int main(int argc, char* argv[]) {
         #endif
 
         spotsMatcher->match(frame, spots, correlation, streamSpots);
-        std::vector<PointWithRating> pupils = findCircles(frame, 2, 66, 90);
-        std::vector<PointWithRating> irises = findCircles(frame, 5, 110, 150);
+        std::vector<PointWithRating> pupils = findCircles(frame, Pupil::THRESHOLD, Pupil::MIN_RADIUS, Pupil::MAX_RADIUS);
+        std::vector<PointWithRating> irises = findCircles(frame, Iris::THRESHOLD, Iris::MIN_RADIUS, Iris::MAX_RADIUS);
 
         if (irises.size() > 0) {
             std::vector<PointWithRating>::const_iterator bestIris = std::min_element(irises.cbegin(), irises.cend());
@@ -199,7 +155,7 @@ int main(int argc, char* argv[]) {
                     break;
                 }
                 std::vector<PointWithRating>::const_iterator bestPupil = std::min_element(pupils.cbegin(), pupils.cend());
-                if (norm(bestIris->point - bestPupil->point) < 12.24) {
+                if (norm(bestIris->point - bestPupil->point) < MAX_PUPIL_IRIS_SEPARATION) {
                     // They should be the same point
                     KF_pupil.correct(toMat(static_cast<Point2f>(ROI.tl()) + (bestIris->point + bestPupil->point)/2));
                 }
@@ -224,7 +180,7 @@ int main(int argc, char* argv[]) {
         streamSpots.waitForCompletion();
         cuda::minMaxLoc(correlation, nullptr, &maxVal, nullptr, &maxLoc);
 
-        if (maxLoc.y > 0 and maxLoc.x > 0 and maxVal > 0.9) {
+        if (maxLoc.y > 0 and maxLoc.x > 0 and maxVal > TEMPLATE_MATCHING_THRESHOLD) {
             maxLoc += ROI.tl();
             KF_reflection.correct((KFMat(2, 1) << maxLoc.x + spots.cols/2, // integer division intentional
                                                   maxLoc.y + spots.rows/2));
@@ -233,10 +189,9 @@ int main(int argc, char* argv[]) {
         reflection = toPoint(KF_reflection.predict());
         pupil = toPoint(KF_pupil.predict());
 
-        Geometry::EyePosition eyePos = Geometry::eyePosition(reflection, pupil);
+        EyePosition eyePos = Geometry::eyePosition(reflection, pupil);
         if (eyePos.eyeCentre) {
-            Geometry::Vector headImage = (*eyePos.eyeCentre - 12.79 * Geometry::o)/-11.79;
-            Point2i headPixel = Geometry::WCStoPixel(headImage);
+            Point2i headPixel = Geometry::unproject(*eyePos.eyeCentre);
             KF_head.correct((KFMat(2, 1) << float(headPixel.x), float(headPixel.y)));
         }
 

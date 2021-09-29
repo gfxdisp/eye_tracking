@@ -33,8 +33,8 @@ namespace EyeTracker::Geometry {
          * TODO: Calculate the scale factor below from the iris diameter (either ahead of time or at runtime).
          * Iris diameter, like other eye parameters, varies little between adults - so it should be possible to use it
          * to determine the scale of the image. */
-        Vector reflection = reflectionImage + 12.79*(o - reflectionImage); // q
-        Vector pupil = pupilImage + 12.79*(o - pupilImage); // r
+        Vector reflection = project(reflectionImage); // q
+        Vector pupil = project(pupilImage); // r
         /* Equation numbering is as in G&E.
          * (3): l, q, o, c are coplanar.
          * (4): angle of incidence = angle of reflection.
@@ -46,12 +46,12 @@ namespace EyeTracker::Geometry {
          * (9): p and c lie a distance K apart.
          * p and c are the unknowns in (7-9). Having found c using (2-4), we can now find p. */
         // (3):
-        Vector loqo = xt::linalg::cross(light - o, reflection - o);
-        float loqoo = xt::linalg::dot(loqo, o)();
+        Vector loqo = xt::linalg::cross(light - nodalPoint, reflection - nodalPoint);
+        float loqoo = xt::linalg::dot(loqo, nodalPoint)();
         // Now dot(loqo, c) = dot(loqo, o) - a plane on which c must lie.
         // (4):
-        Vector lqoq = (light - reflection) * xt::linalg::norm(o - reflection);
-        Vector oqlq = (o - reflection) * xt::linalg::norm(light - reflection);
+        Vector lqoq = (light - reflection) * xt::linalg::norm(nodalPoint - reflection);
+        Vector oqlq = (nodalPoint - reflection) * xt::linalg::norm(light - reflection);
         Vector oqlqlqoq = oqlq - lqoq;
         float oqlqlqoqq = xt::linalg::dot(oqlqlqoq, reflection)();
         // Now dot(oqlqlqoq, c) = dot(oqlqlqoq, q) - another plane containing c.
@@ -93,12 +93,12 @@ namespace EyeTracker::Geometry {
 
             // Now we find p in a somewhat similar way.
             // (7):
-            Vector roco = xt::linalg::cross(pupil - o, *corneaCurvatureCentre - o);
-            float rocoo = xt::linalg::dot(roco, o)();
+            Vector roco = xt::linalg::cross(pupil - nodalPoint, *corneaCurvatureCentre - nodalPoint);
+            float rocoo = xt::linalg::dot(roco, nodalPoint)();
             // Now dot(roco, p) = dot(roco, o) - a plane containing p.
             // (8): n_1 · ‖o - r‖ / ‖(r - c) × (o - r)‖ = ‖p - r‖ / ‖(r - c) × (p - r)‖
-            float n1orrcor = n1 * xt::linalg::norm(o - pupil)
-                             / xt::linalg::norm(xt::linalg::cross(pupil - *corneaCurvatureCentre, o - pupil));
+            float n1orrcor = n1 * xt::linalg::norm(nodalPoint - pupil)
+                             / xt::linalg::norm(xt::linalg::cross(pupil - *corneaCurvatureCentre, nodalPoint - pupil));
             /* This is easier to solve if we extract the angle from the remaining × product:
              * ‖p - r‖ / ‖(r - c) × (p - r)‖ = ‖p - r‖ / (‖r - c‖ · ‖p - r‖ · sin(π+θ))
              * where θ = ∠PRC, the angle between the optic axis of the eye and the
