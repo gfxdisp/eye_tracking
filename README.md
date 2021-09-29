@@ -104,4 +104,6 @@ or to print results to standard output (if it is `ON`)
 
 ## References
 
-TODO: cite Guestrin & Eizenman, the source for the eye diameter, the HDR-MF-S paper?
+- Eye model: [E. D. Guestrin and M. Eizenman, "General theory of remote gaze estimation using the pupil center and corneal reflections," in _IEEE Transactions on Biomedical Engineering_, vol. 53, no. 6, pp. 1124-1133, June 2006, doi: 10.1109/TBME.2005.863952.](https://ieeexplore.ieee.org/document/1634506)
+- Eyeball diameter: [I. Bekerman, P. Gottlieb and M. Vaiman, "Variations in eyeball diameters of the healthy adults," in _Journal of Ophthalmology_, vol. 2014, art. 503645, November 2014, doi: 10.1155/2014/503645.](https://www.hindawi.com/journals/joph/2014/503645/)
+- HDR-MF-S display: [F. Zhong, A. Jindal, A. Ö. Yöntem, P. Hanji, S. J. Watt and R. K. Mantiuk, "Reproducing reality with a high-dynamic-range multi-focal stereo display," in _ACM Transactions on Graphics_, vol. 40, no. 6, art. 241, December 2021, doi: 10.1145/3478513.3480513](https://www.cl.cam.ac.uk/research/rainbow/projects/hdrmfs/Reproducing_reality_HDR_MF_S_display.pdf)
