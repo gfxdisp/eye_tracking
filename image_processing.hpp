@@ -1,7 +1,7 @@
 #pragma once
-#include <opencv2/opencv.hpp>
+#include <opencv2/opencv.hpp> // cv::Point2f
 #include <cstdint> // uint8_t
-#include <limits>
+#include <limits> // std::numeric_limits
 namespace EyeTracker::ImageProcessing {
     struct PointWithRating {
         cv::Point2f point = {-1, -1};

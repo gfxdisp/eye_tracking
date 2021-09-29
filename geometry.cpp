@@ -1,8 +1,6 @@
 #include "geometry.hpp"
-#include <cmath>
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xbuilder.hpp>
-#include <xtensor/xnorm.hpp>
+#include <xtensor/xnorm.hpp> // xt::norm_sq
+#include <cmath> // std::pow, std::abs
 namespace EyeTracker::Geometry {
     std::vector<Vector> lineSphereIntersections(Vector sphereCentre, float radius, Vector linePoint, Vector lineDirection) {
         const float a = xt::norm_sq(lineDirection)();

@@ -1,11 +1,11 @@
 #include "image_processing.hpp"
-#include <xtensor/xmath.hpp>
-#include <xtensor/xoperation.hpp>
-#include <xtensor-blas/xlinalg.hpp>
-#include <xtensor/xfixed.hpp>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudafilters.hpp>
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xmath.hpp>
+#include <xtensor/xoperation.hpp>
+#include <xtensor-blas/xlinalg.hpp>
 namespace EyeTracker::ImageProcessing {
     using namespace cv;
 

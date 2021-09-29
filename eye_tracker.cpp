@@ -2,14 +2,13 @@
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudafilters.hpp>
+#include <algorithm> // std::min_element, std::transform
 #include <chrono>
-#include <sstream>
 #include <iostream>
-#include <vector>
-#include <algorithm>
+#include <memory> // std::unique_ptr
+#include <sstream> // std::ostringstream
 #include <string>
-#include <cmath>
-#include <memory>
+#include <vector>
 #include <cctype> // std::tolower
 #include <cstdlib> // std::strtoul
 #include "geometry.hpp"
