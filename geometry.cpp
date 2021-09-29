@@ -24,6 +24,7 @@ namespace EyeTracker::Geometry {
     }
 
     EyePosition eyePosition(cv::Point2i reflectionPixel, cv::Point2i pupilPixel) {
+        // This code should be read in conjunction with Guestrin & Eizenman, pp1125-1126.
         Vector reflectionImage = pixelToWCS(reflectionPixel); // u
         Vector pupilImage = pixelToWCS(pupilPixel); // v
         /* We now need to convert reflectionImage and pupilImage (called u and v by G&E), located on the image sensor,
