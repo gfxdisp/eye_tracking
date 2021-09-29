@@ -59,7 +59,6 @@ namespace EyeTracker::Geometry {
         // Now dot(oqlqlqoq, c) = dot(oqlqlqoq, q) - another plane containing c.
         // The intersection of these two planes is a line.
         // xt::vstack/xt::hstack don't work for some reason (maybe https://github.com/xtensor-stack/xtensor/issues/2372)
-        //Matrix<2, 2> squarePlaneMatrix({{loqo(0), oqlqlqoq(0)}, {loqo(1), oqlqlqoq(1)}});
         Matrix<2, 2> squarePlaneMatrix({{loqo(0), loqo(1)}, {oqlqlqoq(0), oqlqlqoq(1)}});
         if (xt::linalg::matrix_rank(squarePlaneMatrix) < 2) {
             /* The line lies in the plane z = 0.
