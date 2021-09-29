@@ -3,6 +3,10 @@ project(eye_tracker)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_BUILD_TYPE release)
 
+if(NOT CMAKE_PREFIX_PATH)
+    set(CMAKE_PREFIX_PATH /usr/local)
+endif()
+
 # flags
 option(HEADLESS "Headless (no GUI)" OFF)
 if(HEADLESS)
@@ -35,9 +39,7 @@ else() # Don't build idslib
 endif()
 
 # xtensor
-if(DEFINED XTENSOR_PREFIX)
-    set(CMAKE_PREFIX_PATH ${XTENSOR_PREFIX})
-endif()
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_PREFIX_PATH}/share/cmake" "${CMAKE_PREFIX_PATH}/lib/cmake")
 find_package(xtl REQUIRED)
 find_package(xtensor REQUIRED)
 find_package(xtensor-blas REQUIRED)
@@ -53,11 +55,16 @@ endif()
 target_link_libraries(eye_tracker xtensor xtensor::optimize)
 
 # OpenCV
+set(OpenCV_DIR ${CMAKE_PREFIX_PATH}/lib/cmake/opencv4)
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 target_link_libraries(eye_tracker ${OpenCV_LIBS})
 
 # BLAS/LAPACK
+find_package(BLAS)
+if(NOT BLAS_FOUND)
+    set(BLAS_DIR ${CMAKE_PREFIX_PATH}/lib/cmake/openblas)
+endif()
 add_definitions(-DHAVE_CBLAS=1)
 find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
