@@ -6,8 +6,7 @@
 namespace EyeTracker::Geometry {
     std::vector<Vector> lineSphereIntersections(Vector sphereCentre, float radius, Vector linePoint, Vector lineDirection) {
         const float a = xt::norm_sq(lineDirection)();
-        //const float b = 2 * xt::linalg::dot(lineDirection, linePoint - sphereCentre)();
-        const float b = 2 * (xt::linalg::dot(lineDirection, linePoint) - xt::linalg::dot(lineDirection, sphereCentre))();
+        const float b = 2 * xt::linalg::dot(lineDirection, linePoint - sphereCentre)();
         const float c = (xt::norm_sq(linePoint) + xt::norm_sq(sphereCentre) - 2 * xt::linalg::dot(linePoint, sphereCentre))();
         const float DISCRIMINANT = std::pow(b, 2) - 4 * a * (c - std::pow(radius, 2));
         if (std::abs(DISCRIMINANT) < 1e-6) return {linePoint - lineDirection*b/(2*a)}; // One solution
