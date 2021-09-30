@@ -38,6 +38,10 @@ namespace EyeTracker {
             constexpr float PIXEL_PITCH = 0.0048; // mm
             const cv::Rect ROI(200, 150, 850, 650);
             // Camera model: "UI-3140CP-M-GL Rev.2 (AB00613)"
+            constexpr double EXPOSURE_TIME = 5; // unknown units (ms?)
+            /* The maximum value of the gain is 400. The maximum introduces a lot of noise; it can be mitigated
+             * by subtracting the regular banding pattern that appears and applying a median filter. */
+            constexpr double GAIN = 200;
         }
 
         inline cv::KalmanFilter makePixelKalmanFilter() {

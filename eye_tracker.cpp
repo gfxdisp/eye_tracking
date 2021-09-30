@@ -93,6 +93,11 @@ int main(int argc, char* argv[]) {
                 unsigned long cameraIndex = argc >= 3 ? std::strtoul(argv[2], nullptr, 10) : 0;
                 video.open(cameraIndex, CAP_UEYE);
                 if (!video.isOpened()) return fail(EyeTracker::Error::UEYE_NOT_FOUND);
+                video.set(CAP_PROP_EXPOSURE, EXPOSURE_TIME);
+                /* NB: According to the uEye API documentation, setting the FPS may change the exposure time too
+                 * (presumably, if it is too long, it is decreased to the maximum achievable with the given framerate). */
+                video.set(CAP_PROP_FPS, FPS);
+                video.set(CAP_PROP_GAIN, GAIN);
                 isRealtime = true;
             }
             else return fail(EyeTracker::Error::BUILT_WITHOUT_UEYE);
