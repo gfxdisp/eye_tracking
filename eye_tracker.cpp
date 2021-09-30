@@ -73,6 +73,9 @@ namespace EyeTracker {
 int main(int argc, char* argv[]) {
     // Use a pointer to abstract away the type of VideoCapture (either a video file or an IDS camera)
     std::unique_ptr<VideoCapture> video(nullptr);
+    VideoWriter vwInput, vwOutput;
+    const int fourcc = VideoWriter::fourcc('m', 'p', '4', 'v');
+    bool isRealtime = false;
 
     // Process arguments
     if (argc < 2) return fail(EyeTracker::Error::ARGUMENTS);
@@ -92,6 +95,7 @@ int main(int argc, char* argv[]) {
                 unsigned long cameraIndex = argc >= 3 ? std::strtoul(argv[2], nullptr, 10) : 0;
                 video = std::make_unique<IDSVideoCapture>(cameraIndex);
                 if (!video->isOpened()) return fail(EyeTracker::Error::UEYE_NOT_FOUND);
+                isRealtime = true;
             #else
                 return fail(EyeTracker::Error::BUILT_WITHOUT_UEYE);
             #endif
@@ -133,14 +137,45 @@ int main(int argc, char* argv[]) {
     #endif
     while (true) {
         if (!video->read(frameBGRCPU) || frameBGRCPU.empty()) break; // Video has ended
+        /* Complicated logic here depending on:
+         * - whether we are running in headless mode
+         * - whether the input is BGR or monochrome
+         * - whether we are recording the input to a file. */
         #ifdef HEADLESS
-            // Crop the ROI immediately, we won't need the rest of the image again
-            frameBGR.upload(frameBGRCPU(ROI));
-            cuda::cvtColor(frameBGR, frame, COLOR_BGR2GRAY);
+            if (vwInput.isOpened()) {
+                // Need to save the frame before cropping to the ROI
+                frameBGR.upload(frameBGRCPU);
+                if (frameBGRCPU.type() == CV_8UC3) cuda::cvtColor(frameBGR, frame, COLOR_BGR2GRAY);
+                else frame = frameBGR;
+                frame.download(frameBGRCPU);
+                vwInput.write(frameBGRCPU);
+                frame = frame(ROI);
+            }
+            else {
+                // Crop the ROI immediately, we won't need the rest of the image again
+                frameBGR.upload(frameBGRCPU(ROI));
+                // frameBGR might not actually be BGR if it's loaded from a greyscale video
+                if (frameBGRCPU.type() == CV_8UC3) cuda::cvtColor(frameBGR, frame, COLOR_BGR2GRAY);
+                else frame = frameBGR;
+            }
         #else
             // Keep the rest of the image for display
             frameBGR.upload(frameBGRCPU);
-            cuda::cvtColor(frameBGR(ROI), frame, COLOR_BGR2GRAY);
+            if (frameBGRCPU.type() == CV_8UC3) {
+                /* If we are recording the input, we need to convert it all to greyscale.
+                 * Otherwise, we only need to convert the ROI. */
+                if (vwInput.isOpened()) {
+                    cuda::cvtColor(frameBGR, frame, COLOR_BGR2GRAY);
+                    frame.download(frameBGRCPU);
+                    vwInput.write(frameBGRCPU);
+                    frame = frame(ROI);
+                }
+                else cuda::cvtColor(frameBGR(ROI), frame, COLOR_BGR2GRAY);
+            }
+            else {
+                if (vwInput.isOpened()) vwInput.write(frameBGRCPU);
+                frame = frameBGR(ROI);
+            }
         #endif
 
         spotsMatcher->match(frame, spots, correlation, streamSpots);
@@ -222,6 +257,7 @@ int main(int argc, char* argv[]) {
             putText(frameBGRCPU, fpsText.str(), Point2i(100, 100), FONT_HERSHEY_SIMPLEX, 3, Scalar(0x00, 0x00, 0xFF), 3);
 
             imshow(windowName, frameBGRCPU);
+            if (vwOutput.isOpened()) vwOutput.write(frameBGRCPU);
 
             bool quitting = false;
             switch (waitKey(1) & 0xFF) {
@@ -231,6 +267,12 @@ int main(int argc, char* argv[]) {
                 break;
             case 's':
                 imwrite("frame.png", frameBGRCPU);
+                break;
+            case 'v': // Record input video; only if the input is a live feed
+                if (isRealtime) vwInput.open("recorded_input.mp4", fourcc, FPS, {RESOLUTION_X, RESOLUTION_Y}, false);
+                break;
+            case 'w': // Record output video
+                vwOutput.open("recorded_output.mp4", fourcc, FPS, {RESOLUTION_X, RESOLUTION_Y}, true);
                 break;
             }
 

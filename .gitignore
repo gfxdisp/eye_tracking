@@ -175,7 +175,7 @@ CTestTestfile.cmake
 _deps
 
 data/**
-output.mp4
+*.mp4
 frame.png
 output/**
 build_options.hpp
