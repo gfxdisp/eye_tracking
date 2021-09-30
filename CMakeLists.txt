@@ -44,7 +44,9 @@ target_link_libraries(eye_tracker xtensor xtensor::optimize)
 # OpenCV
 set(OpenCV_DIR ${CMAKE_PREFIX_PATH}/lib/cmake/opencv4)
 find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
+list(APPEND OpenCV_INCLUDE_DIRS ${CMAKE_PREFIX_PATH}/include/opencv4)
+target_include_directories(eye_tracker PUBLIC ${OpenCV_INCLUDE_DIRS})
+target_include_directories(eye_tracker PUBLIC ${OpenCV_INCLUDE_DIRS}/install/include/opencv4)
 target_link_libraries(eye_tracker ${OpenCV_LIBS})
 
 # BLAS/LAPACK
