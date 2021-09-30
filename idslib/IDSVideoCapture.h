@@ -21,7 +21,7 @@ private:
 		API handle for camera.
 	*/
 	HIDS m_CamId = 0;
-	
+
 	/*
 		API basic camera information structure, including serial number and
 		camera name.
@@ -33,12 +33,12 @@ private:
 		maximum dimensions and flags to indicate which features are supported.
 	*/
 	SENSORINFO m_SensorInfo;
-	
+
 	/*
 		Output frame width.
 	*/
 	int m_Width;
-	
+
 	/*
 		Output frame height.
 	*/
@@ -53,12 +53,12 @@ private:
 		Pointer to currently locked frame.
 	*/
 	char* m_LockedMemory = nullptr;
-	
+
 	/*
 		Pointers to all buffers in memory that are given to uEye API.
 	*/
 	char* m_ImageMemoryAddr[NUM_BUFFERS] = { nullptr };
-	
+
 	/*
 		API references to image memory.
 	*/
@@ -74,7 +74,7 @@ public:
 	/*
 		Initialise camera interface and open camera with given index.
 	*/
-	IDSVideoCapture(int index, int AOI_originX = 0, int AOI_originY = 0, float AOI_scale = 0.35);
+	IDSVideoCapture(int index, int AOI_originX = 0, int AOI_originY = 0, float AOI_scale = 1);
 
 	/*
 		Destroy the camera interface after releasing its resources.
@@ -130,7 +130,7 @@ public:
 	inline void setup() {
 		is_SetGainBoost(m_CamId, IS_SET_GAINBOOST_ON);
 		is_SetHardwareGain(m_CamId, IS_IGNORE_PARAMETER, 100, 100, 100);
-		is_SetHWGainFactor(m_CamId, IS_SET_MASTER_GAIN_FACTOR, is_SetHWGainFactor(m_CamId, IS_INQUIRE_MASTER_GAIN_FACTOR, 100)); 
+		is_SetHWGainFactor(m_CamId, IS_SET_MASTER_GAIN_FACTOR, is_SetHWGainFactor(m_CamId, IS_INQUIRE_MASTER_GAIN_FACTOR, 100));
 	}
 };
 
