@@ -6,34 +6,46 @@
 namespace EyeTracking {
     using cv::Vec2d;
 
-    std::vector<PointWithRating> findCircles(const cv::cuda::GpuMat& frame, uint8_t thresh, float min_radius, float max_radius, float max_rating) {
+    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints) {
+        // these are static as they are reused between invocations
         const static cv::Mat morphologyElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(13, 13));
         const static cv::Ptr<cv::cuda::Filter> morphOpen  = cv::cuda::createMorphologyFilter(cv::MORPH_OPEN,  CV_8UC1, morphologyElement);
         const static cv::Ptr<cv::cuda::Filter> morphClose = cv::cuda::createMorphologyFilter(cv::MORPH_CLOSE, CV_8UC1, morphologyElement);
+
         cv::cuda::GpuMat thresholded;
-        cv::cuda::threshold(frame, thresholded, thresh, 255, cv::THRESH_BINARY_INV);
+        cv::cuda::threshold(frame, thresholded, constraints.threshold, 255, cv::THRESH_BINARY_INV);
         morphOpen->apply(thresholded, thresholded);
         morphClose->apply(thresholded, thresholded);
+
+        // Have to download the frame from the GPU to work with contours
         const cv::Mat thresh_cpu(thresholded);
         std::vector<std::vector<cv::Point>> contours;
-        std::vector<cv::Vec4i> hierarchy;
-        std::vector<PointWithRating> result;
+        std::vector<cv::Vec4i> hierarchy; // Unused output
+        std::vector<RatedCircleCentre> result;
         cv::findContours(thresh_cpu, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         for (const std::vector<cv::Point>& contour : contours) {
+            /* For each contour:
+             * - calculate the minimum enclosing circle
+             * - if its radius is outside the range given by constraints, skip it
+             * - otherwise, calculate its area and that of the contour
+             * - calculate the fraction of the circle's area filled by the contour
+             * - if it exceeds constraints.minRating, add it to the results */
             cv::Point2f centre;
             float radius;
             cv::minEnclosingCircle(contour, centre, radius);
-            if (radius < min_radius or radius > max_radius) continue;
+            if (radius < constraints.minRadius or radius > constraints.maxRadius) continue;
             const float contour_area = cv::contourArea(contour);
             if (contour_area <= 0) continue;
             const float circle_area = 3.14159265358979323846 * std::pow(radius, 2);
-            const float rating = std::pow((circle_area-contour_area)/circle_area, 2);
-            if (rating <= max_rating) result.push_back({centre, rating});
+            const float rating = contour_area/circle_area;
+            if (rating >= constraints.minRating) result.push_back({centre, rating});
         }
         return result;
     }
 
     std::vector<Vec3d> lineSphereIntersections(Vec3d sphereCentre, float radius, Vec3d linePoint, Vec3d lineDirection) {
+        /* We are looking for points of the form linePoint + k*lineDirection, which are also radius away
+         * from sphereCentre. This can be expressed as a quadratic in k: ak² + bk + c = radius². */
         const double a = cv::norm(lineDirection, cv::NORM_L2SQR);
         const double b = 2 * lineDirection.dot(linePoint - sphereCentre);
         const double c = cv::norm(linePoint, cv::NORM_L2SQR) + cv::norm(sphereCentre, cv::NORM_L2SQR) - 2 * linePoint.dot(sphereCentre);
@@ -47,7 +59,7 @@ namespace EyeTracking {
         }
     }
 
-    cv::KalmanFilter Tracker::makePixelKalmanFilter() const {
+    cv::KalmanFilter Tracker::makeICSKalmanFilter() const {
         constexpr static double VELOCITY_DECAY = 0.9;
         const static cv::Mat TRANSITION_MATRIX  = (KFMat(4, 4) << 1, 0, camera.dt(), 0,
                                                                   0, 1, 0, camera.dt(),
@@ -72,7 +84,7 @@ namespace EyeTracking {
         return KF;
     }
 
-    cv::KalmanFilter Tracker::make3DKalmanFilter() const {
+    cv::KalmanFilter Tracker::makeWCSKalmanFilter() const {
         constexpr static double VELOCITY_DECAY = 0.9;
         const static cv::Mat TRANSITION_MATRIX  = (KFMat(6, 6) << 1, 0, 0, camera.dt(), 0, 0,
                                                                   0, 1, 0, 0, camera.dt(), 0,
@@ -98,7 +110,7 @@ namespace EyeTracking {
         return KF;
     }
 
-    Vec3d Tracker::pixelToCCS(Point2d point) const {
+    Vec3d Tracker::ICStoCCS(Point2d point) const {
         const double x = camera.pixelPitch * (point.x - camera.resolution.width/2.0);
         const double y = camera.pixelPitch * (point.y - camera.resolution.height/2.0);
         return {x, y, -positions.lambda};
@@ -110,12 +122,13 @@ namespace EyeTracking {
 
     Vec3d Tracker::WCStoCCS(Vec3d point) const {
         Vec3d ret;
-        // Warning: return value of cv::solve is not checked; if there is no solution, ret won't be set by the line below!
+        /* Warning: return value of cv::solve is not checked;
+         * if there is no solution, ret won't be set by the line below! */
         cv::solve(positions.rotation, point - positions.nodalPoint, ret);
         return ret;
     }
 
-    Point2d Tracker::CCStoPixel(Vec3d point) const {
+    Point2d Tracker::CCStoICS(Vec3d point) const {
         return static_cast<Point2d>(camera.resolution)/2 + Point2d(point(0), point(1))/camera.pixelPitch;
     }
 
@@ -124,11 +137,26 @@ namespace EyeTracking {
     }
 
     Point2d Tracker::unproject(Vec3d point) const {
-        return WCStoPixel((point - (1 + positions.cameraEyeProjectionFactor) * positions.nodalPoint)/-positions.cameraEyeProjectionFactor);
+        return WCStoICS((point - (1 + positions.cameraEyeProjectionFactor) * positions.nodalPoint)/-positions.cameraEyeProjectionFactor);
     }
 
     EyePosition Tracker::correct(Point2f reflectionPixel, Point2f pupilPixel) {
-        // This code should be read in conjunction with Guestrin & Eizenman, pp1125-1126.
+        /* This code is based on Guestrin & Eizenman, pp1125-1126.
+         * Algorithm:
+         * - convert reflectionPixel to the WCS
+         * - project it onto the presumed position of the eye (using positions.cameraEyeDistance)
+         * - use (3), the fact that the light (l), the Purkyně reflection (q), the camera nodal point (o), and the
+         *   centre of curvature of the cornea (c) are coplanar; and (4), the law of reflection, to find a line
+         *   containing c.
+         * - use (2), the fact that the cornea is spherical and its radius is known, to find c (find the intersection
+         *   of the line and the sphere, and use the Z coordinate to discriminate between multiple intersections.
+         * - use (6), the fact that the point of refraction of the pupil centre also lies on the cornea, to project
+         *   pupilPixel onto the cornea and find this point.
+         * - use (7), the coplanarity of the pupil centre (p), pupil centre's point of refraction (r), o and c, and
+         *   Snell's law to find a line containing p.
+         * - use (9) to find p (again, finding the intersections of a sphere and the line).
+         * - trace the vector p-c to find d, the centre of rotation of the eye. */
+
         Vec3d reflection = project(reflectionPixel); // u
         /* Equation numbering is as in G&E.
          * (3): l, q, o, c are coplanar.
@@ -191,7 +219,7 @@ namespace EyeTracking {
             if (!corneaCurvatureCentre) return {};
 
             // (6): We now project the pupil from the image sensor (flat) onto the cornea (spherical).
-            Vec3d pupilImage = pixelToWCS(pupilPixel);
+            Vec3d pupilImage = ICStoWCS(pupilPixel);
             intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.R, pupilImage, positions.nodalPoint - pupilImage);
             std::optional<Vec3d> pupil;
             switch (intersections.size()) {

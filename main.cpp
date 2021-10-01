@@ -7,7 +7,7 @@
 #include <opencv2/videoio/registry.hpp> // cv::videio_registry
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
-#include <algorithm> // std::min_element, std::transform
+#include <algorithm> // std::max_element, std::transform
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -86,8 +86,8 @@ int main(int argc, char* argv[]) {
 
     Tracker tracker(EYE, CAMERA, POSITIONS);
 
-    cv::KalmanFilter KF_reflection = tracker.makePixelKalmanFilter();
-    cv::KalmanFilter KF_pupil      = tracker.makePixelKalmanFilter();
+    cv::KalmanFilter KF_reflection = tracker.makeICSKalmanFilter();
+    cv::KalmanFilter KF_pupil      = tracker.makeICSKalmanFilter();
 
     // Process arguments
     if (argc < 2) return fail(Error::ARGUMENTS);
@@ -190,17 +190,17 @@ int main(int argc, char* argv[]) {
         #endif
 
         spotsMatcher->match(frame, spots, correlation, streamSpots);
-        std::vector<PointWithRating> pupils = findCircles(frame, IMAGE_PROPS.pupil);
-        std::vector<PointWithRating> irises = findCircles(frame, IMAGE_PROPS.iris);
+        std::vector<RatedCircleCentre> pupils = findCircles(frame, IMAGE_PROPS.pupil);
+        std::vector<RatedCircleCentre> irises = findCircles(frame, IMAGE_PROPS.iris);
 
         if (irises.size() > 0) {
-            std::vector<PointWithRating>::const_iterator bestIris = std::min_element(irises.cbegin(), irises.cend());
+            std::vector<RatedCircleCentre>::const_iterator bestIris = std::max_element(irises.cbegin(), irises.cend());
             for (int i = 0; i < 5; ++i) { // Limit number of iterations
                 if (pupils.size() == 0) {
                     KF_pupil.correct(toMat(static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + bestIris->point));
                     break;
                 }
-                std::vector<PointWithRating>::const_iterator bestPupil = std::min_element(pupils.cbegin(), pupils.cend());
+                std::vector<RatedCircleCentre>::const_iterator bestPupil = std::max_element(pupils.cbegin(), pupils.cend());
                 if (norm(bestIris->point - bestPupil->point) < IMAGE_PROPS.maxPupilIrisSeparation) {
                     // They should be the same point
                     KF_pupil.correct(toMat(static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + (bestIris->point + bestPupil->point)/2));
