@@ -30,7 +30,7 @@ OpenCV can be found in the Ubuntu repositories, but it seems to be built without
     # Minimal build of OpenCV - includes only the required modules
     cmake -DCMAKE_INSTALL_PREFIX=/path/to/libraries \
           -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
-          -DBUILD_LIST=cudaarithm,cudafilters,cudaimgproc,cudev,highgui,video,videoio \
+          -DBUILD_LIST=cudaarithm,cudafilters,cudaimgproc,cudev,imgcodecs,highgui,video,videoio \
           -DENABLE_FAST_MATH=ON -DWITH_CUDA=ON -DCUDA_FAST_MATH=ON -DWITH_FFMPEG=ON -DWITH_LAPACK=ON \
           -DINSTALL_C_EXAMPLES=OFF -DINSTALL_PYTHON_EXAMPLES=OFF \
           -DCMAKE_C_COMPILER=/usr/bin/gcc-8 -DCMAKE_CXX_COMPILER=/usr/bin/g++-8 \

@@ -1,6 +1,8 @@
 #ifndef HEADLESS
     #include <opencv2/highgui.hpp>
+    #include <sstream> // std::ostringstream
 #endif
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/video/tracking.hpp> // cv::KalmanFilter
 #include <opencv2/videoio.hpp> // cv::VideoCapture
@@ -11,7 +13,6 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
-#include <sstream> // std::ostringstream
 #include <string>
 #include <vector>
 #include <cctype> // std::tolower
@@ -128,7 +129,7 @@ int main(int argc, char* argv[]) {
     }
 
     cv::cuda::GpuMat spots;
-    spots.upload(imread("template.png", cv::IMREAD_GRAYSCALE));
+    spots.upload(cv::imread("template.png", cv::IMREAD_GRAYSCALE));
     cv::Ptr<cv::cuda::TemplateMatching> spotsMatcher = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF_NORMED);
 
     cv::Mat frameBGRCPU;
@@ -138,12 +139,12 @@ int main(int argc, char* argv[]) {
 
     std::chrono::time_point<std::chrono::steady_clock> last_frame_time = std::chrono::steady_clock::now();
     int frameIndex = 0;
-    std::ostringstream fpsText;
-    fpsText << std::fixed << std::setprecision(2);
 
     cv::cuda::Stream streamSpots;
     #ifndef HEADLESS
         cv::cuda::Stream streamDisplay;
+        std::ostringstream fpsText;
+        fpsText << std::fixed << std::setprecision(2);
     #endif
 
     while (true) {
@@ -242,16 +243,19 @@ int main(int argc, char* argv[]) {
         EyePosition eyePos = tracker.correct(reflection, pupil);
         head = tracker.unproject(*eyePos.eyeCentre);
 
-        if (++frameIndex == FRAMES_FOR_FPS_MEASUREMENT) {
-            const std::chrono::duration<float> frame_time = std::chrono::steady_clock::now() - last_frame_time;
-            fpsText.str(""); // Clear contents of fpsText
-            fpsText << 1s/(frame_time/FRAMES_FOR_FPS_MEASUREMENT);
-            frameIndex = 0;
-            last_frame_time = std::chrono::steady_clock::now();
-        }
         #ifdef HEADLESS
-            std::cerr << "FPS = " << fpsText.str() << '\n';
+            std::cout << '{' <<  (*eyePos.eyeCentre)(0)
+                      << ", " << (*eyePos.eyeCentre)(1)
+                      << ", " << (*eyePos.eyeCentre)(2) << "}\n";
         #else
+            if (++frameIndex == FRAMES_FOR_FPS_MEASUREMENT) {
+                const std::chrono::duration<float> frame_time = std::chrono::steady_clock::now() - last_frame_time;
+                fpsText.str(""); // Clear contents of fpsText
+                fpsText << 1s/(frame_time/FRAMES_FOR_FPS_MEASUREMENT);
+                frameIndex = 0;
+                last_frame_time = std::chrono::steady_clock::now();
+            }
+
             streamDisplay.waitForCompletion();
             /* We could avoid having to download the frame from the GPU by using OpenGL.
              * This requires OpenCV to be build with OpenGL support, and the line
@@ -269,7 +273,7 @@ int main(int argc, char* argv[]) {
                         cv::Point2i(100, 100),
                         cv::FONT_HERSHEY_SIMPLEX, 3, cv::Scalar(0x00, 0x00, 0xFF), 3);
 
-            imshow(windowName, frameBGRCPU);
+            cv::imshow(windowName, frameBGRCPU);
             if (vwOutput.isOpened()) vwOutput.write(frameBGRCPU);
 
             bool quitting = false;
