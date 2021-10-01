@@ -142,24 +142,15 @@ namespace EyeTracking {
 
     EyePosition Tracker::correct(cv::Point2f reflectionPixel, cv::Point2f pupilPixel) {
         // This code should be read in conjunction with Guestrin & Eizenman, pp1125-1126.
-        Vector reflectionImage = pixelToWCS(reflectionPixel); // u
-        Vector pupilImage = pixelToWCS(pupilPixel); // v
-        /* We now need to convert reflectionImage and pupilImage (called u and v by G&E), located on the image sensor,
-         * to their counterparts on the cornea (q and r).
-         * q lies at an unknown location on the line o-u and r lies on o-v, so there are two scalar unknowns.
-         * Temporary solution: assume q and r lie in the same plane and that we know the distance to the user (e.g.
-         * from the iris diameter).
-         * TODO: Calculate the scale factor below from the iris diameter (either ahead of time or at runtime).
-         * Iris diameter, like other eye parameters, varies little between adults - so it should be possible to use it
-         * to determine the scale of the image. */
-        Vector reflection = project(reflectionImage); // q
-        Vector pupil = project(pupilImage); // r
+        Vector reflection = project(reflectionPixel); // u
         /* Equation numbering is as in G&E.
          * (3): l, q, o, c are coplanar.
          * (4): angle of incidence = angle of reflection.
          * (2): The corneal reflection lies on the cornea (i.e. at a distance R from its centre of curvature).
          * (intentionally out of order)
          * We use the above to obtain three scalar equations in three scalar unknowns, and thus find c.
+         * (6): The point of refraction of the pupil centre lies on the cornea.
+         * We use c and (6) to determine r, the point of refraction of the ray from the pupil centre.
          * (7): p, r, o, c are coplanar.
          * (8): Snell's law.
          * (9): p and c lie a distance K apart.
@@ -208,21 +199,36 @@ namespace EyeTracking {
             }
             if (!corneaCurvatureCentre) return {};
 
+            // (6): We now project the pupil from the image sensor (flat) onto the cornea (spherical).
+            Vector pupilImage = pixelToWCS(pupilPixel);
+            intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.R, pupilImage, positions.nodalPoint - pupilImage);
+            std::optional<Vector> pupil;
+            switch (intersections.size()) {
+                case 1:
+                    pupil = intersections[0];
+                    break;
+                case 2:
+                    // Take the one with the lowest Z.
+                    pupil = intersections[intersections[0](2) < intersections[1](2) ? 0 : 1];
+                    break;
+            }
+            if (!pupil) return {corneaCurvatureCentre}; // No solution, but at least we have c
+
             // Now we find p in a somewhat similar way.
             // (7):
-            Vector roco = xt::linalg::cross(pupil - positions.nodalPoint, *corneaCurvatureCentre - positions.nodalPoint);
+            Vector roco = xt::linalg::cross(*pupil - positions.nodalPoint, *corneaCurvatureCentre - positions.nodalPoint);
             // Now dot(roco, p) = dot(roco, o) - a plane containing p.
             // (8): n_1 · ‖o - r‖ / ‖(r - c) × (o - r)‖ = ‖p - r‖ / ‖(r - c) × (p - r)‖
-            float n1orrcor = eye.n1 * xt::linalg::norm(positions.nodalPoint - pupil)
-                             / xt::linalg::norm(xt::linalg::cross(pupil - *corneaCurvatureCentre,
-                                                                  positions.nodalPoint - pupil));
+            float n1orrcor = eye.n1 * xt::linalg::norm(positions.nodalPoint - *pupil)
+                             / xt::linalg::norm(xt::linalg::cross(*pupil - *corneaCurvatureCentre,
+                                                                  positions.nodalPoint - *pupil));
             /* This is easier to solve if we extract the angle from the remaining × product:
              * ‖p - r‖ / ‖(r - c) × (p - r)‖ = ‖p - r‖ / (‖r - c‖ · ‖p - r‖ · sin(π+θ))
              * where θ = ∠PRC, the angle between the optic axis of the eye and the
              * normal at the point of refraction of the pupil centre.
              * The ‖p - r‖ term cancels, and we are left with
              * n1orrcor * ‖r - c‖ = 1 / sin(π+θ). */
-            float angle = std::asin(-1/(n1orrcor * xt::linalg::norm(pupil - *corneaCurvatureCentre))); // θ
+            float angle = std::asin(-1/(n1orrcor * xt::linalg::norm(*pupil - *corneaCurvatureCentre))); // θ
             /* We now have three constraints on p: a plane, the angle ∠PRC, and the sphere of radius K centred on c.
              * It is easy to combine the first two contraints: (7) states that p, r, o and c are coplanar.
              * Furthermore, ∠PRC is known. This allows us to construct a ray from r in the direction of p, which lies
@@ -232,17 +238,17 @@ namespace EyeTracking {
              * We construct w first.
              * roco is the normal of our plane, it is at 90° to w.
              * c - r is at θ to w. */
-            Vector perpendicular = xt::linalg::cross(*corneaCurvatureCentre - pupil, roco);
+            Vector perpendicular = xt::linalg::cross(*corneaCurvatureCentre - *pupil, roco);
             perpendicular /= xt::linalg::norm(perpendicular);
             /* w = (c-r)*cos(θ) ± perpendicular*sin(θ)
              * https://math.stackexchange.com/a/2320448
              * This in itself is ambiguous: the w given by this formula can be on either side of r - c, the normal at
              * the point of refraction. However, because of how the cross products are oriented, the positive direction
              * seems to be the right one. */
-            direction = (*corneaCurvatureCentre - pupil) * std::cos(angle)
-                        / xt::linalg::norm(*corneaCurvatureCentre - pupil)
+            direction = (*corneaCurvatureCentre - *pupil) * std::cos(angle)
+                        / xt::linalg::norm(*corneaCurvatureCentre - *pupil)
                         + perpendicular * std::abs(std::sin(angle)); // w
-            intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.K, pupil, direction);
+            intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.K, *pupil, direction);
             std::optional<Vector> pupilCentre;
             switch (intersections.size()) {
                 case 1:
