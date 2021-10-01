@@ -70,24 +70,20 @@ namespace EyeTracker {
         }
 
         inline cv::KalmanFilter make3DKalmanFilter() {
-            constexpr static float ACCELERATION_DECAY = 0.9;
-            // TODO: Use a better numerical integrator?
-            const static cv::Mat TRANSITION_MATRIX  = (KFMat(9, 9) << 1, 0, 0, Camera::DT, 0, 0, 0, 0, 0,
-                                                                      0, 1, 0, 0, Camera::DT, 0, 0, 0, 0,
-                                                                      0, 0, 1, 0, 0, Camera::DT, 0, 0, 0,
-                                                                      0, 0, 0, 1, 0, 0, Camera::DT, 0, 0,
-                                                                      0, 0, 0, 0, 1, 0, 0, Camera::DT, 0,
-                                                                      0, 0, 0, 0, 0, 1, 0, 0, Camera::DT,
-                                                                      0, 0, 0, 0, 0, 0, ACCELERATION_DECAY, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, ACCELERATION_DECAY, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, ACCELERATION_DECAY);
-            const static cv::Mat MEASUREMENT_MATRIX = cv::Mat::eye(3, 9, CV_32F);
-            const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(9, 9, CV_32F) * 100;
+            constexpr static float VELOCITY_DECAY = 0.9;
+            const static cv::Mat TRANSITION_MATRIX  = (KFMat(6, 6) << 1, 0, 0, Camera::DT, 0, 0,
+                                                                      0, 1, 0, 0, Camera::DT, 0,
+                                                                      0, 0, 1, 0, 0, Camera::DT,
+                                                                      0, 0, 0, VELOCITY_DECAY, 0, 0,
+                                                                      0, 0, 0, 0, VELOCITY_DECAY, 0,
+                                                                      0, 0, 0, 0, 0, VELOCITY_DECAY);
+            const static cv::Mat MEASUREMENT_MATRIX = cv::Mat::eye(3, 6, CV_32F);
+            const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(6, 6, CV_32F) * 100;
             const static cv::Mat MEASUREMENT_NOISE_COV = cv::Mat::eye(3, 3, CV_32F) * 50;
-            const static cv::Mat ERROR_COV_POST = cv::Mat::eye(9, 9, CV_32F) * 0.1;
-            const static cv::Mat STATE_POST = cv::Mat::zeros(9, 1, CV_32F);
+            const static cv::Mat ERROR_COV_POST = cv::Mat::eye(6, 6, CV_32F) * 0.1;
+            const static cv::Mat STATE_POST = cv::Mat::zeros(6, 1, CV_32F);
 
-            cv::KalmanFilter KF(9, 3);
+            cv::KalmanFilter KF(6, 3);
             // clone() is needed as, otherwise, the matrices will be used by reference, and all the filters will be the same
             KF.transitionMatrix = TRANSITION_MATRIX.clone();
             KF.measurementMatrix = MEASUREMENT_MATRIX.clone();
