@@ -127,9 +127,7 @@ int main(int argc, char* argv[]) {
     }
 
     cv::cuda::GpuMat spots;
-    spots.upload(imread("double_patch_orig.png", cv::IMREAD_GRAYSCALE));
-    // The following line is only necessary if `spots' was captured with a different gamma setting from `video'.
-    correct(spots, spots, 1, 0, 2);
+    spots.upload(imread("template.png", cv::IMREAD_GRAYSCALE));
     cv::Ptr<cv::cuda::TemplateMatching> spotsMatcher = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF_NORMED);
 
     cv::Mat frameBGRCPU;
