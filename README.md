@@ -31,9 +31,7 @@ OpenCV can be found in the Ubuntu repositories, but it seems to be built without
     cmake -DCMAKE_INSTALL_PREFIX=/path/to/libraries \
           -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
           -DBUILD_LIST=cudaarithm,cudafilters,cudaimgproc,cudev,highgui,video,videoio \
-          -DENABLE_FAST_MATH=ON \
-          -DWITH_CUDA=ON -DCUDA_FAST_MATH=ON -DWITH_FFMPEG=ON \
-          -DWITH_OPENGL=ON -DWITH_LAPACK=ON \
+          -DENABLE_FAST_MATH=ON -DWITH_CUDA=ON -DCUDA_FAST_MATH=ON -DWITH_FFMPEG=ON -DWITH_LAPACK=ON \
           -DINSTALL_C_EXAMPLES=OFF -DINSTALL_PYTHON_EXAMPLES=OFF \
           -DCMAKE_C_COMPILER=/usr/bin/gcc-8 -DCMAKE_CXX_COMPILER=/usr/bin/g++-8 \
           -DWITH_UEYE=ON -DUEYE_ROOT=/opt/ids/ueye ../
@@ -62,6 +60,19 @@ or to print results to standard output (if it is `ON`)
     ./eye_tracker ueye 2
     # Run on a stream from a specific uEye camera, using a specific GPU for CUDA
     ./eye_tracker ueye 2 1
+
+## Known issues/further work
+
+- Blinks are not handled at all. Probably, a good way to detect them would be to calculate PERCLOS (percentage closure) of the eye, i.e. the percentage of the iris covered by the eyelids. We already calculate the area of the iris as part of the circle detection algorithm.
+- Currently, the algorithm can run at 60 FPS. If you ever need to increase performance, you can try any of the following optimisations:
+    - make the ROI smaller
+    - apply the ROI to the camera (i.e. only read out the ROI from the image sensor)
+    - use a mask for CUDA operations to reduce the area processed even further (e.g. use a rectangular ROI and then a circular mask corresponding to the eye hole in the VR headset)
+    - (when showing the GUI) to eliminate a GPU->CPU download:
+        - build OpenCV with OpenGL support (-DWITH_OPENGL=ON)
+        - call cv::namedWindow(windowName, cv::WINDOW_AUTOSIZE | cv::WINDOW_OPENGL) before the main loop
+        - you will now be able to call cv::imshow on a cv::cuda::GpuMat directly, without downloading
+        - to draw the overlay, you will need to use direct OpenGL calls
 
 ## References
 
