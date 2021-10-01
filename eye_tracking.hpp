@@ -1,12 +1,12 @@
 #pragma once
 #include <opencv2/core.hpp>
-#include <xtensor/xfixed.hpp>
-#include <xtensor-blas/xlinalg.hpp>
 #include <opencv2/video/tracking.hpp> // cv::KalmanFilter
 #include <vector>
 namespace EyeTracking {
-    template<unsigned long... I> using Matrix = xt::xtensor_fixed<float, xt::xshape<I...>>;
-    using Vector = Matrix<3>;
+    using cv::Matx33d;
+    using cv::Point2d;
+    using cv::Point2f;
+    using cv::Vec3d;
 
     struct CircleConstraints { // Type representing a circle to be detected
         uint8_t threshold; // Maximum brightness inside the circle
@@ -15,37 +15,29 @@ namespace EyeTracking {
     };
 
     struct EyePosition {
-        std::optional<Vector> corneaCurvatureCentre, pupilCentre, eyeCentre; // c, p, d
+        std::optional<Vec3d> corneaCurvatureCentre, pupilCentre, eyeCentre; // c, p, d
         inline operator bool() const {
             return eyeCentre and pupilCentre and corneaCurvatureCentre;
         }
     };
 
     struct PointWithRating {
-        cv::Point2f point = {-1, -1};
+        Point2f point = {-1, -1};
         float rating = std::numeric_limits<float>::infinity();
         inline bool operator<(const PointWithRating& other) const {
             return rating < other.rating;
         }
     };
 
-    const static cv::Point2f None = {-1, -1};
-    using KFMat = cv::Mat_<float>;
+    const static Point2f None = {-1, -1};
+    using KFMat = cv::Mat_<double>;
 
-    inline cv::Point2i toPoint(cv::Mat m) {
-        return {static_cast<int>(m.at<float>(0, 0)), static_cast<int>(m.at<float>(0, 1))};
+    inline Point2d toPoint(cv::Mat m) {
+        return {m.at<double>(0, 0), m.at<double>(0, 1)};
     }
 
-    inline Vector toVector(cv::Mat m) {
-        return {m.at<float>(0, 0), m.at<float>(0, 1), m.at<float>(0, 2)};
-    }
-
-    inline cv::Mat toMat(cv::Point p) {
-        return (cv::Mat_<float>(2, 1) << p.x, p.y);
-    }
-
-    inline cv::Mat toMat(Vector v) {
-        return (cv::Mat_<float>(3, 1) << v(0), v(1), v(2));
+    inline cv::Mat toMat(Point2d p) {
+        return (cv::Mat_<double>(2, 1) << p.x, p.y);
     }
 
     struct EyeProperties {
@@ -59,11 +51,10 @@ namespace EyeTracking {
     };
 
     struct CameraProperties {
-        float FPS; // Hz
-        inline float dt() const { return 1/FPS; } // s
-        int resolutionX; // px
-        int resolutionY; // px
-        float pixelPitch; // mm
+        double FPS; // Hz
+        inline double dt() const { return 1/FPS; } // s
+        cv::Size2i resolution; // px
+        double pixelPitch; // mm
         double exposureTime; // unknown units (ms?)
         double gain;
     };
@@ -71,21 +62,21 @@ namespace EyeTracking {
     struct ImageProperties {
         cv::Rect ROI;
         CircleConstraints pupil, iris;
-        float maxPupilIrisSeparation; // px
-        float templateMatchingThreshold = 0.9;
+        double maxPupilIrisSeparation; // px
+        double templateMatchingThreshold = 0.9;
     };
 
     struct Positions {
-        float lambda;
-        Vector nodalPoint; // o; nodal point of the camera
-        Vector light; // l
-        Matrix<3, 3> rotation; // dimensionless; rotation matrix from CCS to WCS
-        float cameraEyeDistance;
-        float cameraEyeProjectionFactor;
-        inline Positions(float lambda,
-                         Vector nodalPoint,
-                         Vector light,
-                         Matrix<3, 3> rotation = Matrix<3, 3>({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}})):
+        double lambda;
+        Vec3d nodalPoint; // o; nodal point of the camera
+        Vec3d light; // l
+        Matx33d rotation; // dimensionless; rotation matrix from CCS to WCS
+        double cameraEyeDistance;
+        double cameraEyeProjectionFactor;
+        inline Positions(double lambda,
+                         Vec3d nodalPoint,
+                         Vec3d light,
+                         Matx33d rotation = Matx33d::eye()):
             lambda(lambda),
             nodalPoint(nodalPoint),
             light(light),
@@ -94,7 +85,6 @@ namespace EyeTracking {
             cameraEyeProjectionFactor(cameraEyeDistance/lambda) {};
     };
 
-    void correct(const cv::cuda::GpuMat& image, cv::cuda::GpuMat& result, float alpha=1, float beta=0, float gamma=0.5);
     std::vector<PointWithRating> findCircles(const cv::cuda::GpuMat& frame, uint8_t thresh, float min_radius, float max_radius, float max_rating);
     inline std::vector<PointWithRating> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints) {
         return findCircles(frame, constraints.threshold, constraints.minRadius, constraints.maxRadius, constraints.maxRating);
@@ -102,7 +92,7 @@ namespace EyeTracking {
 
     /* Given the centre of a sphere, its radius, a position vector for a point on a line, and a direction vector
      * for that line, find the intersections of the line and the sphere. */
-    std::vector<Vector> lineSphereIntersections(Vector sphereCentre, float radius, Vector linePoint, Vector lineDirection);
+    std::vector<Vec3d> lineSphereIntersections(Vec3d sphereCentre, float radius, Vec3d linePoint, Vec3d lineDirection);
 
     class Tracker {
         protected:
@@ -114,18 +104,18 @@ namespace EyeTracking {
             cv::KalmanFilter makePixelKalmanFilter() const;
             cv::KalmanFilter make3DKalmanFilter() const;
             // Conversions between coordinate systems
-            Vector pixelToCCS(cv::Point2f point) const;
-            Vector CCStoWCS(Vector point) const;
-            Vector WCStoCCS(Vector point) const;
-            cv::Point2f CCStoPixel(Vector point) const;
-            inline Vector pixelToWCS(cv::Point2f point) const { return CCStoWCS(pixelToCCS(point)); }
-            inline cv::Point2f WCStoPixel(Vector point) const { return CCStoPixel(WCStoCCS(point)); }
-            Vector project(Vector point) const;
-            inline Vector project(cv::Point2f point) const { return project(pixelToWCS(point)); }
-            cv::Point2f unproject(Vector point) const;
+            Vec3d pixelToCCS(Point2d point) const;
+            Vec3d CCStoWCS(Vec3d point) const;
+            Vec3d WCStoCCS(Vec3d point) const;
+            Point2d CCStoPixel(Vec3d point) const;
+            inline Vec3d pixelToWCS(Point2d point) const { return CCStoWCS(pixelToCCS(point)); }
+            inline Point2d WCStoPixel(Vec3d point) const { return CCStoPixel(WCStoCCS(point)); }
+            Vec3d project(Vec3d point) const;
+            inline Vec3d project(Point2f point) const { return project(pixelToWCS(point)); }
+            Point2d unproject(Vec3d point) const;
             inline Tracker(EyeProperties eye, CameraProperties camera, Positions positions):
                 eye(eye), camera(camera), positions(positions), KF(make3DKalmanFilter()) {};
-            EyePosition correct(cv::Point2f reflectionPixel, cv::Point2f pupilPixel);
+            EyePosition correct(Point2f reflectionPixel, Point2f pupilPixel);
             EyePosition predict();
     };
 }

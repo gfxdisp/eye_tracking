@@ -43,47 +43,6 @@ OpenCV can be found in the Ubuntu repositories, but it seems to be built without
 
 Tested with OpenCV commit c1148c4 (version 4.5.3-dev) and OpenCV-contrib commit c3de0d3.
 
-### [xtl](https://github.com/xtensor-stack/xtl/)
-
-    git clone --depth 1 https://github.com/xtensor-stack/xtl.git
-    cd xtl
-    cmake -DCMAKE_INSTALL_PREFIX=/path/to/libraries
-    make install
-
-Tested with commit 7d775ef (after release 0.7.2).
-
-### [xtensor](https://github.com/xtensor-stack/xtensor/)
-
-    git clone --depth 1 https://github.com/xtensor-stack/xtensor.git
-    cd xtensor
-    cmake -DCMAKE_INSTALL_PREFIX=/path/to/libraries
-    make install
-
-Tested with commit d5a5c63 (after release 0.23.10).
-
-### [xtensor-blas](https://github.com/xtensor-stack/xtensor-blas)
-
-You will also need to install OpenBLAS and LAPACK.
-
-    sudo apt install libopenblas64-dev liblapack-dev # Unsure if these are the right libraries
-    git clone --depth 1 https://github.com/xtensor-stack/xtensor-blas.git
-    cd xtensor-blas
-    cmake -DCMAKE_INSTALL_PREFIX=/path/to/libraries
-    make install
-
-Tested with libopenblas64-dev version 0.3.8+ds-1ubuntu0.20.04.1,
-liblapack-dev version 3.9.0-1build1,
-and xtensor-blas commit 7ceb791 (after release 0.19.1).
-
-### [xsimd](https://github.com/xtensor-stack/xsimd) (optional)
-
-    git clone --depth 1 -b 7.x https://github.com/xtensor-stack/xsimd.git
-    cd xsimd
-    cmake -DCMAKE_INSTALL_PREFIX=/path/to/libraries
-    make install
-
-Tested with release 7.6.0.
-
 ## Building
 
     cd /path/to/eye_tracking

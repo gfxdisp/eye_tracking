@@ -1,20 +1,10 @@
 #include "eye_tracking.hpp"
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xmath.hpp>
-#include <xtensor/xoperation.hpp>
-#include <xtensor/xnorm.hpp> // xt::norm_sq
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudafilters.hpp>
 #include <opencv2/imgproc.hpp>
 #include <cmath> // std::pow, std::abs
 namespace EyeTracking {
-    void correct(const cv::cuda::GpuMat& image, cv::cuda::GpuMat& result, float alpha, float beta, float gamma) {
-        const static xt::xtensor_fixed<float, xt::xshape<256>> RANGE = xt::arange<float>(0, 255, 1)/255;
-        xt::xtensor_fixed<uint8_t, xt::xshape<256>> xLUT = xt::cast<uint8_t>(xt::clip(xt::pow(RANGE, gamma) * alpha * 255.0 + beta, 0, 255));
-        cv::Mat mLUT(1, 256, CV_8UC1, xLUT.data());
-        cv::Ptr<cv::cuda::LookUpTable> cudaLUT = cv::cuda::createLookUpTable(mLUT);
-        cudaLUT->transform(image, result);
-    }
+    using cv::Vec2d;
 
     std::vector<PointWithRating> findCircles(const cv::cuda::GpuMat& frame, uint8_t thresh, float min_radius, float max_radius, float max_rating) {
         const static cv::Mat morphologyElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(13, 13));
@@ -36,39 +26,39 @@ namespace EyeTracking {
             if (radius < min_radius or radius > max_radius) continue;
             const float contour_area = cv::contourArea(contour);
             if (contour_area <= 0) continue;
-            const float circle_area = xt::numeric_constants<float>::PI * std::pow(radius, 2);
-            const float rating = xt::square((circle_area-contour_area)/circle_area);
+            const float circle_area = 3.14159265358979323846 * std::pow(radius, 2);
+            const float rating = std::pow((circle_area-contour_area)/circle_area, 2);
             if (rating <= max_rating) result.push_back({centre, rating});
         }
         return result;
     }
 
-    std::vector<Vector> lineSphereIntersections(Vector sphereCentre, float radius, Vector linePoint, Vector lineDirection) {
-        const float a = xt::norm_sq(lineDirection)();
-        const float b = 2 * xt::linalg::dot(lineDirection, linePoint - sphereCentre)();
-        const float c = (xt::norm_sq(linePoint) + xt::norm_sq(sphereCentre) - 2 * xt::linalg::dot(linePoint, sphereCentre))();
-        const float DISCRIMINANT = std::pow(b, 2) - 4 * a * (c - std::pow(radius, 2));
+    std::vector<Vec3d> lineSphereIntersections(Vec3d sphereCentre, float radius, Vec3d linePoint, Vec3d lineDirection) {
+        const double a = cv::norm(lineDirection, cv::NORM_L2SQR);
+        const double b = 2 * lineDirection.dot(linePoint - sphereCentre);
+        const double c = cv::norm(linePoint, cv::NORM_L2SQR) + cv::norm(sphereCentre, cv::NORM_L2SQR) - 2 * linePoint.dot(sphereCentre);
+        const double DISCRIMINANT = std::pow(b, 2) - 4 * a * (c - std::pow(radius, 2));
         if (std::abs(DISCRIMINANT) < 1e-6) return {linePoint - lineDirection*b/(2*a)}; // One solution
         else if (DISCRIMINANT < 0) return {}; // No solutions
         else { // Two solutions
-            const float sqrtDISCRIMINANT = std::sqrt(DISCRIMINANT);
+            const double sqrtDISCRIMINANT = std::sqrt(DISCRIMINANT);
             return {linePoint + lineDirection*(-b+sqrtDISCRIMINANT)/(2*a),
                     linePoint + lineDirection*(-b-sqrtDISCRIMINANT)/(2*a)};
         }
     }
 
     cv::KalmanFilter Tracker::makePixelKalmanFilter() const {
-        constexpr static float VELOCITY_DECAY = 0.9;
+        constexpr static double VELOCITY_DECAY = 0.9;
         const static cv::Mat TRANSITION_MATRIX  = (KFMat(4, 4) << 1, 0, camera.dt(), 0,
                                                                   0, 1, 0, camera.dt(),
                                                                   0, 0, VELOCITY_DECAY, 0,
                                                                   0, 0, 0, VELOCITY_DECAY);
         const static cv::Mat MEASUREMENT_MATRIX = (KFMat(2, 4) << 1, 0, 0, 0,
                                                                   0, 1, 0, 0);
-        const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(4, 4, CV_32F) * 100;
-        const static cv::Mat MEASUREMENT_NOISE_COV = cv::Mat::eye(2, 2, CV_32F) * 50;
-        const static cv::Mat ERROR_COV_POST = cv::Mat::eye(4, 4, CV_32F) * 0.1;
-        const static cv::Mat STATE_POST = (KFMat(4, 1) << camera.resolutionX/2.0, camera.resolutionY/2.0, 0, 0);
+        const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(4, 4, CV_64F) * 100;
+        const static cv::Mat MEASUREMENT_NOISE_COV = cv::Mat::eye(2, 2, CV_64F) * 50;
+        const static cv::Mat ERROR_COV_POST = cv::Mat::eye(4, 4, CV_64F) * 0.1;
+        const static cv::Mat STATE_POST = (KFMat(4, 1) << camera.resolution.width/2.0, camera.resolution.height/2.0, 0, 0);
 
         cv::KalmanFilter KF(4, 2);
         // clone() is needed as, otherwise, the matrices will be used by reference, and all the filters will be the same
@@ -83,18 +73,18 @@ namespace EyeTracking {
     }
 
     cv::KalmanFilter Tracker::make3DKalmanFilter() const {
-        constexpr static float VELOCITY_DECAY = 0.9;
+        constexpr static double VELOCITY_DECAY = 0.9;
         const static cv::Mat TRANSITION_MATRIX  = (KFMat(6, 6) << 1, 0, 0, camera.dt(), 0, 0,
                                                                   0, 1, 0, 0, camera.dt(), 0,
                                                                   0, 0, 1, 0, 0, camera.dt(),
                                                                   0, 0, 0, VELOCITY_DECAY, 0, 0,
                                                                   0, 0, 0, 0, VELOCITY_DECAY, 0,
                                                                   0, 0, 0, 0, 0, VELOCITY_DECAY);
-        const static cv::Mat MEASUREMENT_MATRIX = cv::Mat::eye(3, 6, CV_32F);
-        const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(6, 6, CV_32F) * 100;
-        const static cv::Mat MEASUREMENT_NOISE_COV = cv::Mat::eye(3, 3, CV_32F) * 50;
-        const static cv::Mat ERROR_COV_POST = cv::Mat::eye(6, 6, CV_32F) * 0.1;
-        const static cv::Mat STATE_POST = cv::Mat::zeros(6, 1, CV_32F);
+        const static cv::Mat MEASUREMENT_MATRIX = cv::Mat::eye(3, 6, CV_64F);
+        const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(6, 6, CV_64F) * 100;
+        const static cv::Mat MEASUREMENT_NOISE_COV = cv::Mat::eye(3, 3, CV_64F) * 50;
+        const static cv::Mat ERROR_COV_POST = cv::Mat::eye(6, 6, CV_64F) * 0.1;
+        const static cv::Mat STATE_POST = cv::Mat::zeros(6, 1, CV_64F);
 
         cv::KalmanFilter KF(6, 3);
         // clone() is needed as, otherwise, the matrices will be used by reference, and all the filters will be the same
@@ -108,41 +98,38 @@ namespace EyeTracking {
         return KF;
     }
 
-    Vector Tracker::pixelToCCS(cv::Point2f point) const {
-        const float x = camera.pixelPitch * (point.x - camera.resolutionX/2.0);
-        const float y = camera.pixelPitch * (point.y - camera.resolutionY/2.0);
+    Vec3d Tracker::pixelToCCS(Point2d point) const {
+        const double x = camera.pixelPitch * (point.x - camera.resolution.width/2.0);
+        const double y = camera.pixelPitch * (point.y - camera.resolution.height/2.0);
         return {x, y, -positions.lambda};
     }
 
-    Vector Tracker::CCStoWCS(Vector point) const {
-        return xt::linalg::dot(positions.rotation, point) + positions.nodalPoint;
+    Vec3d Tracker::CCStoWCS(Vec3d point) const {
+        return positions.rotation * point + positions.nodalPoint;
     }
 
-    Vector Tracker::WCStoCCS(Vector point) const {
-        return xt::linalg::solve(positions.rotation, point - positions.nodalPoint);
+    Vec3d Tracker::WCStoCCS(Vec3d point) const {
+        Vec3d ret;
+        // Warning: return value of cv::solve is not checked; if there is no solution, ret won't be set by the line below!
+        cv::solve(positions.rotation, point - positions.nodalPoint, ret);
+        return ret;
     }
 
-    cv::Point2f Tracker::CCStoPixel(Vector point) const {
-        return {camera.resolutionX/2.0 + point(0)/camera.pixelPitch,
-                camera.resolutionY/2.0 + point(1)/camera.pixelPitch};
+    Point2d Tracker::CCStoPixel(Vec3d point) const {
+        return static_cast<Point2d>(camera.resolution)/2 + Point2d(point(0), point(1))/camera.pixelPitch;
     }
 
-    Vector Tracker::project(Vector point) const {
+    Vec3d Tracker::project(Vec3d point) const {
         return positions.nodalPoint + positions.cameraEyeProjectionFactor * (positions.nodalPoint - point);
     }
 
-    cv::Point2f Tracker::unproject(Vector point) const {
+    Point2d Tracker::unproject(Vec3d point) const {
         return WCStoPixel((point - (1 + positions.cameraEyeProjectionFactor) * positions.nodalPoint)/-positions.cameraEyeProjectionFactor);
     }
 
-    template<typename T> static inline Matrix<1> Scalar(T x) {
-        // Convert a scalar to a 0-dimensional tensor
-        return {static_cast<Matrix<1>::value_type>(x)};
-    }
-
-    EyePosition Tracker::correct(cv::Point2f reflectionPixel, cv::Point2f pupilPixel) {
+    EyePosition Tracker::correct(Point2f reflectionPixel, Point2f pupilPixel) {
         // This code should be read in conjunction with Guestrin & Eizenman, pp1125-1126.
-        Vector reflection = project(reflectionPixel); // u
+        Vec3d reflection = project(reflectionPixel); // u
         /* Equation numbering is as in G&E.
          * (3): l, q, o, c are coplanar.
          * (4): angle of incidence = angle of reflection.
@@ -156,17 +143,20 @@ namespace EyeTracking {
          * (9): p and c lie a distance K apart.
          * p and c are the unknowns in (7-9). Having found c using (2-4), we can now find p. */
         // (3):
-        Vector loqo = xt::linalg::cross(positions.light - positions.nodalPoint, reflection - positions.nodalPoint);
+        Vec3d loqo = (positions.light - positions.nodalPoint).cross(reflection - positions.nodalPoint);
         // Now dot(loqo, c) = dot(loqo, o) - a plane on which c must lie.
         // (4):
-        Vector lqoq = (positions.light - reflection) * xt::linalg::norm(positions.nodalPoint - reflection);
-        Vector oqlq = (positions.nodalPoint - reflection) * xt::linalg::norm(positions.light - reflection);
-        Vector oqlqlqoq = oqlq - lqoq;
+        Vec3d lqoq = (positions.light - reflection) * cv::norm(positions.nodalPoint - reflection);
+        Vec3d oqlq = (positions.nodalPoint - reflection) * cv::norm(positions.light - reflection);
+        Vec3d oqlqlqoq = oqlq - lqoq;
         // Now dot(oqlqlqoq, c) = dot(oqlqlqoq, q) - another plane containing c.
         // The intersection of these two planes is a line.
-        // xt::vstack/xt::hstack don't work for some reason (maybe https://github.com/xtensor-stack/xtensor/issues/2372)
-        Matrix<2, 2> squarePlaneMatrix({{loqo(0), loqo(1)}, {oqlqlqoq(0), oqlqlqoq(1)}});
-        if (xt::linalg::matrix_rank(squarePlaneMatrix) < 2) {
+        cv::Matx22d squarePlaneMatrix(loqo(0), loqo(1), oqlqlqoq(0), oqlqlqoq(1));
+        // Calculate rank
+        cv::Mat1d singularValues;
+        cv::Mat leftSingularVectors, rightSingularVectorsT; // Unused outputs
+        cv::SVDecomp(squarePlaneMatrix, singularValues, leftSingularVectors, rightSingularVectorsT, cv::SVD::NO_UV);
+        if (cv::countNonZero(singularValues > 1e-4) < 2) {
             /* The line lies in the plane z = 0.
              * Very unexpected, as the eye and the camera are facing each other on the z axis.
              * Should not occur in normal operation.
@@ -177,17 +167,18 @@ namespace EyeTracking {
         }
         else { // Far more likely
             // We now consider z = 0 and z = 1, and find two points (x, y, 0) and (x', y', 1), which define the line.
-            Matrix<2> b({xt::linalg::dot(loqo, positions.nodalPoint)(), xt::linalg::dot(oqlqlqoq, reflection)()});
-            Matrix<2> lastRow({loqo(2), oqlqlqoq(2)});
-            Matrix<2> pointA_xy = xt::linalg::solve(squarePlaneMatrix, b); // z = 0
-            Matrix<2> pointB_xy = xt::linalg::solve(squarePlaneMatrix, b - lastRow); // z = 1
-            Matrix<2> direction_xy = pointB_xy - pointA_xy;
-            Vector pointA({pointA_xy(0), pointA_xy(1), 0});
-            Vector direction({direction_xy(0), direction_xy(1), 1});
+            Vec2d b(loqo.dot(positions.nodalPoint), oqlqlqoq.dot(reflection));
+            Vec2d lastRow(loqo(2), oqlqlqoq(2));
+            Vec2d pointA_xy, pointB_xy;
+            if (!cv::solve(squarePlaneMatrix, b, pointA_xy)) return {}; // z = 0
+            if (!cv::solve(squarePlaneMatrix, b - lastRow, pointB_xy)) return {}; // z = 1
+            Vec2d direction_xy = pointB_xy - pointA_xy;
+            Vec3d pointA(pointA_xy(0), pointA_xy(1), 0);
+            Vec3d direction(direction_xy(0), direction_xy(1), 1);
             /* Now we have q, the centre of a sphere of radius R on which c lies (2), and two points, pointA and pointB,
              * defining a line on which c also lies. */
-            std::vector<Vector> intersections = lineSphereIntersections(reflection, eye.R, pointA, direction);
-            std::optional<Vector> corneaCurvatureCentre; // c
+            std::vector<Vec3d> intersections = lineSphereIntersections(reflection, eye.R, pointA, direction);
+            std::optional<Vec3d> corneaCurvatureCentre; // c
             switch (intersections.size()) {
                 case 1:
                     corneaCurvatureCentre = intersections[0];
@@ -200,9 +191,9 @@ namespace EyeTracking {
             if (!corneaCurvatureCentre) return {};
 
             // (6): We now project the pupil from the image sensor (flat) onto the cornea (spherical).
-            Vector pupilImage = pixelToWCS(pupilPixel);
+            Vec3d pupilImage = pixelToWCS(pupilPixel);
             intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.R, pupilImage, positions.nodalPoint - pupilImage);
-            std::optional<Vector> pupil;
+            std::optional<Vec3d> pupil;
             switch (intersections.size()) {
                 case 1:
                     pupil = intersections[0];
@@ -216,19 +207,18 @@ namespace EyeTracking {
 
             // Now we find p in a somewhat similar way.
             // (7):
-            Vector roco = xt::linalg::cross(*pupil - positions.nodalPoint, *corneaCurvatureCentre - positions.nodalPoint);
+            Vec3d roco = (*pupil - positions.nodalPoint).cross(*corneaCurvatureCentre - positions.nodalPoint);
             // Now dot(roco, p) = dot(roco, o) - a plane containing p.
             // (8): n_1 · ‖o - r‖ / ‖(r - c) × (o - r)‖ = ‖p - r‖ / ‖(r - c) × (p - r)‖
-            float n1orrcor = eye.n1 * xt::linalg::norm(positions.nodalPoint - *pupil)
-                             / xt::linalg::norm(xt::linalg::cross(*pupil - *corneaCurvatureCentre,
-                                                                  positions.nodalPoint - *pupil));
+            double n1orrcor = eye.n1 * cv::norm(positions.nodalPoint - *pupil)
+                              / cv::norm((*pupil - *corneaCurvatureCentre).cross(positions.nodalPoint - *pupil));
             /* This is easier to solve if we extract the angle from the remaining × product:
              * ‖p - r‖ / ‖(r - c) × (p - r)‖ = ‖p - r‖ / (‖r - c‖ · ‖p - r‖ · sin(π+θ))
              * where θ = ∠PRC, the angle between the optic axis of the eye and the
              * normal at the point of refraction of the pupil centre.
              * The ‖p - r‖ term cancels, and we are left with
              * n1orrcor * ‖r - c‖ = 1 / sin(π+θ). */
-            float angle = std::asin(-1/(n1orrcor * xt::linalg::norm(*pupil - *corneaCurvatureCentre))); // θ
+            double angle = std::asin(-1/(n1orrcor * cv::norm(*pupil - *corneaCurvatureCentre))); // θ
             /* We now have three constraints on p: a plane, the angle ∠PRC, and the sphere of radius K centred on c.
              * It is easy to combine the first two contraints: (7) states that p, r, o and c are coplanar.
              * Furthermore, ∠PRC is known. This allows us to construct a ray from r in the direction of p, which lies
@@ -238,18 +228,18 @@ namespace EyeTracking {
              * We construct w first.
              * roco is the normal of our plane, it is at 90° to w.
              * c - r is at θ to w. */
-            Vector perpendicular = xt::linalg::cross(*corneaCurvatureCentre - *pupil, roco);
-            perpendicular /= xt::linalg::norm(perpendicular);
+            Vec3d perpendicular = (*corneaCurvatureCentre - *pupil).cross(roco);
+            perpendicular /= cv::norm(perpendicular);
             /* w = (c-r)*cos(θ) ± perpendicular*sin(θ)
              * https://math.stackexchange.com/a/2320448
              * This in itself is ambiguous: the w given by this formula can be on either side of r - c, the normal at
              * the point of refraction. However, because of how the cross products are oriented, the positive direction
              * seems to be the right one. */
             direction = (*corneaCurvatureCentre - *pupil) * std::cos(angle)
-                        / xt::linalg::norm(*corneaCurvatureCentre - *pupil)
+                        / cv::norm(*corneaCurvatureCentre - *pupil)
                         + perpendicular * std::abs(std::sin(angle)); // w
             intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.K, *pupil, direction);
-            std::optional<Vector> pupilCentre;
+            std::optional<Vec3d> pupilCentre;
             switch (intersections.size()) {
                 case 1:
                     pupilCentre = intersections[0];
@@ -264,14 +254,14 @@ namespace EyeTracking {
              * line p - c to the point d, the centre of rotation of the eye, using D, a further eye parameter not used
              * by G&E. d will be our head position.
              * NB: The eye is not actually spherical, so this may move around in unexpected ways. */
-            Vector eyeCentre = *pupilCentre + eye.D * (*corneaCurvatureCentre - *pupilCentre)
-                                              / xt::linalg::norm(*corneaCurvatureCentre - *pupilCentre);
-            KF.correct(toMat(*corneaCurvatureCentre));
+            Vec3d eyeCentre = *pupilCentre + eye.D * (*corneaCurvatureCentre - *pupilCentre)
+                                                    / cv::norm(*corneaCurvatureCentre - *pupilCentre);
+            KF.correct((KFMat(3, 1) << (*corneaCurvatureCentre)(0), (*corneaCurvatureCentre)(1), (*corneaCurvatureCentre)(2)));
             return {corneaCurvatureCentre, pupilCentre, eyeCentre};
         }
     }
 
     EyePosition Tracker::predict() {
-        return {{}, {}, toVector(KF.predict())};
+        return {{}, {}, KF.predict()};
     }
 }

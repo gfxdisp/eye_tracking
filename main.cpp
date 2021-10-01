@@ -9,6 +9,7 @@
 #include <opencv2/cudaimgproc.hpp>
 #include <algorithm> // std::min_element, std::transform
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 #include <sstream> // std::ostringstream
 #include <string>
@@ -76,7 +77,7 @@ int main(int argc, char* argv[]) {
      * The maximum value of the gain is 400. The maximum introduces a lot of noise; it can be mitigated somewhat
      * by subtracting the regular banding pattern that appears and applying a median filter. */
     const CameraProperties CAMERA = {.FPS = 60,
-                                     .resolutionX = 1280, .resolutionY = 1024,
+                                     .resolution = {1280, 1024},
                                      .pixelPitch = 0.0048,
                                      .exposureTime = 5, .gain = 200};
     const Positions POSITIONS(27.119, {0, 0, -320}, {0, -50, -320});
@@ -218,9 +219,9 @@ int main(int argc, char* argv[]) {
             cv::cuda::cvtColor(frame, frame, cv::COLOR_GRAY2BGR, 0, streamDisplay);
             cv::cuda::copyMakeBorder(frame, frame,
                                      IMAGE_PROPS.ROI.y,
-                                     CAMERA.resolutionY - IMAGE_PROPS.ROI.y - IMAGE_PROPS.ROI.height,
+                                     CAMERA.resolution.height - IMAGE_PROPS.ROI.y - IMAGE_PROPS.ROI.height,
                                      IMAGE_PROPS.ROI.x,
-                                     CAMERA.resolutionX - IMAGE_PROPS.ROI.x - IMAGE_PROPS.ROI.width,
+                                     CAMERA.resolution.width - IMAGE_PROPS.ROI.x - IMAGE_PROPS.ROI.width,
                                      cv::BORDER_CONSTANT, 0, streamDisplay);
             cv::cuda::addWeighted(frameBGR, 0.75, frame, 0.25, 0, frameBGR, -1, streamDisplay);
         #endif
@@ -281,10 +282,10 @@ int main(int argc, char* argv[]) {
                 imwrite("frame.png", frameBGRCPU);
                 break;
             case 'v': // Record input video; only if the input is a live feed
-                if (isRealtime) vwInput.open("recorded_input.mp4", FOURCC, CAMERA.FPS, {CAMERA.resolutionX, CAMERA.resolutionY}, false);
+                if (isRealtime) vwInput.open("recorded_input.mp4", FOURCC, CAMERA.FPS, {CAMERA.resolution.width, CAMERA.resolution.height}, false);
                 break;
             case 'w': // Record output video
-                vwOutput.open("recorded_output.mp4", FOURCC, CAMERA.FPS, {CAMERA.resolutionX, CAMERA.resolutionY}, true);
+                vwOutput.open("recorded_output.mp4", FOURCC, CAMERA.FPS, {CAMERA.resolution.width, CAMERA.resolution.height}, true);
                 break;
             }
 
