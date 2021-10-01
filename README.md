@@ -63,6 +63,7 @@ or to print results to standard output (if it is `ON`)
 
 ## Known issues/further work
 
+- The Kálmán filter settings are very arbitrarily chosen, particularly the noise covariances. The filter would be much more useful if they were determined in some rigorous way.
 - Blinks are not handled at all. Probably, a good way to detect them would be to calculate PERCLOS (percentage closure) of the eye, i.e. the percentage of the iris covered by the eyelids. We already calculate the area of the iris as part of the circle detection algorithm.
 - Currently, the algorithm can run at 60 FPS. If you ever need to increase performance, you can try any of the following optimisations:
     - make the ROI smaller
