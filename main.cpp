@@ -6,7 +6,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/video/tracking.hpp> // cv::KalmanFilter
 #include <opencv2/videoio.hpp> // cv::VideoCapture
-#include <opencv2/videoio/registry.hpp> // cv::videio_registry
+#include <opencv2/videoio/registry.hpp> // cv::videoio_registry
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <algorithm> // std::max_element, std::transform
