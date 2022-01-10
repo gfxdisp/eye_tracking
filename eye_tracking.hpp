@@ -49,13 +49,20 @@ namespace EyeTracking {
         float minRadius, maxRadius; // in pixels
         /* For each contour detected in the image, the minimum enclosing circle is calculated.
          * If the contour fills minRating of the circle's area, it is considered circular. */
-        float minRating = 0.78;
+
+        //Dmitry
+//        float minRating = 0.78;
+        //Radek
+//        float minRating = 0.2;
+        //Blender
+        float minRating = 0.5;
     };
 
     struct RatedCircleCentre {
         // Type representing a detected circle centre with a rating
         Point2f point = {-1, -1};
         float rating = std::numeric_limits<float>::infinity();
+        float radius = 0;
         inline bool operator<(const RatedCircleCentre& other) const {
             return rating < other.rating;
         }
@@ -83,31 +90,28 @@ namespace EyeTracking {
         float K = 4.2; // mm, distance between pupil centre and centre of corneal curvature
         float n1 = 1.3375; // Standard Keratometric Index, refractive index of cornea and aqueous humour
         // From Bekerman, Gottlieb & Vaiman
-        float D = 10; // mm, distance between pupil centre and centre of eye rotation
+        float D = 11.6; // mm, distance between pupil centre and centre of eye rotation
     };
 
     struct ImageProperties {
         cv::Rect ROI;
         CircleConstraints pupil, iris;
         double maxPupilIrisSeparation; // px
-        double templateMatchingThreshold = 0.9;
+        double templateMatchingThreshold = -1;
     };
 
     struct Positions {
         // Represents the layout of the system: locations of the camera, light and eye, relationship between CCS and WCS.
         double lambda; // mm; distance from the nodal point to the image plane; changes as focus is moved
         Vec3d nodalPoint; // o; mm; nodal point of the camera, in the WCS
-        Vec3d light; // l; mm; position of the light, in the WCS
         Matx33d rotation; // dimensionless; rotation matrix from CCS to WCS
         double cameraEyeDistance; // mm; Z-axis distance from camera to Purkyně reflection
         double cameraEyeProjectionFactor;
         inline Positions(double lambda,
                          Vec3d nodalPoint,
-                         Vec3d light,
                          Matx33d rotation = Matx33d::eye()):
             lambda(lambda),
             nodalPoint(nodalPoint),
-            light(light),
             rotation(rotation),
             cameraEyeDistance(-nodalPoint(2)),
             cameraEyeProjectionFactor(cameraEyeDistance/lambda) {};
@@ -143,7 +147,8 @@ namespace EyeTracking {
 
             /* Submit a measurement to the Kálmán filter. The return value bypasses the Kálmán filter, i.e. the eye
              * position is calculated directly from the inputs without considering previous states. */
-            EyePosition correct(Point2f reflectionPixel, Point2f pupilPixel);
+            EyePosition correct(Point2f reflectionPixel, Point2f pupilPixel, Vec3d light);
+            EyePosition correct2(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, Vec3d light1, Vec3d light2);
             // Read a prediction from the Kálmán filter
             EyePosition predict();
     };

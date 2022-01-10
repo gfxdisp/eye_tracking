@@ -17,7 +17,7 @@ if(HEADLESS)
 else()
     message(STATUS "Building with GUI support.")
 endif()
-
+#add_compile_definitions(HEADLESS)
 # ccache
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)

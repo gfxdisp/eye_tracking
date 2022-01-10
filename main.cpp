@@ -65,6 +65,7 @@ int fail(Error e) {
 }
 
 int main(int argc, char* argv[]) {
+    setenv("DISPLAY", "10.240.102.212:0", true);
     // Use a pointer to abstract away the type of VideoCapture (either a video file or an IDS camera)
     cv::VideoCapture video;
     cv::VideoWriter vwInput, vwOutput;
@@ -77,17 +78,27 @@ int main(int argc, char* argv[]) {
     /* Camera model: "UI-3140CP-M-GL Rev.2 (AB00613)"
      * The maximum value of the gain is 400. The maximum introduces a lot of noise; it can be mitigated somewhat
      * by subtracting the regular banding pattern that appears and applying a median filter. */
-    const CameraProperties CAMERA = {.FPS = 60,
+    const CameraProperties CAMERA = {.FPS = 30,
                                      .resolution = {1280, 1024},
                                      .pixelPitch = 0.0048,
                                      .exposureTime = 5, .gain = 200};
-    const Positions POSITIONS(27.119, {0, 0, -320}, {0, -50, -320});
+
+    const Positions POSITIONS(27.119, {0, 0, -327});
     const ImageProperties IMAGE_PROPS = {.ROI = {200, 150, 850, 650},
-                                         .pupil = {2, 66, 90}, .iris = {5, 110, 150}, .maxPupilIrisSeparation = 12.24};
+    //Dmitry
+//  .pupil = {2, 66, 90}, .iris = {5, 110, 150}, .maxPupilIrisSeparation = 12.24};
+    //Radek
+//  .pupil = {30, 40, 80}, .iris = {90, 100, 300}, .maxPupilIrisSeparation = 200.24};
+    //Blender
+    .pupil = {20, 40, 90}, .iris = {90, 100, 300}, .maxPupilIrisSeparation = 200.24};
 
     Tracker tracker(EYE, CAMERA, POSITIONS);
 
-    cv::KalmanFilter KF_reflection = tracker.makeICSKalmanFilter();
+    Vec3d light1 = {27.98, 0, argc > 3 ? (double)std::stof(argv[3]) : -327};
+    Vec3d light2 = {-27.98, 0, argc > 3 ? (double)std::stof(argv[3]) : -327};
+
+    cv::KalmanFilter KF_reflection1 = tracker.makeICSKalmanFilter();
+    cv::KalmanFilter KF_reflection2 = tracker.makeICSKalmanFilter();
     cv::KalmanFilter KF_pupil      = tracker.makeICSKalmanFilter();
 
     // Process arguments
@@ -128,14 +139,21 @@ int main(int argc, char* argv[]) {
         else return fail(Error::WRONG_CUDA_INDEX);
     }
 
-    cv::cuda::GpuMat spots;
-    spots.upload(cv::imread("template.png", cv::IMREAD_GRAYSCALE));
+//    cv::cuda::GpuMat spots;
+//    spots.upload(cv::imread("template_blender" + std::string(argv[3]) + ".png", cv::IMREAD_GRAYSCALE));
+
+    cv::cuda::GpuMat spots1, spots2;
+    spots1.upload(cv::imread("template.png", cv::IMREAD_GRAYSCALE));
+    spots2.upload(cv::imread("template.png", cv::IMREAD_GRAYSCALE));
+
+
     cv::Ptr<cv::cuda::TemplateMatching> spotsMatcher = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF_NORMED);
 
-    cv::Mat frameBGRCPU;
-    cv::cuda::GpuMat frameBGR, frame, correlation;
+    cv::Mat frameBGRCPU, frameCPU, correlationCPU;
+    cv::cuda::GpuMat frameBGR, frame, correlation1, correlation2;
+//    cv::Mat maskCPU;
 
-    cv::Point2f reflection = None, pupil = None, head = None;
+    cv::Point2f reflection1 = None, reflection2 = None, pupil = None, head = None;
 
     std::chrono::time_point<std::chrono::steady_clock> last_frame_time = std::chrono::steady_clock::now();
     int frameIndex = 0;
@@ -146,14 +164,26 @@ int main(int argc, char* argv[]) {
         std::ostringstream fpsText;
         fpsText << std::fixed << std::setprecision(2);
     #endif
+    int border_v = 0, border_h = 0;
+    bool first = true;
+
+    cv::theRNG().state = time(nullptr);
+
+    float sigma = 0.0f;
+
+    if (argc > 4) {
+        sigma = (float)(std::stoi(argv[4]));
+    }
 
     while (true) {
         if (!video.read(frameBGRCPU) || frameBGRCPU.empty()) break; // Video has ended
+
         /* Complicated logic here depending on:
          * - whether we are running in headless mode
          * - whether the input is BGR or monochrome
          * - whether we are recording the input to a file. */
         #ifdef HEADLESS
+            first = false;
             if (vwInput.isOpened()) {
                 // Need to save the frame before cropping to the ROI
                 frameBGR.upload(frameBGRCPU);
@@ -171,7 +201,21 @@ int main(int argc, char* argv[]) {
                 else frame = frameBGR;
             }
         #else
+            if (first) {
+                first = false;
+                float a = CAMERA.resolution.height;
+                float b = CAMERA.resolution.width;
+                float c = frameBGRCPU.rows;
+                float d = frameBGRCPU.cols;
+                if (a / b >= c / d) {
+                    border_v = (int) ((((a / b) * d) - c) / 2);
+                } else {
+                    border_h = (int) ((((a / b) * c) - d) / 2);
+                }
+            }
+            cv::copyMakeBorder(frameBGRCPU, frameBGRCPU, border_v, border_v, border_h, border_h, cv::BORDER_CONSTANT, 0);
             // Keep the rest of the image for display
+            cv::resize(frameBGRCPU, frameBGRCPU, CAMERA.resolution);
             frameBGR.upload(frameBGRCPU);
             if (frameBGRCPU.type() == CV_8UC3) {
                 /* If we are recording the input, we need to convert it all to greyscale.
@@ -190,30 +234,17 @@ int main(int argc, char* argv[]) {
             }
         #endif
 
-        spotsMatcher->match(frame, spots, correlation, streamSpots);
+        spotsMatcher->match(frame, spots1, correlation1, streamSpots);
+        spotsMatcher->match(frame, spots2, correlation2, streamSpots);
         std::vector<RatedCircleCentre> pupils = findCircles(frame, IMAGE_PROPS.pupil);
-        std::vector<RatedCircleCentre> irises = findCircles(frame, IMAGE_PROPS.iris);
+        int pupilRadius = 32;
 
-        if (irises.size() > 0) {
-            std::vector<RatedCircleCentre>::const_iterator bestIris = std::max_element(irises.cbegin(), irises.cend());
-            for (int i = 0; i < 5; ++i) { // Limit number of iterations
-                if (pupils.size() == 0) {
-                    KF_pupil.correct(toMat(static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + bestIris->point));
-                    break;
-                }
-                std::vector<RatedCircleCentre>::const_iterator bestPupil = std::max_element(pupils.cbegin(), pupils.cend());
-                if (norm(bestIris->point - bestPupil->point) < IMAGE_PROPS.maxPupilIrisSeparation) {
-                    // They should be the same point
-                    KF_pupil.correct(toMat(static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + (bestIris->point + bestPupil->point)/2));
-                }
-                else {
-                    /* The detected pupil and iris are not concentric. Probably, this means that the "pupil" is actually
-                     * some other reflection. We treat the detection as a false positive.
-                     * NB: It's usually the pupil that's the false positive. But if there were problems with false
-                     * positives for the iris too, we could remove one or both of the iris and pupil matches. */
-                    pupils.erase(bestPupil);
-                }
-            }
+        if (pupils.size() > 0) {
+            std::vector<RatedCircleCentre>::const_iterator bestPupil = std::max_element(pupils.cbegin(), pupils.cend());
+            cv::Point2f correctedPoint(bestPupil->point.x + cv::theRNG().gaussian(sigma), bestPupil->point.y + cv::theRNG().gaussian(sigma));
+            KF_pupil.correct(toMat(static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + (correctedPoint)));
+            pupil = static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + (correctedPoint);
+            pupilRadius = (int)bestPupil->radius;
         }
 
         #ifndef HEADLESS
@@ -227,20 +258,49 @@ int main(int argc, char* argv[]) {
             cv::cuda::addWeighted(frameBGR, 0.75, frame, 0.25, 0, frameBGR, -1, streamDisplay);
         #endif
 
-        double maxVal = -1;
-        cv::Point2i maxLoc = None;
+        double maxVal1 = -1, maxVal2 = -1;
+        cv::Point2i maxLoc1 = None;
+        cv::Point2i maxLoc2 = None;
         streamSpots.waitForCompletion();
-        cv::cuda::minMaxLoc(correlation, nullptr, &maxVal, nullptr, &maxLoc);
 
-        if (maxLoc.y > 0 and maxLoc.x > 0 and maxVal > IMAGE_PROPS.templateMatchingThreshold) {
-            maxLoc += IMAGE_PROPS.ROI.tl();
-            KF_reflection.correct((KFMat(2, 1) << maxLoc.x + spots.cols/2, // integer division intentional
-                                                  maxLoc.y + spots.rows/2));
+
+//        correlation.download(correlationCPU);
+//        maskCPU = cv::Mat::ones(correlationCPU.size(), CV_8UC1);
+        cv::cuda::minMaxLoc(correlation1, nullptr, &maxVal1, nullptr, &maxLoc1);
+//        correlation.download(correlationCPU);
+//
+//        maxLoc1.x = std::max(maxLoc1.x, spots.cols/2);
+//        maxLoc1.y = std::max(maxLoc1.y, spots.rows/2);
+//        maxLoc1.x = std::min(maxLoc1.x, correlationCPU.cols - spots.cols/2);
+//        maxLoc1.y = std::max(maxLoc1.y, correlationCPU.rows - spots.rows/2);
+//
+//        correlationCPU(cv::Rect(cv::Point(maxLoc1.x - spots.cols/2, maxLoc1.y - spots.rows/2), cv::Point(maxLoc1.x + spots.cols/2, maxLoc1.y + spots.rows/2))).setTo(0.0f);
+//
+//        correlation.upload(correlationCPU);
+        cv::cuda::minMaxLoc(correlation2, nullptr, &maxVal2, nullptr, &maxLoc2);
+//        if (maxLoc1.x > maxLoc2.x) {
+//            std::swap(maxLoc1, maxLoc2);
+//            std::swap(maxVal1, maxVal2);
+//        }
+
+        if (maxLoc1.y > 0 and maxLoc1.x > 0 and maxVal1 > IMAGE_PROPS.templateMatchingThreshold) {
+            maxLoc1 += IMAGE_PROPS.ROI.tl();
+            KF_reflection1.correct((KFMat(2, 1) << maxLoc1.x + spots1.cols/2 + cv::theRNG().gaussian(sigma), maxLoc1.y + spots1.rows/2 + cv::theRNG().gaussian(sigma)));
+            cv::Point2f correctedPoint(maxLoc1.x + spots1.cols/2 + cv::theRNG().gaussian(sigma), maxLoc1.y + spots1.rows/2 + cv::theRNG().gaussian(sigma));
+            reflection1 = correctedPoint;
         }
 
-        reflection = toPoint(KF_reflection.predict());
-        pupil = toPoint(KF_pupil.predict());
-        EyePosition eyePos = tracker.correct(reflection, pupil);
+        if (maxLoc2.y > 0 and maxLoc2.x > 0 and maxVal2 > IMAGE_PROPS.templateMatchingThreshold) {
+            maxLoc2 += IMAGE_PROPS.ROI.tl();
+            KF_reflection2.correct((KFMat(2, 1) << maxLoc2.x + spots2.cols/2 + cv::theRNG().gaussian(sigma), maxLoc2.y + spots2.rows/2 + cv::theRNG().gaussian(sigma)));
+            cv::Point2f correctedPoint(maxLoc2.x + spots2.cols/2 + cv::theRNG().gaussian(sigma), maxLoc2.y + spots2.rows/2 + cv::theRNG().gaussian(sigma));
+            reflection2 = correctedPoint;
+        }
+
+        EyePosition eyePos;
+
+        eyePos = tracker.correct2(reflection1, reflection2, pupil, light1, light2);
+
         head = tracker.unproject(*eyePos.eyeCentre);
 
         #ifdef HEADLESS
@@ -265,14 +325,16 @@ int main(int argc, char* argv[]) {
              * However, instead of using cv::circle and cv::putText, we would have to use OpenGL functions directly.
              * This would be a lot of effort for a very marginal performance benefit. */
             frameBGR.download(frameBGRCPU);
-            if (reflection != None) cv::circle(frameBGRCPU, reflection,  32, cv::Scalar(0x00, 0x00, 0xFF), 5);
-            if (pupil != None) cv::circle(frameBGRCPU, pupil, 32, cv::Scalar(0xFF, 0x00, 0x00), 5);
-            if (head != None) cv::circle(frameBGRCPU, head, 32, cv::Scalar(0x00, 0xFF, 0x00), 5);
+//            if (reflection1 != None) cv::circle(frameBGRCPU, reflection1,  7, cv::Scalar(0x00, 0x00, 0xFF), 2);
+//            if (reflection2 != None) cv::circle(frameBGRCPU, reflection2,  7, cv::Scalar(0x00, 0x00, 0xFF), 2);
+            if (pupil != None) cv::circle(frameBGRCPU, pupil, pupilRadius, cv::Scalar(0xFF, 0x00, 0x00), 5);
+//            if (head != None) cv::circle(frameBGRCPU, head, 2, cv::Scalar(0x00, 0xFF, 0x00), 5);
             cv::putText(frameBGRCPU,
                         fpsText.str(),
                         cv::Point2i(100, 100),
                         cv::FONT_HERSHEY_SIMPLEX, 3, cv::Scalar(0x00, 0x00, 0xFF), 3);
 
+//            cv::cuda::threshold(frameBGRCPU, frameBGRCPU, IMAGE_PROPS.pupil.threshold, 255, cv::THRESH_BINARY_INV);
             cv::imshow(windowName, frameBGRCPU);
             if (vwOutput.isOpened()) vwOutput.write(frameBGRCPU);
 
