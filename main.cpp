@@ -65,7 +65,6 @@ int fail(Error e) {
 }
 
 int main(int argc, char* argv[]) {
-    setenv("DISPLAY", "10.240.102.212:0", true);
     // Use a pointer to abstract away the type of VideoCapture (either a video file or an IDS camera)
     cv::VideoCapture video;
     cv::VideoWriter vwInput, vwOutput;
@@ -84,13 +83,13 @@ int main(int argc, char* argv[]) {
                                      .exposureTime = 5, .gain = 200};
 
     const Positions POSITIONS(27.119, {0, 0, -327});
-    const ImageProperties IMAGE_PROPS = {.ROI = {200, 150, 850, 650},
+    const ImageProperties IMAGE_PROPS = {.ROI = {350, 500, 300, 300},
     //Dmitry
 //  .pupil = {2, 66, 90}, .iris = {5, 110, 150}, .maxPupilIrisSeparation = 12.24};
     //Radek
 //  .pupil = {30, 40, 80}, .iris = {90, 100, 300}, .maxPupilIrisSeparation = 200.24};
     //Blender
-    .pupil = {20, 40, 90}, .iris = {90, 100, 300}, .maxPupilIrisSeparation = 200.24};
+    .pupil = {26, 50, 90}};
 
     Tracker tracker(EYE, CAMERA, POSITIONS);
 
@@ -139,16 +138,6 @@ int main(int argc, char* argv[]) {
         else return fail(Error::WRONG_CUDA_INDEX);
     }
 
-//    cv::cuda::GpuMat spots;
-//    spots.upload(cv::imread("template_blender" + std::string(argv[3]) + ".png", cv::IMREAD_GRAYSCALE));
-
-    cv::cuda::GpuMat spots1, spots2;
-    spots1.upload(cv::imread("template.png", cv::IMREAD_GRAYSCALE));
-    spots2.upload(cv::imread("template.png", cv::IMREAD_GRAYSCALE));
-
-
-    cv::Ptr<cv::cuda::TemplateMatching> spotsMatcher = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF_NORMED);
-
     cv::Mat frameBGRCPU, frameCPU, correlationCPU;
     cv::cuda::GpuMat frameBGR, frame, correlation1, correlation2;
 //    cv::Mat maskCPU;
@@ -158,7 +147,6 @@ int main(int argc, char* argv[]) {
     std::chrono::time_point<std::chrono::steady_clock> last_frame_time = std::chrono::steady_clock::now();
     int frameIndex = 0;
 
-    cv::cuda::Stream streamSpots;
     #ifndef HEADLESS
         cv::cuda::Stream streamDisplay;
         std::ostringstream fpsText;
@@ -234,18 +222,106 @@ int main(int argc, char* argv[]) {
             }
         #endif
 
-        spotsMatcher->match(frame, spots1, correlation1, streamSpots);
-        spotsMatcher->match(frame, spots2, correlation2, streamSpots);
         std::vector<RatedCircleCentre> pupils = findCircles(frame, IMAGE_PROPS.pupil);
+        int totalPoints = 7;
         int pupilRadius = 32;
+        int glintSize = 16;
 
         if (pupils.size() > 0) {
             std::vector<RatedCircleCentre>::const_iterator bestPupil = std::max_element(pupils.cbegin(), pupils.cend());
             cv::Point2f correctedPoint(bestPupil->point.x + cv::theRNG().gaussian(sigma), bestPupil->point.y + cv::theRNG().gaussian(sigma));
             KF_pupil.correct(toMat(static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + (correctedPoint)));
-            pupil = static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + (correctedPoint);
+            pupil = toPoint(KF_pupil.predict());
             pupilRadius = (int)bestPupil->radius;
         }
+
+//        cv::cuda::threshold(frame, frame, 150, 255, cv::THRESH_TOZERO_INV);
+
+        cv::Point maxLoc[totalPoints];
+        cv::Point glints[totalPoints];
+        float mean[2], stddev[2];
+
+        mean[0] = 0.0f;
+        mean[1] = 0.0f;
+        stddev[0] = 0.0f;
+        stddev[1] = 0.0f;
+        double maxVal;
+
+
+        for (int i = 0; i < totalPoints; i++) {
+            cv::cuda::minMaxLoc(frame, nullptr, &maxVal, nullptr, &maxLoc[i]);
+            int x = std::clamp(maxLoc[i].x - glintSize / 2, 0, IMAGE_PROPS.ROI.width);
+            int y = std::clamp(maxLoc[i].y - glintSize / 2, 0, IMAGE_PROPS.ROI.height);
+            int width = std::clamp(x + glintSize, 0, IMAGE_PROPS.ROI.width) - x;
+            int height = std::clamp(y + glintSize, 0, IMAGE_PROPS.ROI.height) - y;
+            cv::Rect glint = cv::Rect(x, y, width, height);
+            frame(glint).setTo(0);
+            maxLoc[i] += IMAGE_PROPS.ROI.tl();
+            mean[0] += (float)maxLoc[i].x;
+            mean[1] += (float)maxLoc[i].y;
+        }
+        mean[0] /= totalPoints;
+        mean[1] /= totalPoints;
+
+        for (int i = 0; i < totalPoints; i++) {
+            stddev[0] += (mean[0] - (float)maxLoc[i].x) * (mean[0] - (float)maxLoc[i].x);
+            stddev[1] += (mean[1] - (float)maxLoc[i].y) * (mean[1] - (float)maxLoc[i].y);
+        }
+
+        stddev[0] = sqrt(stddev[0] / totalPoints);
+        stddev[1] = sqrt(stddev[1] / totalPoints);
+
+        int k = 0;
+        for (int i = 0; i < totalPoints; i++) {
+            if (abs(mean[0] - (float)maxLoc[i].x) < 1.5 * stddev[0] && abs(mean[1] - (float)maxLoc[i].y) < 1.5 * stddev[1]) {
+                glints[k] = maxLoc[i];
+                k++;
+            }
+        }
+
+        totalPoints = k;
+        mean[0] = 0.0f;
+        mean[1] = 0.0f;
+        for (int i = 0; i < totalPoints; i++) {
+            mean[0] += (float)glints[i].x;
+            mean[1] += (float)glints[i].y;
+        }
+        mean[0] /= totalPoints;
+        mean[1] /= totalPoints;
+
+        cv::Point maxLoc1, maxLoc2;
+        float best_distance = 999999;
+
+        for (int i = 0; i < totalPoints; i++) {
+            float distance = (mean[0] - (float) glints[i].x) * (mean[0] - (float) glints[i].x);
+            if (distance < best_distance) {
+                maxLoc1 = glints[i];
+                best_distance = distance;
+                k = i;
+            }
+        }
+
+        best_distance = 999999;
+        for (int i = 0; i < totalPoints; i++) {
+            if (i == k) {
+                continue;
+            }
+            float distance = (maxLoc1.x - (float) glints[i].x) * (maxLoc1.x - (float) glints[i].x);
+            if (distance < best_distance) {
+                maxLoc2 = glints[i];
+                best_distance = distance;
+            }
+        }
+
+
+        if (maxLoc1.y > maxLoc2.y) {
+            swap(maxLoc1, maxLoc2);
+        }
+
+        KF_reflection1.correct((KFMat(2, 1) << maxLoc1.x, maxLoc1.y));
+        reflection1 = toPoint(KF_reflection1.predict());
+        KF_reflection2.correct((KFMat(2, 1) << maxLoc2.x, maxLoc2.y));
+        reflection2 = toPoint(KF_reflection2.predict());
 
         #ifndef HEADLESS
             cv::cuda::cvtColor(frame, frame, cv::COLOR_GRAY2BGR, 0, streamDisplay);
@@ -255,47 +331,8 @@ int main(int argc, char* argv[]) {
                                      IMAGE_PROPS.ROI.x,
                                      CAMERA.resolution.width - IMAGE_PROPS.ROI.x - IMAGE_PROPS.ROI.width,
                                      cv::BORDER_CONSTANT, 0, streamDisplay);
-            cv::cuda::addWeighted(frameBGR, 0.75, frame, 0.25, 0, frameBGR, -1, streamDisplay);
+//            cv::cuda::addWeighted(frameBGR, 0.75, frame, 0.25, 0, frameBGR, -1, streamDisplay);
         #endif
-
-        double maxVal1 = -1, maxVal2 = -1;
-        cv::Point2i maxLoc1 = None;
-        cv::Point2i maxLoc2 = None;
-        streamSpots.waitForCompletion();
-
-
-//        correlation.download(correlationCPU);
-//        maskCPU = cv::Mat::ones(correlationCPU.size(), CV_8UC1);
-        cv::cuda::minMaxLoc(correlation1, nullptr, &maxVal1, nullptr, &maxLoc1);
-//        correlation.download(correlationCPU);
-//
-//        maxLoc1.x = std::max(maxLoc1.x, spots.cols/2);
-//        maxLoc1.y = std::max(maxLoc1.y, spots.rows/2);
-//        maxLoc1.x = std::min(maxLoc1.x, correlationCPU.cols - spots.cols/2);
-//        maxLoc1.y = std::max(maxLoc1.y, correlationCPU.rows - spots.rows/2);
-//
-//        correlationCPU(cv::Rect(cv::Point(maxLoc1.x - spots.cols/2, maxLoc1.y - spots.rows/2), cv::Point(maxLoc1.x + spots.cols/2, maxLoc1.y + spots.rows/2))).setTo(0.0f);
-//
-//        correlation.upload(correlationCPU);
-        cv::cuda::minMaxLoc(correlation2, nullptr, &maxVal2, nullptr, &maxLoc2);
-//        if (maxLoc1.x > maxLoc2.x) {
-//            std::swap(maxLoc1, maxLoc2);
-//            std::swap(maxVal1, maxVal2);
-//        }
-
-        if (maxLoc1.y > 0 and maxLoc1.x > 0 and maxVal1 > IMAGE_PROPS.templateMatchingThreshold) {
-            maxLoc1 += IMAGE_PROPS.ROI.tl();
-            KF_reflection1.correct((KFMat(2, 1) << maxLoc1.x + spots1.cols/2 + cv::theRNG().gaussian(sigma), maxLoc1.y + spots1.rows/2 + cv::theRNG().gaussian(sigma)));
-            cv::Point2f correctedPoint(maxLoc1.x + spots1.cols/2 + cv::theRNG().gaussian(sigma), maxLoc1.y + spots1.rows/2 + cv::theRNG().gaussian(sigma));
-            reflection1 = correctedPoint;
-        }
-
-        if (maxLoc2.y > 0 and maxLoc2.x > 0 and maxVal2 > IMAGE_PROPS.templateMatchingThreshold) {
-            maxLoc2 += IMAGE_PROPS.ROI.tl();
-            KF_reflection2.correct((KFMat(2, 1) << maxLoc2.x + spots2.cols/2 + cv::theRNG().gaussian(sigma), maxLoc2.y + spots2.rows/2 + cv::theRNG().gaussian(sigma)));
-            cv::Point2f correctedPoint(maxLoc2.x + spots2.cols/2 + cv::theRNG().gaussian(sigma), maxLoc2.y + spots2.rows/2 + cv::theRNG().gaussian(sigma));
-            reflection2 = correctedPoint;
-        }
 
         EyePosition eyePos;
 
@@ -325,8 +362,13 @@ int main(int argc, char* argv[]) {
              * However, instead of using cv::circle and cv::putText, we would have to use OpenGL functions directly.
              * This would be a lot of effort for a very marginal performance benefit. */
             frameBGR.download(frameBGRCPU);
-//            if (reflection1 != None) cv::circle(frameBGRCPU, reflection1,  7, cv::Scalar(0x00, 0x00, 0xFF), 2);
-//            if (reflection2 != None) cv::circle(frameBGRCPU, reflection2,  7, cv::Scalar(0x00, 0x00, 0xFF), 2);
+
+//            for (int i = 0; i < totalPoints; i++) {
+//                cv::circle(frameBGRCPU, maxLoc[i],  glintSize/2, cv::Scalar(0x00, 0xFF, 0xFF), 2);
+//            }
+
+            if (reflection1 != None) cv::circle(frameBGRCPU, reflection1,  glintSize/2, cv::Scalar(0x00, 0x00, 0xFF), 2);
+            if (reflection2 != None) cv::circle(frameBGRCPU, reflection2,  glintSize/2, cv::Scalar(0x00, 0x00, 0xFF), 2);
             if (pupil != None) cv::circle(frameBGRCPU, pupil, pupilRadius, cv::Scalar(0xFF, 0x00, 0x00), 5);
 //            if (head != None) cv::circle(frameBGRCPU, head, 2, cv::Scalar(0x00, 0xFF, 0x00), 5);
             cv::putText(frameBGRCPU,

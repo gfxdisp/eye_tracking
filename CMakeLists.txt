@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(eye_tracker)
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_BUILD_TYPE release)
 file(GLOB SOURCES *.cpp)
 add_executable(eye_tracker ${SOURCES})
 
@@ -31,4 +30,4 @@ find_package(OpenCV REQUIRED)
 list(APPEND OpenCV_INCLUDE_DIRS ${CMAKE_PREFIX_PATH}/include/opencv4)
 target_include_directories(eye_tracker PUBLIC ${OpenCV_INCLUDE_DIRS})
 target_include_directories(eye_tracker PUBLIC ${OpenCV_INCLUDE_DIRS}/install/include/opencv4)
-target_link_libraries(eye_tracker ${OpenCV_LIBS})
+target_link_libraries(eye_tracker PUBLIC debug ${OpenCV_LIBS})

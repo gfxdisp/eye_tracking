@@ -55,7 +55,7 @@ namespace EyeTracking {
         //Radek
 //        float minRating = 0.2;
         //Blender
-        float minRating = 0.5;
+        float minRating = 0.1;
     };
 
     struct RatedCircleCentre {
@@ -95,8 +95,7 @@ namespace EyeTracking {
 
     struct ImageProperties {
         cv::Rect ROI;
-        CircleConstraints pupil, iris;
-        double maxPupilIrisSeparation; // px
+        CircleConstraints pupil;
         double templateMatchingThreshold = -1;
     };
 
