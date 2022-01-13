@@ -138,9 +138,35 @@ int main(int argc, char* argv[]) {
         else return fail(Error::WRONG_CUDA_INDEX);
     }
 
-    cv::Mat frameBGRCPU, frameCPU, correlationCPU;
-    cv::cuda::GpuMat frameBGR, frame, correlation1, correlation2;
-//    cv::Mat maskCPU;
+    cv::Mat frameBGRCPU;
+    cv::cuda::GpuMat frameBGR, frame, correlation, weightMapDistanceGPU, weightMapVerticalGPU;
+
+    cv::cuda::GpuMat spots;
+    cv::cuda::Stream streamSpots;
+    spots.upload(cv::imread("template.png", cv::IMREAD_GRAYSCALE));
+    cv::Ptr<cv::cuda::TemplateMatching> spotsMatcher = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF_NORMED);
+
+    int mapWidth = (IMAGE_PROPS.ROI.width - spots.cols + 1) * 2;
+    int mapHeight = (IMAGE_PROPS.ROI.height - spots.rows + 1) * 2;
+
+    cv::Mat weightMapDistance = cv::Mat(mapHeight, mapWidth, CV_32F);
+    cv::Mat weightMapVertical = cv::Mat(mapHeight, mapWidth, CV_32F);
+    float maxDistance = sqrt((mapWidth / 2) * (mapWidth / 2) + (mapHeight / 2) * (mapHeight / 2));
+    float maxVertical = pow(mapWidth / 2, 2);
+    for (int i = 0; i < mapHeight; i++) {
+        for (int j = 0; j < mapWidth; j++) {
+            float distance = sqrt((mapWidth / 2 - j) * (mapWidth / 2 - j) + (mapHeight / 2 - i) * (mapHeight / 2 - i));
+            float vertical = pow(mapWidth / 2 - j, 2);
+            weightMapDistance.at<float>(i, j) = 1 - distance / maxDistance;
+            weightMapVertical.at<float>(i, j) = vertical > 200.0f ? 0.0f : 1 - vertical / maxVertical;
+        }
+    }
+
+    weightMapDistanceGPU.upload(weightMapDistance);
+    weightMapVerticalGPU.upload(weightMapVertical);
+    cv::cuda::GpuMat croppedWeightMap = cv::cuda::GpuMat(mapHeight / 2, mapWidth / 2, CV_32F);
+    cv::cuda::GpuMat multipliedMap;
+    croppedWeightMap.setTo(1);
 
     cv::Point2f reflection1 = None, reflection2 = None, pupil = None, head = None;
 
@@ -226,6 +252,7 @@ int main(int argc, char* argv[]) {
         int totalPoints = 7;
         int pupilRadius = 32;
         int glintSize = 16;
+        cv::Point maxLoc1, maxLoc2;
 
         if (pupils.size() > 0) {
             std::vector<RatedCircleCentre>::const_iterator bestPupil = std::max_element(pupils.cbegin(), pupils.cend());
@@ -234,85 +261,56 @@ int main(int argc, char* argv[]) {
             pupil = toPoint(KF_pupil.predict());
             pupilRadius = (int)bestPupil->radius;
         }
-
-//        cv::cuda::threshold(frame, frame, 150, 255, cv::THRESH_TOZERO_INV);
-
-        cv::Point maxLoc[totalPoints];
-        cv::Point glints[totalPoints];
-        float mean[2], stddev[2];
-
-        mean[0] = 0.0f;
-        mean[1] = 0.0f;
-        stddev[0] = 0.0f;
-        stddev[1] = 0.0f;
         double maxVal;
+        cv::Point templateLoc[2];
 
+        spotsMatcher->match(frame, spots, correlation, streamSpots);
 
-        for (int i = 0; i < totalPoints; i++) {
-            cv::cuda::minMaxLoc(frame, nullptr, &maxVal, nullptr, &maxLoc[i]);
-            int x = std::clamp(maxLoc[i].x - glintSize / 2, 0, IMAGE_PROPS.ROI.width);
-            int y = std::clamp(maxLoc[i].y - glintSize / 2, 0, IMAGE_PROPS.ROI.height);
-            int width = std::clamp(x + glintSize, 0, IMAGE_PROPS.ROI.width) - x;
-            int height = std::clamp(y + glintSize, 0, IMAGE_PROPS.ROI.height) - y;
-            cv::Rect glint = cv::Rect(x, y, width, height);
+        cv::cuda::multiply(correlation, croppedWeightMap, multipliedMap);
+        cv::cuda::minMaxLoc(multipliedMap, nullptr, &maxVal, nullptr, &templateLoc[0]);
+        if (templateLoc[0].y > 0 and templateLoc[0].x > 0 and maxVal > IMAGE_PROPS.templateMatchingThreshold) {
+            cv::Rect glint = cv::Rect(templateLoc[0].x, templateLoc[0].y, spots.cols, spots.rows);
             frame(glint).setTo(0);
-            maxLoc[i] += IMAGE_PROPS.ROI.tl();
-            mean[0] += (float)maxLoc[i].x;
-            mean[1] += (float)maxLoc[i].y;
-        }
-        mean[0] /= totalPoints;
-        mean[1] /= totalPoints;
-
-        for (int i = 0; i < totalPoints; i++) {
-            stddev[0] += (mean[0] - (float)maxLoc[i].x) * (mean[0] - (float)maxLoc[i].x);
-            stddev[1] += (mean[1] - (float)maxLoc[i].y) * (mean[1] - (float)maxLoc[i].y);
+            templateLoc[0] += IMAGE_PROPS.ROI.tl();
+            templateLoc[0].x += spots.cols / 2;
+            templateLoc[0].y += spots.rows / 2;
         }
 
-        stddev[0] = sqrt(stddev[0] / totalPoints);
-        stddev[1] = sqrt(stddev[1] / totalPoints);
+        cv::Point pos;
+        pos.x = IMAGE_PROPS.ROI.width - templateLoc[0].x + IMAGE_PROPS.ROI.tl().x;
+        pos.y = IMAGE_PROPS.ROI.height - templateLoc[0].y + IMAGE_PROPS.ROI.tl().y;
 
-        int k = 0;
-        for (int i = 0; i < totalPoints; i++) {
-            if (abs(mean[0] - (float)maxLoc[i].x) < 1.5 * stddev[0] && abs(mean[1] - (float)maxLoc[i].y) < 1.5 * stddev[1]) {
-                glints[k] = maxLoc[i];
-                k++;
-            }
+        pos.x = std::clamp(pos.x, 0, IMAGE_PROPS.ROI.width - spots.cols + 1);
+        pos.y = std::clamp(pos.y, 0, IMAGE_PROPS.ROI.height - spots.rows + 1);
+
+        cv::Rect croppedRect = cv::Rect(pos.x, pos.y, IMAGE_PROPS.ROI.width - spots.cols + 1, IMAGE_PROPS.ROI.height - spots.rows + 1);
+        croppedWeightMap = weightMapVerticalGPU(croppedRect);
+
+        spotsMatcher->match(frame, spots, correlation, streamSpots);
+        cv::cuda::multiply(correlation, croppedWeightMap, multipliedMap);
+        cv::cuda::minMaxLoc(multipliedMap, nullptr, &maxVal, nullptr, &templateLoc[1]);
+        if (templateLoc[1].y > 0 and templateLoc[1].x > 0 and maxVal > IMAGE_PROPS.templateMatchingThreshold) {
+            cv::Rect glint = cv::Rect(templateLoc[1].x, templateLoc[1].y, spots.cols, spots.rows);
+            frame(glint).setTo(0);
+            templateLoc[1] += IMAGE_PROPS.ROI.tl();
+            templateLoc[1].x += spots.cols / 2;
+            templateLoc[1].y += spots.rows / 2;
         }
 
-        totalPoints = k;
-        mean[0] = 0.0f;
-        mean[1] = 0.0f;
-        for (int i = 0; i < totalPoints; i++) {
-            mean[0] += (float)glints[i].x;
-            mean[1] += (float)glints[i].y;
-        }
-        mean[0] /= totalPoints;
-        mean[1] /= totalPoints;
+        maxLoc1 = templateLoc[0];
+        maxLoc2 = templateLoc[1];
 
-        cv::Point maxLoc1, maxLoc2;
-        float best_distance = 999999;
+        pos.x = (maxLoc1.x + maxLoc2.x) / 2 - IMAGE_PROPS.ROI.tl().x;
+        pos.y = (maxLoc1.y + maxLoc2.y) / 2 - IMAGE_PROPS.ROI.tl().y;
 
-        for (int i = 0; i < totalPoints; i++) {
-            float distance = (mean[0] - (float) glints[i].x) * (mean[0] - (float) glints[i].x);
-            if (distance < best_distance) {
-                maxLoc1 = glints[i];
-                best_distance = distance;
-                k = i;
-            }
-        }
+        pos.x = IMAGE_PROPS.ROI.width - pos.x;
+        pos.y = IMAGE_PROPS.ROI.height - pos.y;
 
-        best_distance = 999999;
-        for (int i = 0; i < totalPoints; i++) {
-            if (i == k) {
-                continue;
-            }
-            float distance = (maxLoc1.x - (float) glints[i].x) * (maxLoc1.x - (float) glints[i].x);
-            if (distance < best_distance) {
-                maxLoc2 = glints[i];
-                best_distance = distance;
-            }
-        }
+        pos.x = std::clamp(pos.x, 0, IMAGE_PROPS.ROI.width - spots.cols + 1);
+        pos.y = std::clamp(pos.y, 0, IMAGE_PROPS.ROI.height - spots.rows + 1);
 
+        croppedRect = cv::Rect(pos.x, pos.y, IMAGE_PROPS.ROI.width - spots.cols + 1, IMAGE_PROPS.ROI.height - spots.rows + 1);
+        croppedWeightMap = weightMapDistanceGPU(croppedRect);
 
         if (maxLoc1.y > maxLoc2.y) {
             swap(maxLoc1, maxLoc2);

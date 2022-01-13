@@ -96,7 +96,7 @@ namespace EyeTracking {
     struct ImageProperties {
         cv::Rect ROI;
         CircleConstraints pupil;
-        double templateMatchingThreshold = -1;
+        double templateMatchingThreshold = 0;
     };
 
     struct Positions {
