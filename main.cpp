@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
 
     cv::KalmanFilter KF_reflection1 = tracker.makeICSKalmanFilter();
     cv::KalmanFilter KF_reflection2 = tracker.makeICSKalmanFilter();
-    cv::KalmanFilter KF_pupil      = tracker.makeICSKalmanFilter();
+    cv::KalmanFilter KF_pupil       = tracker.makeICSKalmanFilter();
 
     // Process arguments
     if (argc < 2) return fail(Error::ARGUMENTS);
@@ -189,6 +189,8 @@ int main(int argc, char* argv[]) {
         sigma = (float)(std::stoi(argv[4]));
     }
 
+    cv::Ptr<cv::cuda::HoughCirclesDetector> houghCircles = cv::cuda::createHoughCirclesDetector(1.0f, 7, 5, 70, 20, 90);
+
     while (true) {
         if (!video.read(frameBGRCPU) || frameBGRCPU.empty()) break; // Video has ended
 
@@ -248,19 +250,19 @@ int main(int argc, char* argv[]) {
             }
         #endif
 
-        std::vector<RatedCircleCentre> pupils = findCircles(frame, IMAGE_PROPS.pupil);
+//        std::vector<RatedCircleCentre> pupils = findCircles(frame, IMAGE_PROPS.pupil, meanPoint);
         int totalPoints = 7;
         int pupilRadius = 32;
         int glintSize = 16;
         cv::Point maxLoc1, maxLoc2;
 
-        if (pupils.size() > 0) {
-            std::vector<RatedCircleCentre>::const_iterator bestPupil = std::max_element(pupils.cbegin(), pupils.cend());
-            cv::Point2f correctedPoint(bestPupil->point.x + cv::theRNG().gaussian(sigma), bestPupil->point.y + cv::theRNG().gaussian(sigma));
-            KF_pupil.correct(toMat(static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + (correctedPoint)));
-            pupil = toPoint(KF_pupil.predict());
-            pupilRadius = (int)bestPupil->radius;
-        }
+//        if (pupils.size() > 0) {
+//            std::vector<RatedCircleCentre>::const_iterator bestPupil = std::max_element(pupils.cbegin(), pupils.cend());
+//            cv::Point2f correctedPoint(bestPupil->point.x + cv::theRNG().gaussian(sigma), bestPupil->point.y + cv::theRNG().gaussian(sigma));
+//            KF_pupil.correct(toMat(static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + (correctedPoint)));
+//            pupil = toPoint(KF_pupil.predict());
+//            pupilRadius = (int)bestPupil->radius;
+//        }
         double maxVal;
         cv::Point templateLoc[2];
 
@@ -321,6 +323,42 @@ int main(int argc, char* argv[]) {
         KF_reflection2.correct((KFMat(2, 1) << maxLoc2.x, maxLoc2.y));
         reflection2 = toPoint(KF_reflection2.predict());
 
+        frame.download(frameBGRCPU);
+        cv::GaussianBlur(frameBGRCPU, frameBGRCPU, cv::Size(15, 15), 3);
+        frame.upload(frameBGRCPU);
+
+        cv::cuda::GpuMat circlesGPU;
+        std::vector<cv::Vec3f> circles;
+        std::vector<cv::Vec3f> pupilCircles;
+        houghCircles->detect(frame, circlesGPU);
+        if (circlesGPU.rows > 0) {
+            circlesGPU.download(circles);
+        }
+
+        float mean[2] = {0.0f, 0.0f};
+        if (!circles.empty()) {
+            for (cv::Vec<float, 3> circle : circles) {
+                mean[0] += circle[0];
+                mean[1] += circle[1];
+            }
+            mean[0] /= circles.size();
+            mean[1] /= circles.size();
+            for (cv::Vec<float, 3> circle : circles) {
+                if (((circle[0] - mean[0]) * (circle[0] - mean[0]) + (circle[1] - mean[1]) * (circle[1] - mean[1])) < 2500) {
+                    pupilCircles.push_back(circle);
+                }
+            }
+        }
+
+        cv::Point2f meanPoint(0.0f, 0.0f);
+        for (auto circle : pupilCircles) {
+            meanPoint.x += circle[0];
+            meanPoint.y += circle[1];
+        }
+
+        meanPoint.x /= pupilCircles.size();
+        meanPoint.y /= pupilCircles.size();
+
         #ifndef HEADLESS
             cv::cuda::cvtColor(frame, frame, cv::COLOR_GRAY2BGR, 0, streamDisplay);
             cv::cuda::copyMakeBorder(frame, frame,
@@ -367,7 +405,30 @@ int main(int argc, char* argv[]) {
 
             if (reflection1 != None) cv::circle(frameBGRCPU, reflection1,  glintSize/2, cv::Scalar(0x00, 0x00, 0xFF), 2);
             if (reflection2 != None) cv::circle(frameBGRCPU, reflection2,  glintSize/2, cv::Scalar(0x00, 0x00, 0xFF), 2);
-            if (pupil != None) cv::circle(frameBGRCPU, pupil, pupilRadius, cv::Scalar(0xFF, 0x00, 0x00), 5);
+
+            mean[0] = 0.0f;
+            mean[1] = 0.0f;
+            float minRadius = 999.0f;
+            for (auto circle : pupilCircles) {
+                mean[0] += circle[0];
+                mean[1] += circle[1];
+                minRadius = std::min(circle[2], minRadius);
+            }
+
+            mean[0] /= pupilCircles.size();
+            mean[1] /= pupilCircles.size();
+            mean[0] += IMAGE_PROPS.ROI.x;
+            mean[1] += IMAGE_PROPS.ROI.y;
+
+            if (pupilCircles.size() > 0) {
+                KF_pupil.correct((KFMat(2, 1) << mean[0], mean[1]));
+                pupil = toPoint(KF_pupil.predict());
+            }
+
+            cv::circle(frameBGRCPU, pupil, 3, cv::Scalar(0xFF, 0x00, 0x00), 5);
+
+
+//            if (pupil != None) cv::circle(frameBGRCPU, pupil, pupilRadius, cv::Scalar(0xFF, 0x00, 0x00), 5);
 //            if (head != None) cv::circle(frameBGRCPU, head, 2, cv::Scalar(0x00, 0xFF, 0x00), 5);
             cv::putText(frameBGRCPU,
                         fpsText.str(),

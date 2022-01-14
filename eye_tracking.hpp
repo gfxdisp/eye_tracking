@@ -55,7 +55,7 @@ namespace EyeTracking {
         //Radek
 //        float minRating = 0.2;
         //Blender
-        float minRating = 0.1;
+        float minRating = 0;
     };
 
     struct RatedCircleCentre {
@@ -72,7 +72,7 @@ namespace EyeTracking {
     };
 
     // Detect dark circles in an image
-    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints);
+    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints, cv::Point2f meanPoint);
 
     struct CameraProperties {
         double FPS; // Hz
