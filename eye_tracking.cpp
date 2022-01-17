@@ -8,7 +8,7 @@
 namespace EyeTracking {
     using cv::Vec2d;
 
-    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints, cv::Point2f meanPoint) {
+    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints) {
         // these are static as they are reused between invocations
         const static cv::Mat morphologyElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(13, 13));
         const static cv::Ptr<cv::cuda::Filter> morphOpen  = cv::cuda::createMorphologyFilter(cv::MORPH_OPEN,  CV_8UC1, morphologyElement);
@@ -40,7 +40,6 @@ namespace EyeTracking {
             if (contour_area <= 0) continue;
             const float circle_area = 3.14159265358979323846 * std::pow(radius, 2);
             float rating = contour_area/circle_area;
-//            rating /= (meanPoint.x - centre.x) * (meanPoint.x - centre.x) + (meanPoint.y - centre.y) * (meanPoint.y - centre.y);
             if (rating >= constraints.minRating) result.push_back({centre, rating, radius});
         }
         return result;
