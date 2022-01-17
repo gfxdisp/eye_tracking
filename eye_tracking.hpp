@@ -72,7 +72,7 @@ namespace EyeTracking {
     };
 
     // Detect dark circles in an image
-    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints, cv::Point2f meanPoint);
+    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints);
 
     struct CameraProperties {
         double FPS; // Hz
