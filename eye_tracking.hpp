@@ -49,13 +49,15 @@ namespace EyeTracking {
         float minRadius, maxRadius; // in pixels
         /* For each contour detected in the image, the minimum enclosing circle is calculated.
          * If the contour fills minRating of the circle's area, it is considered circular. */
+        int dilationSize;
+        int erosionSize;
 
         //Dmitry
 //        float minRating = 0.78;
         //Radek
 //        float minRating = 0.2;
         //Blender
-        float minRating = 0;
+        float minRating = 0.5;
     };
 
     struct RatedCircleCentre {
@@ -72,7 +74,7 @@ namespace EyeTracking {
     };
 
     // Detect dark circles in an image
-    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints);
+    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints, cv::cuda::GpuMat& thresholded);
 
     struct CameraProperties {
         double FPS; // Hz
@@ -96,7 +98,7 @@ namespace EyeTracking {
     struct ImageProperties {
         cv::Rect ROI;
         CircleConstraints pupil;
-        double templateMatchingThreshold = 0;
+        double templateMatchingThreshold = 0.5;
     };
 
     struct Positions {

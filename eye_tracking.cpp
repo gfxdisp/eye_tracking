@@ -8,16 +8,25 @@
 namespace EyeTracking {
     using cv::Vec2d;
 
-    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints) {
+    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat &frame, CircleConstraints constraints, cv::cuda::GpuMat &thresholded) {
         // these are static as they are reused between invocations
         const static cv::Mat morphologyElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(13, 13));
-        const static cv::Ptr<cv::cuda::Filter> morphOpen  = cv::cuda::createMorphologyFilter(cv::MORPH_OPEN,  CV_8UC1, morphologyElement);
-        const static cv::Ptr<cv::cuda::Filter> morphClose = cv::cuda::createMorphologyFilter(cv::MORPH_CLOSE, CV_8UC1, morphologyElement);
+        const static cv::Ptr<cv::cuda::Filter> morphOpen = cv::cuda::createMorphologyFilter(cv::MORPH_OPEN, CV_8UC1,
+                                                                                            morphologyElement);
+        const static cv::Ptr<cv::cuda::Filter> morphClose = cv::cuda::createMorphologyFilter(cv::MORPH_CLOSE, CV_8UC1,
+                                                                                             morphologyElement);
 
-        cv::cuda::GpuMat thresholded;
+        const static cv::Mat dilateElement = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(constraints.dilationSize, constraints.dilationSize));
+        const static cv::Mat erodeElement = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(constraints.erosionSize, constraints.erosionSize));
+        const static cv::Ptr<cv::cuda::Filter> dilateFilter = cv::cuda::createMorphologyFilter(cv::MORPH_DILATE, CV_8UC1, dilateElement);
+        const static cv::Ptr<cv::cuda::Filter> erodeFilter = cv::cuda::createMorphologyFilter(cv::MORPH_ERODE, CV_8UC1, erodeElement);
+
+
         cv::cuda::threshold(frame, thresholded, constraints.threshold, 255, cv::THRESH_BINARY_INV);
-        morphOpen->apply(thresholded, thresholded);
-        morphClose->apply(thresholded, thresholded);
+        dilateFilter->apply(thresholded, thresholded);
+        erodeFilter->apply(thresholded, thresholded);
+//        morphOpen->apply(thresholded, thresholded);
+//        morphClose->apply(thresholded, thresholded);
 
         // Have to download the frame from the GPU to work with contours
         const cv::Mat thresh_cpu(thresholded);
@@ -25,7 +34,7 @@ namespace EyeTracking {
         std::vector<cv::Vec4i> hierarchy; // Unused output
         std::vector<RatedCircleCentre> result;
         cv::findContours(thresh_cpu, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-        for (const std::vector<cv::Point>& contour : contours) {
+        for (const std::vector<cv::Point> &contour: contours) {
             /* For each contour:
              * - calculate the minimum enclosing circle
              * - if its radius is outside the range given by constraints, skip it
@@ -39,7 +48,7 @@ namespace EyeTracking {
             const float contour_area = cv::contourArea(contour);
             if (contour_area <= 0) continue;
             const float circle_area = 3.14159265358979323846 * std::pow(radius, 2);
-            float rating = contour_area/circle_area;
+            float rating = contour_area / circle_area;
             if (rating >= constraints.minRating) result.push_back({centre, rating, radius});
         }
         return result;
@@ -50,29 +59,31 @@ namespace EyeTracking {
          * from sphereCentre. This can be expressed as a quadratic in k: ak² + bk + c = radius². */
         const double a = cv::norm(lineDirection, cv::NORM_L2SQR);
         const double b = 2 * lineDirection.dot(linePoint - sphereCentre);
-        const double c = cv::norm(linePoint, cv::NORM_L2SQR) + cv::norm(sphereCentre, cv::NORM_L2SQR) - 2 * linePoint.dot(sphereCentre);
+        const double c = cv::norm(linePoint, cv::NORM_L2SQR) + cv::norm(sphereCentre, cv::NORM_L2SQR) -
+                         2 * linePoint.dot(sphereCentre);
         const double DISCRIMINANT = std::pow(b, 2) - 4 * a * (c - std::pow(radius, 2));
-        if (std::abs(DISCRIMINANT) < 1e-6) return {linePoint - lineDirection*b/(2*a)}; // One solution
+        if (std::abs(DISCRIMINANT) < 1e-6) return {linePoint - lineDirection * b / (2 * a)}; // One solution
         else if (DISCRIMINANT < 0) return {}; // No solutions
         else { // Two solutions
             const double sqrtDISCRIMINANT = std::sqrt(DISCRIMINANT);
-            return {linePoint + lineDirection*(-b+sqrtDISCRIMINANT)/(2*a),
-                    linePoint + lineDirection*(-b-sqrtDISCRIMINANT)/(2*a)};
+            return {linePoint + lineDirection * (-b + sqrtDISCRIMINANT) / (2 * a),
+                    linePoint + lineDirection * (-b - sqrtDISCRIMINANT) / (2 * a)};
         }
     }
 
     cv::KalmanFilter Tracker::makeICSKalmanFilter() const {
         constexpr static double VELOCITY_DECAY = 0.9;
-        const static cv::Mat TRANSITION_MATRIX  = (KFMat(4, 4) << 1, 0, camera.dt(), 0,
-                                                                  0, 1, 0, camera.dt(),
-                                                                  0, 0, VELOCITY_DECAY, 0,
-                                                                  0, 0, 0, VELOCITY_DECAY);
+        const static cv::Mat TRANSITION_MATRIX = (KFMat(4, 4) << 1, 0, camera.dt(), 0,
+                0, 1, 0, camera.dt(),
+                0, 0, VELOCITY_DECAY, 0,
+                0, 0, 0, VELOCITY_DECAY);
         const static cv::Mat MEASUREMENT_MATRIX = (KFMat(2, 4) << 1, 0, 0, 0,
-                                                                  0, 1, 0, 0);
+                0, 1, 0, 0);
         const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(4, 4, CV_64F) * 100;
         const static cv::Mat MEASUREMENT_NOISE_COV = cv::Mat::eye(2, 2, CV_64F) * 50;
         const static cv::Mat ERROR_COV_POST = cv::Mat::eye(4, 4, CV_64F) * 0.1;
-        const static cv::Mat STATE_POST = (KFMat(4, 1) << camera.resolution.width/2.0, camera.resolution.height/2.0, 0, 0);
+        const static cv::Mat STATE_POST = (KFMat(4, 1) << camera.resolution.width / 2.0, camera.resolution.height /
+                                                                                         2.0, 0, 0);
 
         cv::KalmanFilter KF(4, 2);
         // clone() is needed as, otherwise, the matrices will be used by reference, and all the filters will be the same
@@ -88,12 +99,12 @@ namespace EyeTracking {
 
     cv::KalmanFilter Tracker::makeWCSKalmanFilter() const {
         constexpr static double VELOCITY_DECAY = 0.9;
-        const static cv::Mat TRANSITION_MATRIX  = (KFMat(6, 6) << 1, 0, 0, camera.dt(), 0, 0,
-                                                                  0, 1, 0, 0, camera.dt(), 0,
-                                                                  0, 0, 1, 0, 0, camera.dt(),
-                                                                  0, 0, 0, VELOCITY_DECAY, 0, 0,
-                                                                  0, 0, 0, 0, VELOCITY_DECAY, 0,
-                                                                  0, 0, 0, 0, 0, VELOCITY_DECAY);
+        const static cv::Mat TRANSITION_MATRIX = (KFMat(6, 6) << 1, 0, 0, camera.dt(), 0, 0,
+                0, 1, 0, 0, camera.dt(), 0,
+                0, 0, 1, 0, 0, camera.dt(),
+                0, 0, 0, VELOCITY_DECAY, 0, 0,
+                0, 0, 0, 0, VELOCITY_DECAY, 0,
+                0, 0, 0, 0, 0, VELOCITY_DECAY);
         const static cv::Mat MEASUREMENT_MATRIX = cv::Mat::eye(3, 6, CV_64F);
         const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(6, 6, CV_64F) * 100;
         const static cv::Mat MEASUREMENT_NOISE_COV = cv::Mat::eye(3, 3, CV_64F) * 50;
@@ -113,8 +124,8 @@ namespace EyeTracking {
     }
 
     Vec3d Tracker::ICStoCCS(Point2d point) const {
-        const double x = camera.pixelPitch * (point.x - camera.resolution.width/2.0);
-        const double y = camera.pixelPitch * (point.y - camera.resolution.height/2.0);
+        const double x = camera.pixelPitch * (point.x - camera.resolution.width / 2.0);
+        const double y = camera.pixelPitch * (point.y - camera.resolution.height / 2.0);
         return {x, y, -positions.lambda};
     }
 
@@ -131,7 +142,7 @@ namespace EyeTracking {
     }
 
     Point2d Tracker::CCStoICS(Vec3d point) const {
-        return static_cast<Point2d>(camera.resolution)/2 + Point2d(point(0), point(1))/camera.pixelPitch;
+        return static_cast<Point2d>(camera.resolution) / 2 + Point2d(point(0), point(1)) / camera.pixelPitch;
     }
 
     Vec3d Tracker::project(Vec3d point) const {
@@ -139,7 +150,8 @@ namespace EyeTracking {
     }
 
     Point2d Tracker::unproject(Vec3d point) const {
-        return WCStoICS((point - (1 + positions.cameraEyeProjectionFactor) * positions.nodalPoint)/-positions.cameraEyeProjectionFactor);
+        return WCStoICS((point - (1 + positions.cameraEyeProjectionFactor) * positions.nodalPoint) /
+                        -positions.cameraEyeProjectionFactor);
     }
 
     EyePosition Tracker::correct(Point2f reflectionPixel, Point2f pupilPixel, Vec3d light) {
@@ -195,8 +207,7 @@ namespace EyeTracking {
              * It will also break the logic used to distinguish between duplicate solutions of quadratics
              * (which assumes that the eye is facing roughly in the negative z direction). */
             return {};
-        }
-        else { // Far more likely
+        } else { // Far more likely
             // We now consider z = 0 and z = 1, and find two points (x, y, 0) and (x', y', 1), which define the line.
             Vec2d b(loqo.dot(positions.nodalPoint), oqlqlqoq.dot(reflection));
             Vec2d lastRow(loqo(2), oqlqlqoq(2));
@@ -224,7 +235,8 @@ namespace EyeTracking {
 
             // (6): We now project the pupil from the image sensor (flat) onto the cornea (spherical).
             Vec3d pupilImage = ICStoWCS(pupilPixel);
-            intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.R, pupilImage, positions.nodalPoint - pupilImage);
+            intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.R, pupilImage,
+                                                    positions.nodalPoint - pupilImage);
             std::optional<Vec3d> pupil;
             switch (intersections.size()) {
                 case 1:
@@ -250,7 +262,7 @@ namespace EyeTracking {
              * normal at the point of refraction of the pupil centre.
              * The ‖p - r‖ term cancels, and we are left with
              * n1orrcor * ‖r - c‖ = 1 / sin(π+θ). */
-            double angle = std::asin(-1/(n1orrcor * cv::norm(*pupil - *corneaCurvatureCentre))); // θ
+            double angle = std::asin(-1 / (n1orrcor * cv::norm(*pupil - *corneaCurvatureCentre))); // θ
             /* We now have three constraints on p: a plane, the angle ∠PRC, and the sphere of radius K centred on c.
              * It is easy to combine the first two contraints: (7) states that p, r, o and c are coplanar.
              * Furthermore, ∠PRC is known. This allows us to construct a ray from r in the direction of p, which lies
@@ -288,9 +300,11 @@ namespace EyeTracking {
              * NB: The eye is not actually spherical, so this may move around in unexpected ways. */
 
             Vec3d eyeCentre = *pupilCentre + eye.D * (*corneaCurvatureCentre - *pupilCentre)
-                                                    / cv::norm(*corneaCurvatureCentre - *pupilCentre);
+                                             / cv::norm(*corneaCurvatureCentre - *pupilCentre);
 
-            KF.correct((KFMat(3, 1) << (*corneaCurvatureCentre)(0), (*corneaCurvatureCentre)(1), (*corneaCurvatureCentre)(2)));
+            KF.correct(
+                    (KFMat(3, 1) << (*corneaCurvatureCentre)(0), (*corneaCurvatureCentre)(1), (*corneaCurvatureCentre)(
+                            2)));
 
             return {corneaCurvatureCentre, pupilCentre, eyeCentre};
         }
@@ -300,7 +314,8 @@ namespace EyeTracking {
         return {{}, {}, KF.predict()};
     }
 
-    EyePosition Tracker::correct2(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, Vec3d light1, Vec3d light2) {
+    EyePosition Tracker::correct2(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, Vec3d light1,
+                                  Vec3d light2) {
         /* This code is based on Guestrin & Eizenman, pp1125-1126.
          * Algorithm:
          * - convert reflectionPixel to the WCS
@@ -361,8 +376,7 @@ namespace EyeTracking {
              * It will also break the logic used to distinguish between duplicate solutions of quadratics
              * (which assumes that the eye is facing roughly in the negative z direction). */
             return {};
-        }
-        else { // Far more likely
+        } else { // Far more likely
             // We now consider z = 0 and z = 1, and find two points (x, y, 0) and (x', y', 1), which define the line.
             Vec2d b1(loqo1.dot(positions.nodalPoint), oqlqlqoq1.dot(reflection1));
             Vec2d b2(loqo2.dot(positions.nodalPoint), oqlqlqoq2.dot(reflection2));
@@ -412,7 +426,8 @@ namespace EyeTracking {
 
             // (6): We now project the pupil from the image sensor (flat) onto the cornea (spherical).
             Vec3d pupilImage = ICStoWCS(pupilPixel);
-            intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.R, pupilImage, positions.nodalPoint - pupilImage);
+            intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.R, pupilImage,
+                                                    positions.nodalPoint - pupilImage);
             std::optional<Vec3d> pupil;
             switch (intersections.size()) {
                 case 1:
@@ -438,7 +453,7 @@ namespace EyeTracking {
              * normal at the point of refraction of the pupil centre.
              * The ‖p - r‖ term cancels, and we are left with
              * n1orrcor * ‖r - c‖ = 1 / sin(π+θ). */
-            double angle = std::asin(-1/(n1orrcor * cv::norm(*pupil - *corneaCurvatureCentre))); // θ
+            double angle = std::asin(-1 / (n1orrcor * cv::norm(*pupil - *corneaCurvatureCentre))); // θ
             /* We now have three constraints on p: a plane, the angle ∠PRC, and the sphere of radius K centred on c.
              * It is easy to combine the first two contraints: (7) states that p, r, o and c are coplanar.
              * Furthermore, ∠PRC is known. This allows us to construct a ray from r in the direction of p, which lies
@@ -456,8 +471,8 @@ namespace EyeTracking {
              * the point of refraction. However, because of how the cross products are oriented, the positive direction
              * seems to be the right one. */
             Vec3d direction = (*corneaCurvatureCentre - *pupil) * std::cos(angle)
-                        / cv::norm(*corneaCurvatureCentre - *pupil)
-                        + perpendicular * std::abs(std::sin(angle)); // w
+                              / cv::norm(*corneaCurvatureCentre - *pupil)
+                              + perpendicular * std::abs(std::sin(angle)); // w
             intersections = lineSphereIntersections(*corneaCurvatureCentre, eye.K, *pupil, direction);
             std::optional<Vec3d> pupilCentre;
             switch (intersections.size()) {
@@ -478,7 +493,9 @@ namespace EyeTracking {
             Vec3d eyeCentre = *pupilCentre + eye.D * (*corneaCurvatureCentre - *pupilCentre)
                                              / cv::norm(*corneaCurvatureCentre - *pupilCentre);
 
-            KF.correct((KFMat(3, 1) << (*corneaCurvatureCentre)(0), (*corneaCurvatureCentre)(1), (*corneaCurvatureCentre)(2)));
+            KF.correct(
+                    (KFMat(3, 1) << (*corneaCurvatureCentre)(0), (*corneaCurvatureCentre)(1), (*corneaCurvatureCentre)(
+                            2)));
 
             return {corneaCurvatureCentre, pupilCentre, eyeCentre};
         }
