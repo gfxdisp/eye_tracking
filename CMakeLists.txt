@@ -7,16 +7,6 @@ add_executable(eye_tracker ${SOURCES})
 if(NOT CMAKE_PREFIX_PATH)
     set(CMAKE_PREFIX_PATH /usr/local)
 endif()
-
-# flags
-option(HEADLESS "Headless (no GUI)" OFF)
-if(HEADLESS)
-    message(STATUS "Building in headless mode (without GUI).")
-    add_compile_definitions(HEADLESS)
-else()
-    message(STATUS "Building with GUI support.")
-endif()
-#add_compile_definitions(HEADLESS)
 # ccache
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
