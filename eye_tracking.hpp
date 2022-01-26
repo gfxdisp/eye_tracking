@@ -1,7 +1,9 @@
 #pragma once
+
 #include <opencv2/core.hpp>
 #include <opencv2/video/tracking.hpp> // cv::KalmanFilter
 #include <vector>
+
 namespace EyeTracking {
     /* Three coordinate systems are used in this file (as by Guestrin & Eizenman).
      * The ICS (image coordinate system) is a 2D Cartesian system for positions of pixels in the image.
@@ -65,24 +67,27 @@ namespace EyeTracking {
         Point2f point = {-1, -1};
         float rating = std::numeric_limits<float>::infinity();
         float radius = 0;
-        inline bool operator<(const RatedCircleCentre& other) const {
+
+        inline bool operator<(const RatedCircleCentre &other) const {
             return rating < other.rating;
         }
-        inline bool operator>(const RatedCircleCentre& other) const {
+
+        inline bool operator>(const RatedCircleCentre &other) const {
             return rating > other.rating;
         }
     };
 
     // Detect dark circles in an image
-    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat& frame, CircleConstraints constraints, cv::cuda::GpuMat& thresholded);
+    std::vector<RatedCircleCentre>
+    findCircles(const cv::cuda::GpuMat &frame, CircleConstraints constraints, cv::cuda::GpuMat &thresholded);
 
     struct CameraProperties {
         double FPS; // Hz
-        inline double dt() const { return 1/FPS; } // s
+        inline double dt() const { return 1 / FPS; } // s
         cv::Size2i resolution; // px
         double pixelPitch; // mm
         double exposureTime; // ms (probably)
-        double gain; // range and units depend on camera
+        double gamma;
     };
 
     struct EyeProperties {
@@ -108,49 +113,66 @@ namespace EyeTracking {
         Matx33d rotation; // dimensionless; rotation matrix from CCS to WCS
         double cameraEyeDistance; // mm; Z-axis distance from camera to Purkyně reflection
         double cameraEyeProjectionFactor;
+
         inline Positions(double lambda,
                          Vec3d nodalPoint,
-                         Matx33d rotation = Matx33d::eye()):
-            lambda(lambda),
-            nodalPoint(nodalPoint),
-            rotation(rotation),
-            cameraEyeDistance(-nodalPoint(2)),
-            cameraEyeProjectionFactor(cameraEyeDistance/lambda) {};
+                         Matx33d rotation = Matx33d::eye()) :
+                lambda(lambda),
+                nodalPoint(nodalPoint),
+                rotation(rotation),
+                cameraEyeDistance(-nodalPoint(2)),
+                cameraEyeProjectionFactor(cameraEyeDistance / lambda) {};
     };
 
     class Tracker {
         // Class encapsulating the state of the eye tracker
-        protected:
-            cv::KalmanFilter KF;
-            const EyeProperties eye;
-            const CameraProperties camera;
-            const Positions positions;
-        public:
-            // Create Kálmán filters with default settings, for use in the ICS or WCS
-            cv::KalmanFilter makeICSKalmanFilter() const;
-            cv::KalmanFilter makeWCSKalmanFilter() const;
+    protected:
+        cv::KalmanFilter KF;
+        const EyeProperties eye;
+        const CameraProperties camera;
+        const Positions positions;
+        EyePosition eyePosition;
+        bool eyePositionUpdated = false;
+        std::mutex mtx;
+    public:
+        // Create Kálmán filters with default settings, for use in the ICS or WCS
+        cv::KalmanFilter makeICSKalmanFilter() const;
 
-            // Conversions between coordinate systems (see top of this file)
-            Vec3d ICStoCCS(Point2d point) const;
-            Vec3d CCStoWCS(Vec3d point) const;
-            Vec3d WCStoCCS(Vec3d point) const;
-            Point2d CCStoICS(Vec3d point) const;
-            inline Vec3d ICStoWCS(Point2d point) const { return CCStoWCS(ICStoCCS(point)); }
-            inline Point2d WCStoICS(Vec3d point) const { return CCStoICS(WCStoCCS(point)); }
+        cv::KalmanFilter makeWCSKalmanFilter() const;
 
-            // Projecting a point from the camera's image plane onto the cornea
-            Vec3d project(Vec3d point) const;
-            inline Vec3d project(Point2f point) const { return project(ICStoWCS(point)); }
-            Point2d unproject(Vec3d point) const; // inverse of project()
+        // Conversions between coordinate systems (see top of this file)
+        Vec3d ICStoCCS(Point2d point) const;
 
-            inline Tracker(EyeProperties eye, CameraProperties camera, Positions positions):
+        Vec3d CCStoWCS(Vec3d point) const;
+
+        Vec3d WCStoCCS(Vec3d point) const;
+
+        Point2d CCStoICS(Vec3d point) const;
+
+        inline Vec3d ICStoWCS(Point2d point) const { return CCStoWCS(ICStoCCS(point)); }
+
+        inline Point2d WCStoICS(Vec3d point) const { return CCStoICS(WCStoCCS(point)); }
+
+        // Projecting a point from the camera's image plane onto the cornea
+        Vec3d project(Vec3d point) const;
+
+        inline Vec3d project(Point2f point) const { return project(ICStoWCS(point)); }
+
+        Point2d unproject(Vec3d point) const; // inverse of project()
+
+        inline Tracker(EyeProperties eye, CameraProperties camera, Positions positions) :
                 eye(eye), camera(camera), positions(positions), KF(makeWCSKalmanFilter()) {};
 
-            /* Submit a measurement to the Kálmán filter. The return value bypasses the Kálmán filter, i.e. the eye
-             * position is calculated directly from the inputs without considering previous states. */
-            EyePosition correct(Point2f reflectionPixel, Point2f pupilPixel, Vec3d light);
-            EyePosition correct2(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, Vec3d light1, Vec3d light2);
-            // Read a prediction from the Kálmán filter
-            EyePosition predict();
+        /* Submit a measurement to the Kálmán filter. The return value bypasses the Kálmán filter, i.e. the eye
+         * position is calculated directly from the inputs without considering previous states. */
+        EyePosition correct(Point2f reflectionPixel, Point2f pupilPixel, Vec3d light);
+
+        EyePosition
+        correct2(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, Vec3d light1, Vec3d light2);
+
+        void getEyePosition(EyePosition &eyePosition);
+
+        // Read a prediction from the Kálmán filter
+        EyePosition predict();
     };
 }

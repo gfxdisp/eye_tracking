@@ -8,7 +8,8 @@
 namespace EyeTracking {
     using cv::Vec2d;
 
-    std::vector<RatedCircleCentre> findCircles(const cv::cuda::GpuMat &frame, CircleConstraints constraints, cv::cuda::GpuMat &thresholded) {
+    std::vector<RatedCircleCentre>
+    findCircles(const cv::cuda::GpuMat &frame, CircleConstraints constraints, cv::cuda::GpuMat &thresholded) {
         // these are static as they are reused between invocations
         const static cv::Mat morphologyElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(13, 13));
         const static cv::Ptr<cv::cuda::Filter> morphOpen = cv::cuda::createMorphologyFilter(cv::MORPH_OPEN, CV_8UC1,
@@ -16,10 +17,15 @@ namespace EyeTracking {
         const static cv::Ptr<cv::cuda::Filter> morphClose = cv::cuda::createMorphologyFilter(cv::MORPH_CLOSE, CV_8UC1,
                                                                                              morphologyElement);
 
-        const static cv::Mat dilateElement = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(constraints.dilationSize, constraints.dilationSize));
-        const static cv::Mat erodeElement = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(constraints.erosionSize, constraints.erosionSize));
-        const static cv::Ptr<cv::cuda::Filter> dilateFilter = cv::cuda::createMorphologyFilter(cv::MORPH_DILATE, CV_8UC1, dilateElement);
-        const static cv::Ptr<cv::cuda::Filter> erodeFilter = cv::cuda::createMorphologyFilter(cv::MORPH_ERODE, CV_8UC1, erodeElement);
+        const static cv::Mat dilateElement = cv::getStructuringElement(cv::MORPH_RECT,
+                                                                       cv::Size(constraints.dilationSize,
+                                                                                constraints.dilationSize));
+        const static cv::Mat erodeElement = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(constraints.erosionSize,
+                                                                                               constraints.erosionSize));
+        const static cv::Ptr<cv::cuda::Filter> dilateFilter = cv::cuda::createMorphologyFilter(cv::MORPH_DILATE,
+                                                                                               CV_8UC1, dilateElement);
+        const static cv::Ptr<cv::cuda::Filter> erodeFilter = cv::cuda::createMorphologyFilter(cv::MORPH_ERODE, CV_8UC1,
+                                                                                              erodeElement);
 
 
         cv::cuda::threshold(frame, thresholded, constraints.threshold, 255, cv::THRESH_BINARY_INV);
@@ -315,7 +321,7 @@ namespace EyeTracking {
     }
 
     EyePosition Tracker::correct2(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, Vec3d light1,
-                                  Vec3d light2) {
+                           Vec3d light2) {
         /* This code is based on Guestrin & Eizenman, pp1125-1126.
          * Algorithm:
          * - convert reflectionPixel to the WCS
@@ -438,7 +444,9 @@ namespace EyeTracking {
                     pupil = intersections[intersections[0](2) < intersections[1](2) ? 0 : 1];
                     break;
             }
-            if (!pupil) return {corneaCurvatureCentre}; // No solution, but at least we have c
+            if (!pupil) {
+                return {corneaCurvatureCentre};
+            }; // No solution, but at least we have c
 
             // Now we find p in a somewhat similar way.
             // (7):
@@ -484,7 +492,10 @@ namespace EyeTracking {
                     pupilCentre = intersections[intersections[0](2) < intersections[1](2) ? 0 : 1];
                     break;
             }
-            if (!pupilCentre) return {corneaCurvatureCentre}; // No solution for p, but at least we have c.
+            if (!pupilCentre) {
+                // No solution for p, but at least we have c.
+                return {corneaCurvatureCentre};
+            }
             /* We have p and c. Together, they give the position and orientation of the eye. We now need to trace the
              * line p - c to the point d, the centre of rotation of the eye, using D, a further eye parameter not used
              * by G&E. d will be our head position.
@@ -497,7 +508,16 @@ namespace EyeTracking {
                     (KFMat(3, 1) << (*corneaCurvatureCentre)(0), (*corneaCurvatureCentre)(1), (*corneaCurvatureCentre)(
                             2)));
 
+            mtx.lock();
+            eyePosition = {corneaCurvatureCentre, pupilCentre, eyeCentre};
+            mtx.unlock();
             return {corneaCurvatureCentre, pupilCentre, eyeCentre};
         }
+    }
+
+    void Tracker::getEyePosition(EyePosition &eyePosition) {
+        mtx.lock();
+        eyePosition = this->eyePosition;
+        mtx.unlock();
     }
 }

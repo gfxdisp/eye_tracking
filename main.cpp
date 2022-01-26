@@ -22,7 +22,10 @@
 #include <cctype> // std::tolower
 #include <cstdlib> // std::strtoul
 #include <opencv2/cudafilters.hpp>
+#include <thread>
 #include "eye_tracking.hpp"
+#include "FeatureDetector.h"
+#include "EyeTrackerServer.h"
 
 using namespace std::chrono_literals;
 using namespace EyeTracking;
@@ -68,6 +71,10 @@ int fail(Error e) {
     return static_cast<int>(e);
 }
 
+void toLowercase(std::string &text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return std::tolower(c); });
+}
+
 int main(int argc, char *argv[]) {
     // Use a pointer to abstract away the type of VideoCapture (either a video file or an IDS camera)
     cv::VideoCapture video;
@@ -84,18 +91,13 @@ int main(int argc, char *argv[]) {
     /* Camera model: "UI-3140CP-M-GL Rev.2 (AB00613)"
      * The maximum value of the gain is 400. The maximum introduces a lot of noise; it can be mitigated somewhat
      * by subtracting the regular banding pattern that appears and applying a median filter. */
-    const CameraProperties CAMERA = {.FPS = 30,
+    const CameraProperties CAMERA = {.FPS = 60,
             .resolution = {1280, 1024},
             .pixelPitch = 0.0048,
-            .exposureTime = 5, .gain = 200};
+            .exposureTime = 5, .gamma = 200};
 
     const Positions POSITIONS(27.119, {0, 0, -370});
     const ImageProperties IMAGE_PROPS = {.ROI = {250, 300, 600, 600},
-            //Dmitry
-//  .pupil = {2, 66, 90}, .iris = {5, 110, 150}, .maxPupilIrisSeparation = 12.24};
-            //Radek
-//  .pupil = {30, 40, 80}, .iris = {90, 100, 300}, .maxPupilIrisSeparation = 200.24};
-            //Blender
             .pupil = {19, 20, 90, 11, 11}};
 
     Tracker tracker(EYE, CAMERA, POSITIONS);
@@ -111,8 +113,8 @@ int main(int argc, char *argv[]) {
     if (argc < 2) return fail(Error::ARGUMENTS);
     else {
         std::string mode(argv[1]);
-        // Convert to lowercase (for user's convenience)
-        std::transform(mode.begin(), mode.end(), mode.begin(), [](unsigned char c) { return std::tolower(c); });
+        toLowercase(mode);
+
         if (mode == "file") {
             if (argc < 3) return fail(Error::ARGUMENTS); // No file path specified
             else {
@@ -128,58 +130,33 @@ int main(int argc, char *argv[]) {
                 /* NB: According to the uEye API documentation, setting the FPS may change the exposure time too
                  * (presumably, if it is too long, it is decreased to the maximum achievable with the given framerate). */
                 video.set(cv::CAP_PROP_FPS, CAMERA.FPS);
-                video.set(cv::CAP_PROP_GAIN, CAMERA.gain);
+                video.set(cv::CAP_PROP_GAMMA, CAMERA.gamma);
                 isRealtime = true;
             } else return fail(Error::BUILT_WITHOUT_UEYE);
         } else return fail(Error::ARGUMENTS);
     }
 
-    if (argc >= 4) {
+    if (argc > 3) {
         std::string mode(argv[3]);
         std::transform(mode.begin(), mode.end(), mode.begin(), [](unsigned char c) { return std::tolower(c); });
         headless = (mode == "headless");
+    } else {
+        headless = false;
     }
 
-
-    /*int nCUDADevices = cv::cuda::getCudaEnabledDeviceCount();
+    int nCUDADevices = cv::cuda::getCudaEnabledDeviceCount();
     if (nCUDADevices <= 0) fail(Error::NO_CUDA);
-    else if (argc >= 4) { // Use a non-default CUDA device
-        unsigned long CUDAIndex = argc >= 3 ? std::strtoul(argv[2], nullptr, 10) : 0;
+    else if (argc > 4) { // Use a non-default CUDA device
+        unsigned long CUDAIndex = argc > 4 ? std::strtoul(argv[4], nullptr, 10) : 0;
         if (CUDAIndex < nCUDADevices) cv::cuda::setDevice(CUDAIndex);
         else return fail(Error::WRONG_CUDA_INDEX);
-    }*/
-
-    cv::Mat frameBGRCPU;
-    cv::cuda::GpuMat frameBGR, frame, thresholded, correlation, weightMapDistanceGPU, weightMapVerticalGPU;
-
-    cv::cuda::GpuMat spots;
-    cv::cuda::Stream streamSpots;
-    spots.upload(cv::imread("template.png", cv::IMREAD_GRAYSCALE));
-    cv::Ptr<cv::cuda::TemplateMatching> spotsMatcher = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF_NORMED);
-
-    int mapWidth = (IMAGE_PROPS.ROI.width - spots.cols + 1) * 2;
-    int mapHeight = (IMAGE_PROPS.ROI.height - spots.rows + 1) * 2;
-
-    cv::Mat weightMapDistance = cv::Mat(mapHeight, mapWidth, CV_32F);
-    cv::Mat weightMapVertical = cv::Mat(mapHeight, mapWidth, CV_32F);
-    float maxDistance = sqrt((mapWidth / 2) * (mapWidth / 2) + (mapHeight / 2) * (mapHeight / 2));
-    float maxVertical = pow(mapWidth / 2, 2);
-    for (int i = 0; i < mapHeight; i++) {
-        for (int j = 0; j < mapWidth; j++) {
-            float distance = sqrt((mapWidth / 2 - j) * (mapWidth / 2 - j) + (mapHeight / 2 - i) * (mapHeight / 2 - i));
-            float vertical = pow(mapWidth / 2 - j, 2);
-            weightMapDistance.at<float>(i, j) = 1.0f * (1 - distance / maxDistance);
-            weightMapVertical.at<float>(i, j) = 0.33f * (1 - distance / maxDistance) + 0.67f * (1 - vertical / maxVertical);
-        }
     }
 
-    weightMapDistanceGPU.upload(weightMapDistance);
-    weightMapVerticalGPU.upload(weightMapVertical);
-    cv::cuda::GpuMat croppedWeightMap = cv::cuda::GpuMat(mapHeight / 2, mapWidth / 2, CV_32F);
-    cv::cuda::GpuMat multipliedMap;
-    croppedWeightMap.setTo(1);
+    cv::cuda::GpuMat fullFrame, croppedFrame, thresholded, correlation;
+    cv::Mat fullFrameCPU;
+    FeatureDetector featureDetector(IMAGE_PROPS, "template.png");
 
-    cv::Point2f reflection1 = None, reflection2 = None, pupil = None, head = None;
+    cv::Point2f reflection1 = None, reflection2 = None, pupil = None, head;
 
     std::chrono::time_point<std::chrono::steady_clock> last_frame_time = std::chrono::steady_clock::now();
     int frameIndex = 0;
@@ -190,13 +167,22 @@ int main(int argc, char *argv[]) {
         fpsText << std::fixed << std::setprecision(2);
     }
 
-    int border_v = 0, border_h = 0;
-    bool first = true;
-
     cv::theRNG().state = time(nullptr);
 
-    while (true) {
-        if (!video.read(frameBGRCPU) || frameBGRCPU.empty()) break; // Video has ended
+    EyeTrackerServer eyeTrackerServer(&tracker);
+    eyeTrackerServer.startServer();
+
+    std::thread t(&EyeTrackerServer::openSocket, &eyeTrackerServer);
+
+    while (!eyeTrackerServer.finished) {
+        if (!video.read(fullFrameCPU) || fullFrameCPU.empty()) {
+            if (!isRealtime) {
+                video.set(cv::CAP_PROP_POS_FRAMES, 0);
+                continue;
+            } else {
+                break;
+            }
+        }
 
         pupilFound = reflection1Found = reflection2Found = false;
 
@@ -205,57 +191,22 @@ int main(int argc, char *argv[]) {
          * - whether the input is BGR or monochrome
          * - whether we are recording the input to a file. */
         if (headless) {
-            first = false;
             if (vwInput.isOpened()) {
-                // Need to save the frame before cropping to the ROI
-                frameBGR.upload(frameBGRCPU);
-                if (frameBGRCPU.type() == CV_8UC3) cv::cuda::cvtColor(frameBGR, frame, cv::COLOR_BGR2GRAY);
-                else frame = frameBGR;
-                frame.download(frameBGRCPU);
-                vwInput.write(frameBGRCPU);
-                frame = frame(IMAGE_PROPS.ROI);
+                featureDetector.extractFrameAndWrite(fullFrameCPU, vwInput, croppedFrame, fullFrame);
             } else {
-                // Crop the ROI immediately, we won't need the rest of the image again
-                frameBGR.upload(frameBGRCPU(IMAGE_PROPS.ROI));
-                // frameBGR might not actually be BGR if it's loaded from a greyscale video
-                if (frameBGRCPU.type() == CV_8UC3) cv::cuda::cvtColor(frameBGR, frame, cv::COLOR_BGR2GRAY);
-                else frame = frameBGR;
+                featureDetector.extractFrame(fullFrameCPU, croppedFrame, fullFrame);
             }
         } else {
-            if (first) {
-                first = false;
-                float a = CAMERA.resolution.height;
-                float b = CAMERA.resolution.width;
-                float c = frameBGRCPU.rows;
-                float d = frameBGRCPU.cols;
-                if (a / b >= c / d) {
-                    border_v = (int) ((((a / b) * d) - c) / 2);
-                } else {
-                    border_h = (int) ((((a / b) * c) - d) / 2);
-                }
-            }
-            cv::copyMakeBorder(frameBGRCPU, frameBGRCPU, border_v, border_v, border_h, border_h, cv::BORDER_CONSTANT,
-                               0);
-            // Keep the rest of the image for display
-            cv::resize(frameBGRCPU, frameBGRCPU, CAMERA.resolution);
-            frameBGR.upload(frameBGRCPU);
-            if (frameBGRCPU.type() == CV_8UC3) {
-                /* If we are recording the input, we need to convert it all to greyscale.
-                 * Otherwise, we only need to convert the ROI. */
-                if (vwInput.isOpened()) {
-                    cv::cuda::cvtColor(frameBGR, frame, cv::COLOR_BGR2GRAY);
-                    frame.download(frameBGRCPU);
-                    vwInput.write(frameBGRCPU);
-                    frame = frame(IMAGE_PROPS.ROI);
-                } else cv::cuda::cvtColor(frameBGR(IMAGE_PROPS.ROI), frame, cv::COLOR_BGR2GRAY);
+            featureDetector.createBorder(fullFrameCPU, CAMERA.resolution);
+            fullFrame.upload(fullFrameCPU);
+            if (vwInput.isOpened()) {
+                featureDetector.extractFrameAndWrite(fullFrameCPU, vwInput, croppedFrame, fullFrame);
             } else {
-                if (vwInput.isOpened()) vwInput.write(frameBGRCPU);
-                frame = frameBGR(IMAGE_PROPS.ROI);
+                featureDetector.extractFrame(fullFrameCPU, croppedFrame, fullFrame);
             }
         }
 
-        std::vector<RatedCircleCentre> pupils = findCircles(frame, IMAGE_PROPS.pupil, thresholded);
-        int totalPoints = 7;
+        std::vector<RatedCircleCentre> pupils = findCircles(croppedFrame, IMAGE_PROPS.pupil, thresholded);
         int pupilRadius = 32;
         int glintSize = 16;
         cv::Point maxLoc1, maxLoc2;
@@ -264,65 +215,17 @@ int main(int argc, char *argv[]) {
         double maxVal;
         cv::Point templateLoc[2];
 
-        spotsMatcher->match(frame, spots, correlation, streamSpots);
-
-        cv::cuda::add(correlation, croppedWeightMap, multipliedMap);
-        cv::cuda::minMaxLoc(multipliedMap, nullptr, &maxVal, nullptr, &templateLoc[0]);
-
-        reflection1Found = maxVal > IMAGE_PROPS.templateMatchingThreshold;
-
-        if (templateLoc[0].y > 0 and templateLoc[0].x > 0 and reflection1Found) {
-            cv::Rect glint = cv::Rect(templateLoc[0].x, templateLoc[0].y, spots.cols, spots.rows);
-            frame(glint).setTo(0);
-            templateLoc[0] += IMAGE_PROPS.ROI.tl();
-            templateLoc[0].x += spots.cols / 2;
-            templateLoc[0].y += spots.rows / 2;
-        }
-
-        cv::Point pos;
-        pos.x = IMAGE_PROPS.ROI.width - templateLoc[0].x + IMAGE_PROPS.ROI.tl().x;
-        pos.y = IMAGE_PROPS.ROI.height - templateLoc[0].y + IMAGE_PROPS.ROI.tl().y;
-
-        pos.x = std::clamp(pos.x, 0, IMAGE_PROPS.ROI.width - spots.cols + 1);
-        pos.y = std::clamp(pos.y, 0, IMAGE_PROPS.ROI.height - spots.rows + 1);
-
-        cv::Rect croppedRect = cv::Rect(pos.x, pos.y, IMAGE_PROPS.ROI.width - spots.cols + 1,
-                                        IMAGE_PROPS.ROI.height - spots.rows + 1);
-        croppedWeightMap = weightMapVerticalGPU(croppedRect);
-
-        spotsMatcher->match(frame, spots, correlation, streamSpots);
-        cv::cuda::add(correlation, croppedWeightMap, multipliedMap);
-        cv::cuda::minMaxLoc(multipliedMap, nullptr, &maxVal, nullptr, &templateLoc[1]);
-
-        reflection2Found = maxVal > IMAGE_PROPS.templateMatchingThreshold;
-        if (templateLoc[1].y > 0 and templateLoc[1].x > 0 and reflection2Found) {
-            cv::Rect glint = cv::Rect(templateLoc[1].x, templateLoc[1].y, spots.cols, spots.rows);
-            frame(glint).setTo(0);
-            templateLoc[1] += IMAGE_PROPS.ROI.tl();
-            templateLoc[1].x += spots.cols / 2;
-            templateLoc[1].y += spots.rows / 2;
-        }
+        reflection1Found = featureDetector.findReflection(croppedFrame, templateLoc[0]);
+        featureDetector.setMapToVertical(templateLoc[0]);
+        reflection2Found = featureDetector.findReflection(croppedFrame, templateLoc[1]);
+        featureDetector.setMapToDistance(templateLoc[0], templateLoc[1]);
 
         maxLoc1 = templateLoc[0];
         maxLoc2 = templateLoc[1];
 
-        pos.x = (maxLoc1.x + maxLoc2.x) / 2 - IMAGE_PROPS.ROI.tl().x;
-        pos.y = (maxLoc1.y + maxLoc2.y) / 2 - IMAGE_PROPS.ROI.tl().y;
-
-        pos.x = IMAGE_PROPS.ROI.width - pos.x;
-        pos.y = IMAGE_PROPS.ROI.height - pos.y;
-
-        pos.x = std::clamp(pos.x, 0, IMAGE_PROPS.ROI.width - spots.cols + 1);
-        pos.y = std::clamp(pos.y, 0, IMAGE_PROPS.ROI.height - spots.rows + 1);
-
-        croppedRect = cv::Rect(pos.x, pos.y, IMAGE_PROPS.ROI.width - spots.cols + 1,
-                               IMAGE_PROPS.ROI.height - spots.rows + 1);
-        croppedWeightMap = weightMapDistanceGPU(croppedRect);
-
         if (maxLoc1.y > maxLoc2.y) {
             swap(maxLoc1, maxLoc2);
         }
-
 
         if (pupilFound and reflection1Found and reflection2Found) {
             KF_reflection1.correct((KFMat(2, 1) << maxLoc1.x, maxLoc1.y));
@@ -335,18 +238,14 @@ int main(int argc, char *argv[]) {
             pupilRadius = (int) bestPupil->radius;
         }
 
-
-        EyePosition eyePos;
-
-        eyePos = tracker.correct2(reflection1, reflection2, pupil, light1, light2);
-
-        head = tracker.unproject(*eyePos.eyeCentre);
+        EyePosition eyePos = tracker.correct2(reflection1, reflection2, pupil, light1, light2);
 
         if (headless) {
-            std::cout <<         (*eyePos.eyeCentre)(0)
+            /*std::cout << (*eyePos.eyeCentre)(0)
                       << ", " << (*eyePos.eyeCentre)(1)
-                      << ", " << (*eyePos.eyeCentre)(2) << "\n";
+                      << ", " << (*eyePos.eyeCentre)(2) << "\n";*/
         } else {
+            head = tracker.unproject(*eyePos.eyeCentre);
             if (++frameIndex == FRAMES_FOR_FPS_MEASUREMENT) {
                 const std::chrono::duration<float> frame_time = std::chrono::steady_clock::now() - last_frame_time;
                 fpsText.str(""); // Clear contents of fpsText
@@ -356,53 +255,34 @@ int main(int argc, char *argv[]) {
             }
 
             cv::cuda::cvtColor(thresholded, thresholded, cv::COLOR_GRAY2BGR, 0, streamDisplay);
+            cv::cuda::cvtColor(fullFrame, fullFrame, cv::COLOR_GRAY2BGR);
+
             cv::cuda::copyMakeBorder(thresholded, thresholded,
                                      IMAGE_PROPS.ROI.y,
                                      CAMERA.resolution.height - IMAGE_PROPS.ROI.y - IMAGE_PROPS.ROI.height,
                                      IMAGE_PROPS.ROI.x,
                                      CAMERA.resolution.width - IMAGE_PROPS.ROI.x - IMAGE_PROPS.ROI.width,
                                      cv::BORDER_CONSTANT, 0, streamDisplay);
-            cv::cuda::addWeighted(frameBGR, 1.0f - (float)thresholdEnabled, thresholded, (float)thresholdEnabled, 0, frameBGR, -1, streamDisplay);
+
+            cv::cuda::addWeighted(fullFrame, 1.0f - (float) thresholdEnabled, thresholded, (float) thresholdEnabled, 0,
+                                  fullFrame, -1, streamDisplay);
 
 
             streamDisplay.waitForCompletion();
-            /* We could avoid having to download the frame from the GPU by using OpenGL.
-             * This requires OpenCV to be build with OpenGL support, and the line
-             * namedWindow(windowName, WINDOW_AUTOSIZE | WINDOW_OPENGL)
-             * to be run before the start of the main loop.
-             * Then, cv::imshow can be called directly on cv::cuda::GpuMat.
-             * However, instead of using cv::circle and cv::putText, we would have to use OpenGL functions directly.
-             * This would be a lot of effort for a very marginal performance benefit. */
-
-            frameBGR.download(frameBGRCPU);
-
-//            for (int i = 0; i < totalPoints; i++) {
-//                cv::circle(frameBGRCPU, maxLoc[i],  glintSize/2, cv::Scalar(0x00, 0xFF, 0xFF), 2);
-//            }
+            fullFrame.download(fullFrameCPU);
 
             if (reflection1 != None)
-                cv::circle(frameBGRCPU, reflection1, glintSize / 2, cv::Scalar(0x00, 0x00, 0xFF), 2);
+                cv::circle(fullFrameCPU, reflection1, glintSize / 2, cv::Scalar(0x00, 0x00, 0xFF), 2);
             if (reflection2 != None)
-                cv::circle(frameBGRCPU, reflection2, glintSize / 2, cv::Scalar(0x00, 0x00, 0xFF), 2);
-
-//            if (pupilCircles.size() > 0) {
-//                KF_pupil.correct((KFMat(2, 1) << mean[0], mean[1]));
-//                pupil = toPoint(KF_pupil.predict());
-//            }
-
-            cv::circle(frameBGRCPU, pupil, pupilRadius, cv::Scalar(0xFF, 0x00, 0x00), 5);
-
-
-//            if (pupil != None) cv::circle(frameBGRCPU, pupil, pupilRadius, cv::Scalar(0xFF, 0x00, 0x00), 5);
-//            if (head != None) cv::circle(frameBGRCPU, head, 2, cv::Scalar(0x00, 0xFF, 0x00), 5);
-            cv::putText(frameBGRCPU,
+                cv::circle(fullFrameCPU, reflection2, glintSize / 2, cv::Scalar(0x00, 0x00, 0xFF), 2);
+            cv::circle(fullFrameCPU, pupil, pupilRadius, cv::Scalar(0xFF, 0x00, 0x00), 5);
+            cv::putText(fullFrameCPU,
                         fpsText.str(),
                         cv::Point2i(100, 100),
                         cv::FONT_HERSHEY_SIMPLEX, 3, cv::Scalar(0x00, 0x00, 0xFF), 3);
 
-//            cv::cuda::threshold(frameBGRCPU, frameBGRCPU, IMAGE_PROPS.pupil.threshold, 255, cv::THRESH_BINARY_INV);
-            cv::imshow(windowName, frameBGRCPU);
-            if (vwOutput.isOpened()) vwOutput.write(frameBGRCPU);
+            cv::imshow(windowName, fullFrameCPU);
+            if (vwOutput.isOpened()) vwOutput.write(fullFrameCPU);
 
             bool quitting = false;
             switch (cv::waitKey(1) & 0xFF) {
@@ -411,7 +291,7 @@ int main(int argc, char *argv[]) {
                     quitting = true;
                     break;
                 case 's':
-                    imwrite("frame.png", frameBGRCPU);
+                    imwrite("fullFrame.png", fullFrameCPU);
                     break;
                 case 'v': // Record input video; only if the input is a live feed
                     if (isRealtime)
@@ -430,6 +310,8 @@ int main(int argc, char *argv[]) {
                 break; // Window closed by user
         }
     }
+    t.join();
+    eyeTrackerServer.closeSocket();
 
     video.release();
 

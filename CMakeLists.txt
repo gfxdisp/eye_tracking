@@ -3,6 +3,7 @@ project(eye_tracker)
 set(CMAKE_CXX_STANDARD 20)
 file(GLOB SOURCES *.cpp)
 add_executable(eye_tracker ${SOURCES})
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
 if(NOT CMAKE_PREFIX_PATH)
     set(CMAKE_PREFIX_PATH /usr/local)
