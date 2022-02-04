@@ -6,7 +6,7 @@
 
 EyeTracking::FeatureDetector::FeatureDetector(ImageProperties imageProperties, char const *templateFilename)
         : imageProperties(std::move(imageProperties)) {
-    spots.upload(cv::imread("template.png", cv::IMREAD_GRAYSCALE));
+    spots.upload(cv::imread(templateFilename, cv::IMREAD_GRAYSCALE));
     spotsMatcher = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF_NORMED);
 
     int mapWidth = (imageProperties.ROI.width - spots.cols + 1) * 2;
