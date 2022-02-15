@@ -16,6 +16,7 @@ public:
 private:
     EyeTracking::Tracker* tracker;
     EyeTracking::EyePosition eyePosition;
+    EyeTracking::ImagePositions imagePositions;
     sockaddr_in address;
     int serverHandle;
     int socketHandle;

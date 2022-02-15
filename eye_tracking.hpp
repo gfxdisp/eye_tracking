@@ -90,6 +90,12 @@ namespace EyeTracking {
         double gamma;
     };
 
+    struct ImagePositions {
+        Point2f reflectionPixel1;
+        Point2f reflectionPixel2;
+        Point2f pupilPixel;
+    };
+
     struct EyeProperties {
         /* From Guestrin & Eizenman
          * They provide a calibration procedure, but in fact there is not much variation in these parameters. */
@@ -106,19 +112,33 @@ namespace EyeTracking {
         double templateMatchingThreshold = 0.5;
     };
 
+    struct TemporalPositions {
+        double cameraEyeDistance;
+        double lambda;
+        double cameraEyeProjectionFactor;
+        Vec3d light1 = light1;
+        Vec3d light2 = light2;
+    };
+
     struct Positions {
         // Represents the layout of the system: locations of the camera, light and eye, relationship between CCS and WCS.
         double lambda; // mm; distance from the nodal point to the image plane; changes as focus is moved
         Vec3d nodalPoint; // o; mm; nodal point of the camera, in the WCS
+        Vec3d light1;
+        Vec3d light2;
         Matx33d rotation; // dimensionless; rotation matrix from CCS to WCS
         double cameraEyeDistance; // mm; Z-axis distance from camera to Purkyně reflection
         double cameraEyeProjectionFactor;
 
         inline Positions(double lambda,
                          Vec3d nodalPoint,
+                         Vec3d light1,
+                         Vec3d light2,
                          Matx33d rotation = Matx33d::eye()) :
                 lambda(lambda),
                 nodalPoint(nodalPoint),
+                light1(light1),
+                light2(light2),
                 rotation(rotation),
                 cameraEyeDistance(-nodalPoint(2)),
                 cameraEyeProjectionFactor(cameraEyeDistance / lambda) {};
@@ -128,12 +148,16 @@ namespace EyeTracking {
         // Class encapsulating the state of the eye tracker
     protected:
         cv::KalmanFilter KF;
-        const EyeProperties eye;
+        EyeProperties eye;
         const CameraProperties camera;
-        const Positions positions;
+        Positions positions;
+        TemporalPositions temporalPositions;
+        bool temporalPositionsReady = false;
         EyePosition eyePosition;
         bool eyePositionUpdated = false;
-        std::mutex mtx;
+        ImagePositions imagePositions;
+        std::mutex mtx_eye;
+        std::mutex mtx_image;
     public:
         // Create Kálmán filters with default settings, for use in the ICS or WCS
         cv::KalmanFilter makeICSKalmanFilter() const;
@@ -167,10 +191,13 @@ namespace EyeTracking {
          * position is calculated directly from the inputs without considering previous states. */
         EyePosition correct(Point2f reflectionPixel, Point2f pupilPixel, Vec3d light);
 
-        EyePosition
-        correct2(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, Vec3d light1, Vec3d light2);
+        EyePosition correct(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel);
 
         void getEyePosition(EyePosition &eyePosition);
+
+        void getImagePositions(ImagePositions &imagePositions);
+
+        void setNewParameters(float lambda, Vec3d nodalPoint, Vec3d light1, Vec3d light2);
 
         // Read a prediction from the Kálmán filter
         EyePosition predict();

@@ -161,6 +161,15 @@ namespace EyeTracking {
     }
 
     EyePosition Tracker::correct(Point2f reflectionPixel, Point2f pupilPixel, Vec3d light) {
+        if (temporalPositionsReady) {
+           positions.cameraEyeDistance = temporalPositions.cameraEyeDistance;
+           positions.lambda = temporalPositions.lambda;
+           positions.cameraEyeProjectionFactor = temporalPositions.cameraEyeProjectionFactor;
+           positions.light1 = temporalPositions.light1;
+           positions.light2 = temporalPositions.light2;
+           temporalPositionsReady = false;
+        }
+
         /* This code is based on Guestrin & Eizenman, pp1125-1126.
          * Algorithm:
          * - convert reflectionPixel to the WCS
@@ -320,8 +329,14 @@ namespace EyeTracking {
         return {{}, {}, KF.predict()};
     }
 
-    EyePosition Tracker::correct2(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, Vec3d light1,
-                           Vec3d light2) {
+    EyePosition Tracker::correct(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel) {
+
+        mtx_image.lock();
+        imagePositions.reflectionPixel1 = reflectionPixel1;
+        imagePositions.reflectionPixel2 = reflectionPixel2;
+        imagePositions.pupilPixel = pupilPixel;
+        mtx_image.unlock();
+
         /* This code is based on Guestrin & Eizenman, pp1125-1126.
          * Algorithm:
          * - convert reflectionPixel to the WCS
@@ -353,15 +368,15 @@ namespace EyeTracking {
          * (9): p and c lie a distance K apart.
          * p and c are the unknowns in (7-9). Having found c using (2-4), we can now find p. */
         // (3):
-        Vec3d loqo1 = (light1 - positions.nodalPoint).cross(reflection1 - positions.nodalPoint);
-        Vec3d loqo2 = (light2 - positions.nodalPoint).cross(reflection2 - positions.nodalPoint);
+        Vec3d loqo1 = (positions.light1 - positions.nodalPoint).cross(reflection1 - positions.nodalPoint);
+        Vec3d loqo2 = (positions.light2 - positions.nodalPoint).cross(reflection2 - positions.nodalPoint);
 
         // Now dot(loqo, c) = dot(loqo, o) - a plane on which c must lie.
         // (4):
-        Vec3d lqoq1 = (light1 - reflection1) * cv::norm(positions.nodalPoint - reflection1);
-        Vec3d lqoq2 = (light2 - reflection2) * cv::norm(positions.nodalPoint - reflection2);
-        Vec3d oqlq1 = (positions.nodalPoint - reflection1) * cv::norm(light1 - reflection1);
-        Vec3d oqlq2 = (positions.nodalPoint - reflection2) * cv::norm(light2 - reflection2);
+        Vec3d lqoq1 = (positions.light1 - reflection1) * cv::norm(positions.nodalPoint - reflection1);
+        Vec3d lqoq2 = (positions.light2 - reflection2) * cv::norm(positions.nodalPoint - reflection2);
+        Vec3d oqlq1 = (positions.nodalPoint - reflection1) * cv::norm(positions.light1 - reflection1);
+        Vec3d oqlq2 = (positions.nodalPoint - reflection2) * cv::norm(positions.light2 - reflection2);
         Vec3d oqlqlqoq1 = oqlq1 - lqoq1;
         Vec3d oqlqlqoq2 = oqlq2 - lqoq2;
         // Now dot(oqlqlqoq, c) = dot(oqlqlqoq, q) - another plane containing c.
@@ -508,16 +523,31 @@ namespace EyeTracking {
                     (KFMat(3, 1) << (*corneaCurvatureCentre)(0), (*corneaCurvatureCentre)(1), (*corneaCurvatureCentre)(
                             2)));
 
-            mtx.lock();
+            mtx_eye.lock();
             eyePosition = {corneaCurvatureCentre, pupilCentre, eyeCentre};
-            mtx.unlock();
+            mtx_eye.unlock();
             return {corneaCurvatureCentre, pupilCentre, eyeCentre};
         }
     }
 
     void Tracker::getEyePosition(EyePosition &eyePosition) {
-        mtx.lock();
+        mtx_eye.lock();
         eyePosition = this->eyePosition;
-        mtx.unlock();
+        mtx_eye.unlock();
+    }
+
+    void Tracker::getImagePositions(ImagePositions &imagePositions) {
+        mtx_image.lock();
+        imagePositions = this->imagePositions;
+        mtx_image.unlock();
+    }
+
+    void Tracker::setNewParameters(float lambda, Vec3d nodalPoint, Vec3d light1, Vec3d light2) {
+        temporalPositions.cameraEyeDistance = -nodalPoint(2);
+        temporalPositions.lambda = lambda;
+        temporalPositions.cameraEyeProjectionFactor = positions.cameraEyeDistance / lambda;
+        temporalPositions.light1 = light1;
+        temporalPositions.light2 = light2;
+        temporalPositionsReady = true;
     }
 }

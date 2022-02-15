@@ -96,14 +96,14 @@ int main(int argc, char *argv[]) {
             .pixelPitch = 0.0048,
             .exposureTime = 5, .gamma = 200};
 
-    const Positions POSITIONS(27.119, {0, 0, -370});
+    Vec3d light1 = {5, 0, -50};
+    Vec3d light2 = {-5, 0, -50};
+
+    const Positions POSITIONS(27.119, {0, 0, -370}, light1, light2);
     const ImageProperties IMAGE_PROPS = {.ROI = {250, 300, 600, 600},
             .pupil = {19, 20, 90, 11, 11}};
 
     Tracker tracker(EYE, CAMERA, POSITIONS);
-
-    Vec3d light1 = {5, 0, -50};
-    Vec3d light2 = {-5, 0, -50};
 
     cv::KalmanFilter KF_reflection1 = tracker.makeICSKalmanFilter();
     cv::KalmanFilter KF_reflection2 = tracker.makeICSKalmanFilter();
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
             pupilRadius = (int) bestPupil->radius;
         }
 
-        EyePosition eyePos = tracker.correct2(reflection1, reflection2, pupil, light1, light2);
+        EyePosition eyePos = tracker.correct(reflection1, reflection2, pupil);
 
         if (headless) {
             /*std::cout << (*eyePos.eyeCentre)(0)
@@ -310,7 +310,6 @@ int main(int argc, char *argv[]) {
                 break; // Window closed by user
         }
     }
-    t.join();
     eyeTrackerServer.closeSocket();
 
     video.release();

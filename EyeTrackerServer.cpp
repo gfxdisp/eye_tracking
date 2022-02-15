@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <iostream>
 
+using cv::Vec3d;
+
 EyeTrackerServer::EyeTrackerServer(EyeTracking::Tracker *tracker) : tracker(tracker) {}
 
 void EyeTrackerServer::startServer() {
@@ -51,10 +53,41 @@ void EyeTrackerServer::openSocket() {
             if (valread != 1) {
                 break;
             }
-            if (buffer[0] != 0) {
+            if (buffer[0] == 1) {
                 tracker->getEyePosition(eyePosition);
-                send(socketHandle, &*eyePosition.eyeCentre, sizeof(*eyePosition.eyeCentre), 0);
-            } else {
+                uint32_t sent = 0;
+                uint32_t size_to_send = sizeof(*eyePosition.eyeCentre);
+                while (sent < size_to_send) {
+                    sent += send(socketHandle, (char*)&*eyePosition.eyeCentre + sent, size_to_send - sent, 0);
+                }
+
+            }
+            else if (buffer[0] == 2) {
+                tracker->getImagePositions(imagePositions);
+                uint32_t sent = 0;
+                uint32_t size_to_send = sizeof(imagePositions);
+                while (sent < size_to_send) {
+                    sent += send(socketHandle, (char*)&imagePositions + sent, size_to_send - sent, 0);
+                }
+            }
+            else if (buffer[0] == 3) {
+                float lambda;
+                Vec3d nodalPoint;
+                Vec3d light1;
+                Vec3d light2;
+                uint32_t bytes_read = 0;
+                uint32_t size_to_read = 0;
+                char* variables[] = {(char*)&lambda, (char*)&nodalPoint, (char*)&light1, (char*)&light2};
+                for (char* & variable : variables) {
+                    bytes_read = 0;
+                    size_to_read = sizeof(*variable);
+                    while (bytes_read < size_to_read) {
+                        bytes_read += read(socketHandle, variable + bytes_read, size_to_read - bytes_read);
+                    }
+                }
+                tracker->setNewParameters(lambda, nodalPoint, light1, light2);
+            }
+            else if (buffer[0] == 0) {
                 std::cout << "Socket closed.\n";
                 finished = true;
             }
