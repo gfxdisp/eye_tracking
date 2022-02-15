@@ -91,17 +91,17 @@ int main(int argc, char *argv[]) {
     /* Camera model: "UI-3140CP-M-GL Rev.2 (AB00613)"
      * The maximum value of the gain is 400. The maximum introduces a lot of noise; it can be mitigated somewhat
      * by subtracting the regular banding pattern that appears and applying a median filter. */
-    const CameraProperties CAMERA = {.FPS = 60,
+    const CameraProperties CAMERA = {.FPS = 30,
             .resolution = {1280, 1024},
             .pixelPitch = 0.0048,
-            .exposureTime = 5, .gamma = 200};
+            .exposureTime = 15, .gamma = 150};
 
     Vec3d light1 = {5, 0, -50};
     Vec3d light2 = {-5, 0, -50};
 
     const Positions POSITIONS(27.119, {0, 0, -370}, light1, light2);
     const ImageProperties IMAGE_PROPS = {.ROI = {250, 300, 600, 600},
-            .pupil = {19, 20, 90, 11, 11}};
+            .pupil = {10, 20, 90, 11, 11}};
 
     Tracker tracker(EYE, CAMERA, POSITIONS);
 
@@ -127,10 +127,10 @@ int main(int argc, char *argv[]) {
                 video.open(cameraIndex, cv::CAP_UEYE);
                 if (!video.isOpened()) return fail(Error::UEYE_NOT_FOUND);
                 video.set(cv::CAP_PROP_EXPOSURE, CAMERA.exposureTime);
+                video.set(cv::CAP_PROP_GAIN, 400);
                 /* NB: According to the uEye API documentation, setting the FPS may change the exposure time too
                  * (presumably, if it is too long, it is decreased to the maximum achievable with the given framerate). */
-                video.set(cv::CAP_PROP_FPS, CAMERA.FPS);
-                video.set(cv::CAP_PROP_GAMMA, CAMERA.gamma);
+                //video.set(cv::CAP_PROP_FPS, CAMERA.FPS);
                 isRealtime = true;
             } else return fail(Error::BUILT_WITHOUT_UEYE);
         } else return fail(Error::ARGUMENTS);
@@ -144,6 +144,9 @@ int main(int argc, char *argv[]) {
         headless = false;
     }
 
+    cv::cuda::GpuMat fullFrame, croppedFrame, thresholded, correlation;
+    cv::Mat fullFrameCPU;
+
     int nCUDADevices = cv::cuda::getCudaEnabledDeviceCount();
     if (nCUDADevices <= 0) fail(Error::NO_CUDA);
     else if (argc > 4) { // Use a non-default CUDA device
@@ -152,8 +155,7 @@ int main(int argc, char *argv[]) {
         else return fail(Error::WRONG_CUDA_INDEX);
     }
 
-    cv::cuda::GpuMat fullFrame, croppedFrame, thresholded, correlation;
-    cv::Mat fullFrameCPU;
+    
     FeatureDetector featureDetector(IMAGE_PROPS, "template.png");
 
     cv::Point2f reflection1 = None, reflection2 = None, pupil = None, head;
@@ -205,6 +207,7 @@ int main(int argc, char *argv[]) {
                 featureDetector.extractFrame(fullFrameCPU, croppedFrame, fullFrame);
             }
         }
+
 
         std::vector<RatedCircleCentre> pupils = findCircles(croppedFrame, IMAGE_PROPS.pupil, thresholded);
         int pupilRadius = 32;
@@ -301,6 +304,7 @@ int main(int argc, char *argv[]) {
                 case 'w': // Record output video
                     vwOutput.open("recorded_output.mp4", FOURCC, CAMERA.FPS,
                                   {CAMERA.resolution.width, CAMERA.resolution.height}, true);
+                    break;
                 case 't':
                     thresholdEnabled = !thresholdEnabled;
                     break;
@@ -310,9 +314,13 @@ int main(int argc, char *argv[]) {
                 break; // Window closed by user
         }
     }
+    //t.join();
+    video.release();
+
+    if (vwOutput.isOpened()) vwOutput.release();
+
     eyeTrackerServer.closeSocket();
 
-    video.release();
 
     if (!headless) {
         cv::destroyAllWindows();

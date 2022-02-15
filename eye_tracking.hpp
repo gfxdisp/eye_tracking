@@ -109,7 +109,7 @@ namespace EyeTracking {
     struct ImageProperties {
         cv::Rect ROI;
         CircleConstraints pupil;
-        double templateMatchingThreshold = 0.5;
+        double templateMatchingThreshold = 0.95;
     };
 
     struct TemporalPositions {
