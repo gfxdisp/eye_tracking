@@ -78,13 +78,15 @@ void EyeTrackerServer::openSocket() {
                 uint32_t bytes_read = 0;
                 uint32_t size_to_read = 0;
                 char* variables[] = {(char*)&lambda, (char*)&nodalPoint, (char*)&light1, (char*)&light2};
-                for (char* & variable : variables) {
+                uint32_t sizes[] = {sizeof(lambda), sizeof(nodalPoint), sizeof(light1), sizeof(light2)};
+                for (int i = 0; i < 4; i++) {
                     bytes_read = 0;
-                    size_to_read = sizeof(*variable);
+                    size_to_read = sizes[i];
                     while (bytes_read < size_to_read) {
-                        bytes_read += read(socketHandle, variable + bytes_read, size_to_read - bytes_read);
+                        bytes_read += read(socketHandle, variables[i] + bytes_read, size_to_read - bytes_read);
                     }
                 }
+                std::cout << "Received: " << lambda << " " << nodalPoint << " " << light1 << " " << light2 << std::endl;
                 tracker->setNewParameters(lambda, nodalPoint, light1, light2);
             }
             else if (buffer[0] == 0) {

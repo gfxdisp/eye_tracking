@@ -113,11 +113,12 @@ namespace EyeTracking {
     };
 
     struct TemporalPositions {
-        double cameraEyeDistance;
         double lambda;
+        Vec3d nodalPoint;
+        Vec3d light1;
+        Vec3d light2;
+        double cameraEyeDistance;
         double cameraEyeProjectionFactor;
-        Vec3d light1 = light1;
-        Vec3d light2 = light2;
     };
 
     struct Positions {

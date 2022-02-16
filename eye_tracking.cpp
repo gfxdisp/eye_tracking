@@ -161,14 +161,6 @@ namespace EyeTracking {
     }
 
     EyePosition Tracker::correct(Point2f reflectionPixel, Point2f pupilPixel, Vec3d light) {
-        if (temporalPositionsReady) {
-           positions.cameraEyeDistance = temporalPositions.cameraEyeDistance;
-           positions.lambda = temporalPositions.lambda;
-           positions.cameraEyeProjectionFactor = temporalPositions.cameraEyeProjectionFactor;
-           positions.light1 = temporalPositions.light1;
-           positions.light2 = temporalPositions.light2;
-           temporalPositionsReady = false;
-        }
 
         /* This code is based on Guestrin & Eizenman, pp1125-1126.
          * Algorithm:
@@ -330,6 +322,16 @@ namespace EyeTracking {
     }
 
     EyePosition Tracker::correct(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel) {
+
+        if (temporalPositionsReady) {
+            positions.nodalPoint = temporalPositions.nodalPoint;
+            positions.cameraEyeDistance = temporalPositions.cameraEyeDistance;
+            positions.lambda = temporalPositions.lambda;
+            positions.cameraEyeProjectionFactor = temporalPositions.cameraEyeProjectionFactor;
+            positions.light1 = temporalPositions.light1;
+            positions.light2 = temporalPositions.light2;
+            temporalPositionsReady = false;
+        }
 
         mtx_image.lock();
         imagePositions.reflectionPixel1 = reflectionPixel1;
@@ -543,6 +545,7 @@ namespace EyeTracking {
     }
 
     void Tracker::setNewParameters(float lambda, Vec3d nodalPoint, Vec3d light1, Vec3d light2) {
+        temporalPositions.nodalPoint = nodalPoint;
         temporalPositions.cameraEyeDistance = -nodalPoint(2);
         temporalPositions.lambda = lambda;
         temporalPositions.cameraEyeProjectionFactor = positions.cameraEyeDistance / lambda;
