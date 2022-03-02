@@ -17,12 +17,6 @@ Tested with version 10.1.243-3. Use `nvcc --version` to check whether CUDA is in
 Select your camera model, create an account, download and install the 64-bit Linux Debian packages.
 You will need all of the included packages, as well as `libomp5` (OpenMP) from the Ubuntu repositories.
 
-### FFmpeg
-
-Required to load videos in OpenCV.
-
-TODO: which exact package is needed?
-
 ### OpenCV
 
 OpenCV can be found in the Ubuntu repositories, but it seems to be built without CUDA support.
@@ -46,6 +40,8 @@ OpenCV can be found in the Ubuntu repositories, but it seems to be built without
     make -j8 install
 
 Tested with OpenCV commit c1148c4 (version 4.5.3-dev) and OpenCV-contrib commit c3de0d3.
+
+Alternatively, OpenCV can be installed through run.sh script available in the repository.
 
 ## Building
 
