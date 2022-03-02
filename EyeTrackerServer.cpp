@@ -72,22 +72,31 @@ void EyeTrackerServer::openSocket() {
             }
             else if (buffer[0] == 3) {
                 float lambda;
+                float cameraEyeDistance;
                 Vec3d nodalPoint;
                 Vec3d light1;
                 Vec3d light2;
                 uint32_t bytes_read = 0;
                 uint32_t size_to_read = 0;
-                char* variables[] = {(char*)&lambda, (char*)&nodalPoint, (char*)&light1, (char*)&light2};
-                uint32_t sizes[] = {sizeof(lambda), sizeof(nodalPoint), sizeof(light1), sizeof(light2)};
-                for (int i = 0; i < 4; i++) {
+                char* variables[] = {(char*)&lambda, (char*)&cameraEyeDistance, (char*)&nodalPoint, (char*)&light1, (char*)&light2};
+                uint32_t sizes[] = {sizeof(lambda), sizeof(cameraEyeDistance), sizeof(nodalPoint), sizeof(light1), sizeof(light2)};
+                for (int i = 0; i < 5; i++) {
                     bytes_read = 0;
                     size_to_read = sizes[i];
                     while (bytes_read < size_to_read) {
                         bytes_read += read(socketHandle, variables[i] + bytes_read, size_to_read - bytes_read);
                     }
                 }
-                std::cout << "Received: " << lambda << " " << nodalPoint << " " << light1 << " " << light2 << std::endl;
-                tracker->setNewParameters(lambda, nodalPoint, light1, light2);
+                std::cout << "Received: " << lambda << " " << cameraEyeDistance << " " << nodalPoint << " " << light1 << " " << light2 << std::endl;
+                tracker->setNewParameters(lambda, cameraEyeDistance, nodalPoint, light1, light2);
+            }
+            else if (buffer[0] == 4) {
+                tracker->getPupilDiameter(pupilDiameter);
+                uint32_t sent = 0;
+                uint32_t size_to_send = sizeof(pupilDiameter);
+                while (sent < size_to_send) {
+                    sent += send(socketHandle, (char*)&pupilDiameter + sent, size_to_send - sent, 0);
+                }
             }
             else if (buffer[0] == 0) {
                 std::cout << "Socket closed.\n";

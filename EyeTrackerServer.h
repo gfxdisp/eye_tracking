@@ -17,6 +17,7 @@ private:
     EyeTracking::Tracker* tracker;
     EyeTracking::EyePosition eyePosition;
     EyeTracking::ImagePositions imagePositions;
+    float pupilDiameter;
     sockaddr_in address;
     int serverHandle;
     int socketHandle;

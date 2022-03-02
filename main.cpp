@@ -94,13 +94,13 @@ int main(int argc, char *argv[]) {
     const CameraProperties CAMERA = {.FPS = 30,
             .resolution = {1280, 1024},
             .pixelPitch = 0.0048,
-            .exposureTime = 15, .gamma = 150};
+            .exposureTime = 10, .gamma = 150};
 
     Vec3d light1 = {5, 0, -50};
     Vec3d light2 = {-5, 0, -50};
 
     const Positions POSITIONS(27.119, {0, 0, -370}, light1, light2);
-    const ImageProperties IMAGE_PROPS = {.ROI = {250, 300, 600, 600},
+    const ImageProperties IMAGE_PROPS = {.ROI = {450, 400, 400, 200},
             .pupil = {10, 20, 90, 11, 11}};
 
     Tracker tracker(EYE, CAMERA, POSITIONS);
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
     }
 
     cv::theRNG().state = time(nullptr);
-
+                        
     EyeTrackerServer eyeTrackerServer(&tracker);
     eyeTrackerServer.startServer();
 
@@ -239,9 +239,9 @@ int main(int argc, char *argv[]) {
             KF_pupil.correct(toMat(static_cast<cv::Point2f>(IMAGE_PROPS.ROI.tl()) + (bestPupil->point)));
             pupil = toPoint(KF_pupil.predict());
             pupilRadius = (int) bestPupil->radius;
-        }
+        } 
 
-        EyePosition eyePos = tracker.correct(reflection1, reflection2, pupil);
+        EyePosition eyePos = tracker.correct(reflection1, reflection2, pupil, pupilRadius * 2.0f);
 
         if (headless) {
             /*std::cout << (*eyePos.eyeCentre)(0)
@@ -267,7 +267,7 @@ int main(int argc, char *argv[]) {
                                      CAMERA.resolution.width - IMAGE_PROPS.ROI.x - IMAGE_PROPS.ROI.width,
                                      cv::BORDER_CONSTANT, 0, streamDisplay);
 
-            cv::cuda::addWeighted(fullFrame, 1.0f - (float) thresholdEnabled, thresholded, (float) thresholdEnabled, 0,
+            cv::cuda::addWeighted(fullFrame, 1.0f - (float) thresholdEnabled / 2, thresholded, (float) thresholdEnabled / 2, 0,
                                   fullFrame, -1, streamDisplay);
 
 

@@ -321,7 +321,7 @@ namespace EyeTracking {
         return {{}, {}, KF.predict()};
     }
 
-    EyePosition Tracker::correct(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel) {
+    EyePosition Tracker::correct(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, float pupilDiameterPx) {
 
         if (temporalPositionsReady) {
             positions.nodalPoint = temporalPositions.nodalPoint;
@@ -338,6 +338,10 @@ namespace EyeTracking {
         imagePositions.reflectionPixel2 = reflectionPixel2;
         imagePositions.pupilPixel = pupilPixel;
         mtx_image.unlock();
+
+        mtx_pupil.lock();
+        this->pupilDiameterPx = pupilDiameterPx;
+        mtx_pupil.unlock();
 
         /* This code is based on Guestrin & Eizenman, pp1125-1126.
          * Algorithm:
@@ -544,13 +548,22 @@ namespace EyeTracking {
         mtx_image.unlock();
     }
 
-    void Tracker::setNewParameters(float lambda, Vec3d nodalPoint, Vec3d light1, Vec3d light2) {
+    void Tracker::setNewParameters(float lambda, float cameraEyeDistance, Vec3d nodalPoint, Vec3d light1, Vec3d light2) {
         temporalPositions.nodalPoint = nodalPoint;
-        temporalPositions.cameraEyeDistance = -nodalPoint(2);
+        temporalPositions.cameraEyeDistance = cameraEyeDistance;
         temporalPositions.lambda = lambda;
         temporalPositions.cameraEyeProjectionFactor = positions.cameraEyeDistance / lambda;
         temporalPositions.light1 = light1;
         temporalPositions.light2 = light2;
         temporalPositionsReady = true;
+    }
+
+    void Tracker::getPupilDiameter(float &pupilDiameter) {
+        float pupilDiameterPx = 0.0f;
+        mtx_pupil.lock();
+        pupilDiameterPx = this->pupilDiameterPx;
+        mtx_pupil.unlock();
+
+        pupilDiameter = pupilDiameterPx * 10.0f / 175.0f;
     }
 }

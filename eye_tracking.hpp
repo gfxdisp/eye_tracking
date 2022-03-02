@@ -157,8 +157,10 @@ namespace EyeTracking {
         EyePosition eyePosition;
         bool eyePositionUpdated = false;
         ImagePositions imagePositions;
+        float pupilDiameterPx;
         std::mutex mtx_eye;
         std::mutex mtx_image;
+        std::mutex mtx_pupil;
     public:
         // Create Kálmán filters with default settings, for use in the ICS or WCS
         cv::KalmanFilter makeICSKalmanFilter() const;
@@ -192,13 +194,15 @@ namespace EyeTracking {
          * position is calculated directly from the inputs without considering previous states. */
         EyePosition correct(Point2f reflectionPixel, Point2f pupilPixel, Vec3d light);
 
-        EyePosition correct(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel);
+        EyePosition correct(Point2f reflectionPixel1, Point2f reflectionPixel2, Point2f pupilPixel, float pupilDiameterPx);
 
         void getEyePosition(EyePosition &eyePosition);
 
         void getImagePositions(ImagePositions &imagePositions);
 
-        void setNewParameters(float lambda, Vec3d nodalPoint, Vec3d light1, Vec3d light2);
+        void setNewParameters(float lambda, float cameraEyeDistance, Vec3d nodalPoint, Vec3d light1, Vec3d light2);
+
+        void getPupilDiameter(float &pupilDiameter);
 
         // Read a prediction from the Kálmán filter
         EyePosition predict();
