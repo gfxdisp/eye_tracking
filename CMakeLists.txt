@@ -20,7 +20,11 @@ set(OpenCV_DIR ${CMAKE_PREFIX_PATH}/lib/cmake/opencv4)
 find_package(OpenCV REQUIRED)
 list(APPEND OpenCV_INCLUDE_DIRS ${CMAKE_PREFIX_PATH}/include/opencv4)
 target_include_directories(eye_tracker PUBLIC ${OpenCV_INCLUDE_DIRS})
+
+# uEye
+link_directories(/opt/ids/ueye/lib/)
+
 message("Included: ${OpenCV_INCLUDE_DIRS}")
 message("Libs: ${OpenCV_LIBS}")
-target_include_directories(eye_tracker PUBLIC ${OpenCV_INCLUDE_DIRS}/install/include/opencv4)
-target_link_libraries(eye_tracker PUBLIC ${OpenCV_LIBS})
+target_include_directories(eye_tracker PUBLIC ${OpenCV_INCLUDE_DIRS}/install/include/opencv4 /opt/ids/ueye/include)
+target_link_libraries(eye_tracker PUBLIC ${OpenCV_LIBS} ueye_api)
