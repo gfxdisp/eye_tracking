@@ -40,7 +40,9 @@ namespace et
 	bool FeatureDetector::findImageFeatures(cv::Mat image)
 	{
 		gpu_image_.upload(image);
-    	return findPupil() && findGlints();
+		cv::cuda::threshold(gpu_image_, pupil_thresholded_image_, pupil_threshold_, 255, cv::THRESH_BINARY_INV);
+		cv::cuda::threshold(gpu_image_, glints_thresholded_image_, glints_threshold_, 255, cv::THRESH_BINARY);
+    	return findPupil() & findGlints();
 	}
 
 	cv::Point2f FeatureDetector::getPupil()
@@ -84,30 +86,21 @@ namespace et
 
 	bool FeatureDetector::findPupil()
 	{
-		cv::cuda::threshold(gpu_image_, pupil_thresholded_image_, pupil_threshold_, 255, cv::THRESH_BINARY_INV);
-		// dilate_filter_->apply(pupil_thresholded_image_, pupil_thresholded_image_);
-		// erode_filter_->apply(pupil_thresholded_image_, pupil_thresholded_image_);
-        // open_filter_->apply(pupil_thresholded_image_, pupil_thresholded_image_);
-        // close_filter_->apply(pupil_thresholded_image_, pupil_thresholded_image_);
+		pupil_thresholded_image_.download(cpu_image_);
 
-        const cv::Mat thresh_cpu(pupil_thresholded_image_);
-
-        std::vector<std::vector<cv::Point>> contours{};
-        std::vector<cv::Vec4i> hierarchy{}; // Unused output
-
-        cv::findContours(thresh_cpu, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         cv::Point2f best_centre{};
         float best_radius{};
         float best_rating{0};
 
+        static cv::Size image_size{pupil_thresholded_image_.size()};
+        static cv::Point2f image_centre{cv::Point2f(image_size.width / 2, image_size.height / 2)};
+        static float max_distance{std::max(image_size.width, image_size.height) / 2.0f};
 
-        cv::Size image_size{pupil_thresholded_image_.size()};
-        cv::Point2f image_centre{cv::Point2f(image_size.width / 2, image_size.height / 2)};
-        float max_distance{std::max(image_size.width, image_size.height) / 2.0f};
-
-        for (const std::vector<cv::Point> &contour: contours) {
+        for (const std::vector<cv::Point> &contour: contours_) {
             cv::Point2f centre;
             float radius;
+
             cv::minEnclosingCircle(contour, centre, radius);
             if (radius < min_pupil_radius_ or radius > max_pupil_radius_) continue;
 
@@ -141,26 +134,23 @@ namespace et
 
 	bool FeatureDetector::findGlints()
 	{
-		cv::cuda::threshold(gpu_image_, glints_thresholded_image_, glints_threshold_, 255, cv::THRESH_BINARY);
-		dilate_filter_->apply(glints_thresholded_image_, glints_thresholded_image_);
-        const cv::Mat thresh_cpu(glints_thresholded_image_);
-
-		std::vector<std::vector<cv::Point>> contours{};
-        std::vector<cv::Vec4i> hierarchy{}; // Unused output
+		// dilate_filter_->apply(glints_thresholded_image_, glints_thresholded_image_);
+        glints_thresholded_image_.download(cpu_image_);
 
 		cv::Point2f best_centre[LED_COUNT]{};
         float best_radius{};
         float best_rating{0};
 
-		cv::findContours(thresh_cpu, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+		cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-        cv::Size image_size{glints_thresholded_image_.size()};	
-        cv::Point2f image_centre{cv::Point2f(image_size.width / 2, image_size.height / 2)};
-        float max_distance{std::max(image_size.width, image_size.height) / 2.0f};
+        static cv::Size image_size{glints_thresholded_image_.size()};	
+        static cv::Point2f image_centre{cv::Point2f(image_size.width / 2, image_size.height / 2)};
+        static float max_distance{std::max(image_size.width, image_size.height) / 2.0f};
 
         std::vector<GlintCandidate> glint_candidates{};
+        glint_candidates.reserve(contours_.size());
 
-		for (const std::vector<cv::Point> &contour: contours) 
+		for (const std::vector<cv::Point> &contour: contours_) 
 		{
 			cv::Point2f centre;
             float radius;
@@ -173,7 +163,7 @@ namespace et
             const float contour_area = cv::contourArea(contour);
             if (contour_area <= 0) continue;
             const float circle_area = 3.14159 * std::pow(radius, 2);
-            float rating = contour_area / circle_area * (1.0f - distance / max_distance);
+            float rating = contour_area / circle_area * (1.0f - distance / max_distance) * radius / max_glint_radius_;
         	GlintCandidate glint_candidate{};
         	glint_candidate.location = centre;
         	glint_candidate.rating = rating;
@@ -184,9 +174,9 @@ namespace et
 		{
 			for (int j = i + 1; j < glint_candidates.size(); j++)
 			{
-				if (std::abs(glint_candidates[i].location.y - glint_candidates[j].location.y) > max_vertical_distance) continue;
-				if (std::abs(glint_candidates[i].location.x - glint_candidates[j].location.x) > max_horizontal_distance) continue;
-				if (std::abs(glint_candidates[i].location.x - glint_candidates[j].location.x) < min_horizontal_distance) continue;
+				if (abs(glint_candidates[i].location.y - glint_candidates[j].location.y) > max_vertical_distance) continue;
+				if (abs(glint_candidates[i].location.x - glint_candidates[j].location.x) > max_horizontal_distance) continue;
+				if (abs(glint_candidates[i].location.x - glint_candidates[j].location.x) < min_horizontal_distance) continue;
 				float rating = glint_candidates[i].rating + glint_candidates[j].rating;
 				if (rating > best_rating)
 				{

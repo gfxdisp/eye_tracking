@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	float framerate{120.0f};
+	float framerate{90.0f};
 
 	image_provider->initialize();
 	image_provider->setGamma(3.5f);
@@ -70,15 +70,8 @@ int main(int argc, char *argv[])
 
 	cv::VideoWriter video_output{};
 
-
-	// cv::Point2f pupil_pixel_position{284.5720f, 257.0091f};
-	// cv::Point2f glints_pixel_positions[]{{287.4318f, 242.9291f}, {287.4976f, 280.9677f}};
-
-	// eye_tracker.calculateEyePosition(pupil_pixel_position, glints_pixel_positions);
-
 	while(!socket_server.finished) 
 	{
-		// break;
 		cv::Mat image{image_provider->grabImage()};
 		bool features_found{feature_detector.findImageFeatures(image)};
 		et::EyePosition eye_position{};
@@ -143,6 +136,10 @@ int main(int argc, char *argv[])
 				break;
 		}
 	}
+
+    socket_server.finished = true;
+
+    t.join();
 
 	if (video_output.isOpened())
 	{

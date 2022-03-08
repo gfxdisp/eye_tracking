@@ -10,7 +10,9 @@
 
 #include <opencv2/opencv.hpp>
 
+#include <mutex>
 #include <string>
+#include <thread>
 
 namespace et 
 {
@@ -29,6 +31,18 @@ namespace et
 	private:
 		void initializeCamera();
 		void initializeImage();
+		void imageGatheringThread();
+
+		static constexpr uint32_t IMAGE_IN_QUEUE_COUNT = 10;
+
+		std::mutex mtx_image_{};
+
+		cv::Mat image_queue_[IMAGE_IN_QUEUE_COUNT]{};
+		int32_t image_index_{-1};
+
+		bool thread_running_{true};
+
+		std::thread image_gatherer_{};
 
 		int32_t camera_index_{};
 		int32_t n_cameras_{};

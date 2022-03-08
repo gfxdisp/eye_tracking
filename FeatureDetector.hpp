@@ -62,9 +62,13 @@ namespace et
 		cv::Point2f leds_locations_[LED_COUNT]{};
 		cv::KalmanFilter led_kalmans_[LED_COUNT]{};
 
+		cv::Mat cpu_image_{};
 		cv::cuda::GpuMat gpu_image_{};
 		cv::cuda::GpuMat pupil_thresholded_image_{};
 		cv::cuda::GpuMat glints_thresholded_image_{};
+
+		std::vector<std::vector<cv::Point>> contours_{};
+        std::vector<cv::Vec4i> hierarchy_{}; // Unused output
 
         cv::cuda::GpuMat correlation_map_{};
         cv::Ptr<cv::cuda::TemplateMatching> spots_matcher_{};
@@ -76,7 +80,7 @@ namespace et
 		int32_t max_pupil_radius_{90};
 
 		int32_t glints_threshold_{150};
-		int32_t max_glint_radius_{10};
+		int32_t max_glint_radius_{5};
 		int32_t max_vertical_distance{50};
 		int32_t max_horizontal_distance{5};
 		int32_t min_horizontal_distance{0};

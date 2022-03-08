@@ -1,7 +1,7 @@
 #include "IdsCamera.hpp"
 
-#include <iostream>
 #include <cassert>
+#include <iostream>
 
 namespace et
 {
@@ -14,6 +14,7 @@ namespace et
 	{
 		initializeCamera();
 		initializeImage();
+		image_gatherer_ = std::thread{&IdsCamera::imageGatheringThread, this};
 	}
 
 	void IdsCamera::initializeCamera()
@@ -66,17 +67,36 @@ namespace et
 		assert(result == IS_SUCCESS);
 
 		image_.create(image_resolution_.height, image_resolution_.width, CV_8UC1);
+
+		for (int i = 0; i < IMAGE_IN_QUEUE_COUNT; i++)
+		{
+			image_queue_[i].create(image_resolution_.height, image_resolution_.width, CV_8UC1); 
+		}
+
+	}
+
+	void IdsCamera::imageGatheringThread()
+	{
+		int result{};
+		int new_image_index{image_index_};
+
+		while (thread_running_)
+		{
+			new_image_index = (new_image_index + 1) % IMAGE_IN_QUEUE_COUNT;
+
+			result = is_FreezeVideo(camera_handle_, IS_WAIT);
+			assert(result == IS_SUCCESS);
+
+			result = is_CopyImageMem(camera_handle_, image_handle_, image_id_, (char*)image_queue_[new_image_index].data);
+			assert(result == IS_SUCCESS);
+
+			image_index_ = new_image_index;
+		}
 	}
 
 	cv::Mat IdsCamera::grabImage()
 	{
-		int result{};
-
-		result = is_FreezeVideo(camera_handle_, IS_DONT_WAIT);
-		assert(result == IS_SUCCESS);
-
-		result = is_CopyImageMem(camera_handle_, image_handle_, image_id_, (char*)image_.data);
-		assert(result == IS_SUCCESS);
+		image_ = image_queue_[image_index_];
 		return image_;
 	}
 
@@ -88,6 +108,9 @@ namespace et
 	void IdsCamera::close()
 	{
 		int result{};
+
+		thread_running_ = false;
+		image_gatherer_.join();
 
 		result = is_FreeImageMem(camera_handle_, image_handle_, image_id_);
 		assert(result == IS_SUCCESS);

@@ -32,7 +32,7 @@ namespace et
 
         sockaddr_in address_{};
         int server_handle_{};
-        int socket_handle_{};
+        int socket_handle_{-1};
     };
 }
 
