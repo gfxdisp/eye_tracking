@@ -23,6 +23,7 @@ namespace et
         FeatureDetector *feature_detector_{};
 
         cv::Vec3d eye_position_{};
+        cv::Vec3d gaze_direction_{};
 
         float pupil_diameter_{};
         

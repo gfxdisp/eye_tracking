@@ -24,7 +24,7 @@ namespace et
 		}
         cv::circle(image_, feature_detector_->getPupil(), feature_detector_->getPupilRadius(), cv::Scalar(0xFF, 0x00, 0x00), 5);
 
-		cv::circle(image_, eye_tracker_->getEyeCentrePixelPosition(), 3, cv::Scalar(0x00, 0xFF, 0x00), 5);
+		cv::circle(image_, eye_tracker_->getCorneaCurvaturePixelPosition(), 3, cv::Scalar(0x00, 0xFF, 0x00), 5);
 
         cv::putText(image_, fps_text_.str(), cv::Point2i(100, 100), cv::FONT_HERSHEY_SIMPLEX, 3, cv::Scalar(0x00, 0x00, 0xFF), 3);
 	}

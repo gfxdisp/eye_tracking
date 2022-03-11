@@ -189,12 +189,12 @@ namespace et
 		return eye_position_;
 	}
 
-	void EyeTracker::getEyeCentrePosition(cv::Vec3d &eye_centre)
+	void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &eye_centre)
 	{
 		mtx_eye_position_.lock();
 		if (eye_position_)
 		{
-			eye_centre = *eye_position_.eye_centre;	
+			eye_centre = *eye_position_.cornea_curvature;	
 		}
 		else
 		{
@@ -203,11 +203,25 @@ namespace et
 		mtx_eye_position_.unlock();
 	}
 
-	cv::Point2d EyeTracker::getEyeCentrePixelPosition()
+	void EyeTracker::getGazeDirection(cv::Vec3d &gaze_direction)
+	{
+		mtx_eye_position_.lock();
+		if (eye_position_)
+		{
+			gaze_direction = *eye_position_.pupil - *eye_position_.cornea_curvature;	
+		}
+		else
+		{
+			gaze_direction = cv::Vec3d(1.0, 0.0, 0.0);
+		}
+		mtx_eye_position_.unlock();
+	}
+
+	cv::Point2d EyeTracker::getCorneaCurvaturePixelPosition()
 	{
 		if (eye_position_)
 		{
-			return unproject(*eye_position_.eye_centre);	
+			return unproject(*eye_position_.cornea_curvature);	
 		}
 		return cv::Point2d(0.0, 0.0);
 	}

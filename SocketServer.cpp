@@ -67,7 +67,7 @@ namespace et
                 }
                 if (buffer[0] == 1) 
                 {
-                    eye_tracker_->getEyeCentrePosition(eye_position_);
+                    eye_tracker_->getCorneaCurvaturePosition(eye_position_);
                     uint32_t sent{0};
                     uint32_t size_to_send{sizeof(eye_position_)};
                     while (sent < size_to_send) 
@@ -147,6 +147,22 @@ namespace et
                         }
                         sent += new_bytes;
                     }
+                }
+                else if (buffer[0] == 5) 
+                {
+                    eye_tracker_->getGazeDirection(gaze_direction_);
+                    uint32_t sent{0};
+                    uint32_t size_to_send{sizeof(gaze_direction_)};
+                    while (sent < size_to_send) 
+                    {
+                        ssize_t new_bytes{send(socket_handle_, (char*)&gaze_direction_ + sent, size_to_send - sent, 0)};
+                        if (new_bytes < 0) 
+                        {
+                            break;
+                        }
+                        sent += new_bytes;
+                    }
+
                 }
                 else if (buffer[0] == 0) 
                 {

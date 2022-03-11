@@ -50,9 +50,11 @@ namespace et
 
 		EyePosition getEyePosition();
 
-		void getEyeCentrePosition(cv::Vec3d &eye_centre);
+		void getCorneaCurvaturePosition(cv::Vec3d &eye_centre);
 
-		cv::Point2d getEyeCentrePixelPosition();
+		void getGazeDirection(cv::Vec3d &gaze_direction);
+
+		cv::Point2d getCorneaCurvaturePixelPosition();
 
 		void setNewSetupLayout(SetupLayout &setup_layout);
 
