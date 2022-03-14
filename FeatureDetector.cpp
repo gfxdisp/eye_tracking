@@ -40,7 +40,7 @@ namespace et
 	bool FeatureDetector::findImageFeatures(cv::Mat image)
 	{
 		gpu_image_.upload(image);
-		cv::cuda::threshold(gpu_image_, pupil_thresholded_image_, pupil_threshold_, 255, cv::THRESH_BINARY_INV);
+		cv::cuda::threshold(gpu_image_, pupil_thresholded_image_, pupil_threshold, 255, cv::THRESH_BINARY_INV);
 		cv::cuda::threshold(gpu_image_, glints_thresholded_image_, glints_threshold_, 255, cv::THRESH_BINARY);
     	return findPupil() & findGlints();
 	}
@@ -244,4 +244,5 @@ namespace et
 		glints_thresholded_image_.download(image_);
 		return image_;
 	}
+
 }

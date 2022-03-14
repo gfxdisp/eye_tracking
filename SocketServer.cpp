@@ -65,7 +65,13 @@ namespace et
                 {
                     break;
                 }
-                if (buffer[0] == 1) 
+                
+                if (buffer[0] == 0) 
+                {
+                    std::cout << "Socket closed.\n";
+                    finished = true;
+                }
+                else if (buffer[0] == 1) 
                 {
                     eye_tracker_->getCorneaCurvaturePosition(eye_position_);
                     uint32_t sent{0};
@@ -162,12 +168,37 @@ namespace et
                         }
                         sent += new_bytes;
                     }
-
                 }
-                else if (buffer[0] == 0) 
+                else if (buffer[0] == 6)
                 {
-                    std::cout << "Socket closed.\n";
-                    finished = true;
+                    int threshold;
+                    uint32_t bytes_read{0};
+                    uint32_t size_to_read{sizeof(threshold)};
+                    while (bytes_read < size_to_read)
+                    {
+                        ssize_t new_bytes{read(socket_handle_, (char*)&threshold + bytes_read, size_to_read - bytes_read)};
+                        if (new_bytes < 0) 
+                        {
+                            break;
+                        }
+                        bytes_read += new_bytes;
+                    }
+                    feature_detector_->pupil_threshold = threshold;
+                }
+                else if (buffer[0] == 7)
+                {
+                    int threshold = feature_detector_->pupil_threshold;
+                    uint32_t sent{0};
+                    uint32_t size_to_send{sizeof(threshold)};
+                    while (sent < size_to_send) 
+                    {
+                        ssize_t new_bytes{send(socket_handle_, (char*)&threshold + sent, size_to_send - sent, 0)};
+                        if (new_bytes < 0) 
+                        {
+                            break;
+                        }
+                        sent += new_bytes;
+                    }
                 }
             }
             close(socket_handle_);

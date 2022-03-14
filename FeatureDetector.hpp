@@ -46,6 +46,8 @@ namespace et
 
 		static constexpr int LED_COUNT = 2;
 
+		int32_t pupil_threshold{5};
+
 	private:
 		bool findPupil();
 
@@ -75,7 +77,6 @@ namespace et
         cv::cuda::GpuMat spots_{};
         cv::cuda::Stream stream_spots_{};
 
-		int32_t pupil_threshold_{5};
 		int32_t min_pupil_radius_{20};
 		int32_t max_pupil_radius_{90};
 

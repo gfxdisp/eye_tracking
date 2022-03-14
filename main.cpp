@@ -108,7 +108,9 @@ int main(int argc, char *argv[])
 			video_output.write(image);
 		}
 
-		switch (cv::waitKey(7) & 0xFF) 
+
+		int key_pressed = cv::waitKey(7) & 0xFF;
+		switch (key_pressed) 
 		{
 			case 27: // Esc
 				socket_server.finished = true;
@@ -134,8 +136,14 @@ int main(int argc, char *argv[])
 			case 'r':
 				visualization_type = VisualizationType::THRESHOLD_GLINTS;
 				break;
+			case 171:
+				feature_detector.pupil_threshold++;
+				break;
+			case 173:
+				feature_detector.pupil_threshold--;
+				break;
 		}
-	}
+	}	
 
     socket_server.finished = true;
 
