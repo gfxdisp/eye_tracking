@@ -184,6 +184,30 @@ namespace et
 		mtx_eye_position_.unlock();
 	}
 
+	void EyeTracker::calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f glints_pixel_positions[])
+	{
+		cv::Vec3d v11{setup_layout_.led_positions[0] - setup_layout_.camera_nodal_point_position};
+		cv::normalize(v11, v11);
+		cv::Vec3d glint_position1{project(glints_pixel_positions[0])};
+		cv::Vec3d v12{glint_position1 - setup_layout_.camera_nodal_point_position};
+		cv::normalize(v12, v12);
+		cv::Vec3d nn1{v11.cross(v12)};
+		cv::normalize(nn1, nn1);
+
+		cv::Vec3d v21{setup_layout_.led_positions[1] - setup_layout_.camera_nodal_point_position};
+		cv::normalize(v21, v21);
+		cv::Vec3d glint_position2{project(glints_pixel_positions[1])};
+		cv::Vec3d v22{glint_position2 - setup_layout_.camera_nodal_point_position};
+		cv::normalize(v22, v22);
+		cv::Vec3d nn2{v21.cross(v22)};
+		cv::normalize(nn2, nn2);
+
+		cv::Vec3d bnorm{nn1.cross(nn2)};
+		cv::normalize(bnorm, bnorm);
+		std::cout << bnorm << std::endl;
+	}
+
+
 	EyePosition EyeTracker::getEyePosition()
 	{
 		return eye_position_;

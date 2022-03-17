@@ -77,24 +77,25 @@ namespace et
         cv::cuda::GpuMat spots_{};
         cv::cuda::Stream stream_spots_{};
 
-		int32_t min_pupil_radius_{20};
-		int32_t max_pupil_radius_{90};
+		int min_pupil_radius_{20};
+		int max_pupil_radius_{90};
 
-		int32_t glints_threshold_{150};
-		int32_t max_glint_radius_{5};
-		int32_t max_vertical_distance{50};
-		int32_t max_horizontal_distance{5};
-		int32_t min_horizontal_distance{0};
+		int glints_threshold_{150};
+		int max_glint_radius_{5};
+		int min_vertical_distance{0};
+		int max_vertical_distance{5};
+		int min_horizontal_distance{30};
+		int max_horizontal_distance{50};
 
 		cv::Ptr<cv::cuda::Filter> dilate_filter_{};
-		int32_t dilation_size_{1};
+		int dilation_size_{1};
 
 		cv::Ptr<cv::cuda::Filter> erode_filter_{};
-		int32_t erosion_size_{5};
+		int erosion_size_{5};
 
 		cv::Ptr<cv::cuda::Filter> close_filter_{};
 		cv::Ptr<cv::cuda::Filter> open_filter_{};
-		int32_t morphology_size{13};
+		int morphology_size{13};
 
 		inline cv::Point2f toPoint(cv::Mat m) 
 		{

@@ -57,16 +57,18 @@ namespace et
 		result = is_AOI(camera_handle_, IS_AOI_IMAGE_SET_AOI, &area_of_interest, sizeof(area_of_interest));
 		assert(result == IS_SUCCESS);
 
-		image_resolution_.width = area_of_interest.s32Width;
-		image_resolution_.height = area_of_interest.s32Height;
 
-		result = is_AllocImageMem(camera_handle_, image_resolution_.width, image_resolution_.height, sizeof(char) * CHAR_BIT, &image_handle_, &image_id_);
+		result = is_AllocImageMem(camera_handle_, area_of_interest.s32Width, area_of_interest.s32Height, sizeof(char) * CHAR_BIT, &image_handle_, &image_id_);
 		assert(result == IS_SUCCESS);
 
 		result = is_SetImageMem(camera_handle_, image_handle_, image_id_);
 		assert(result == IS_SUCCESS);
 
+		image_resolution_.width = area_of_interest.s32Height;
+		image_resolution_.height = area_of_interest.s32Width;
+
 		image_.create(image_resolution_.height, image_resolution_.width, CV_8UC1);
+		temp_image_.create(image_resolution_.width, image_resolution_.height, CV_8UC1);
 
 		for (int i = 0; i < IMAGE_IN_QUEUE_COUNT; i++)
 		{
@@ -87,8 +89,11 @@ namespace et
 			result = is_FreezeVideo(camera_handle_, IS_WAIT);
 			assert(result == IS_SUCCESS);
 
-			result = is_CopyImageMem(camera_handle_, image_handle_, image_id_, (char*)image_queue_[new_image_index].data);
+			result = is_CopyImageMem(camera_handle_, image_handle_, image_id_, (char*)temp_image_.data);
 			assert(result == IS_SUCCESS);
+
+
+			cv::rotate(temp_image_, image_queue_[new_image_index], cv::ROTATE_90_COUNTERCLOCKWISE);
 
 			image_index_ = new_image_index;
 		}

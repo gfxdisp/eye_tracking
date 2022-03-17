@@ -51,6 +51,8 @@ namespace et
 		SENSORINFO sensor_info_{};
 		char* image_handle_{};
 		int32_t image_id_{};
+
+		cv::Mat temp_image_{};
 	};
 }
 

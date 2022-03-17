@@ -175,6 +175,7 @@ namespace et
 			for (int j = i + 1; j < glint_candidates.size(); j++)
 			{
 				if (abs(glint_candidates[i].location.y - glint_candidates[j].location.y) > max_vertical_distance) continue;
+				if (abs(glint_candidates[i].location.y - glint_candidates[j].location.y) < min_vertical_distance) continue;
 				if (abs(glint_candidates[i].location.x - glint_candidates[j].location.x) > max_horizontal_distance) continue;
 				if (abs(glint_candidates[i].location.x - glint_candidates[j].location.x) < min_horizontal_distance) continue;
 				float rating = glint_candidates[i].rating + glint_candidates[j].rating;
@@ -183,7 +184,7 @@ namespace et
 					best_rating = rating;
 					best_centre[0] = glint_candidates[i].location;
 					best_centre[1] = glint_candidates[j].location;
-					if (best_centre[0].y > best_centre[1].y)
+					if (best_centre[0].x > best_centre[1].x)
 					{
 						std::swap(best_centre[0], best_centre[1]);
 					}

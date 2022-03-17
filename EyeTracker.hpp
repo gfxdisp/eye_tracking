@@ -48,6 +48,8 @@ namespace et
 
 		void calculateEyePosition(cv::Point2f pupil_pixel_position, cv::Point2f glints_pixel_positions[]);
 
+		void calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f glints_pixel_positions[]);
+
 		EyePosition getEyePosition();
 
 		void getCorneaCurvaturePosition(cv::Vec3d &eye_centre);

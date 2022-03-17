@@ -10,6 +10,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <string>
 #include <thread>
 
 enum class VisualizationType
@@ -19,6 +20,16 @@ enum class VisualizationType
 	THRESHOLD_PUPIL,
 	THRESHOLD_GLINTS
 };
+
+std::string getCurrentTimeText()
+{
+    std::time_t now{std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())};
+    char buffer [80];
+
+    std::strftime(buffer, 80, "%Y-%m-%d_%H-%M-%S", std::localtime(&now));
+    std::string s{buffer};
+    return s;
+}
 
 int main(int argc, char *argv[])
 {
@@ -78,6 +89,7 @@ int main(int argc, char *argv[])
 		if (features_found)
 		{
 			eye_tracker.calculateEyePosition(feature_detector.getPupil(), feature_detector.getLeds());
+			eye_tracker.calculateJoined(feature_detector.getPupil(), feature_detector.getLeds());
 		}
 
 		visualizer.calculateFramerate();
@@ -118,7 +130,9 @@ int main(int argc, char *argv[])
 			case 'w':
 				if (input_type != "file")
 				{
-					video_output.open("recorded_output.mp4", cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30, image_provider->getResolution(), false);
+					std::string filename{"videos/" + getCurrentTimeText() + ".mp4"};
+					std::clog << "Saving video to " << filename << "\n";
+					video_output.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30, image_provider->getResolution(), false);
 				}
                 break;
 			case 's':
