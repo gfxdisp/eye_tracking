@@ -1,4 +1,4 @@
-/// Class containing all information about the IDS Camera used for eye-tracking. 
+/// Class containing all information about the IDS Camera used for eye-tracking.
 /// It serves as an interface for grabbing images and setting camera parameters.
 
 #ifndef IDS_CAMERA_H
@@ -6,54 +6,49 @@
 
 #include "ImageProvider.hpp"
 
-#include <uEye.h>
-
 #include <opencv2/opencv.hpp>
+#include <ueye.h>
 
 #include <mutex>
 #include <string>
 #include <thread>
 
-namespace et 
-{
-	class IdsCamera : public ImageProvider
-	{
-	public:
-		IdsCamera(int camera_index);
-		virtual void initialize();
-		virtual cv::Mat grabImage();
-		virtual cv::Size2i getResolution();
-		virtual void close();
-		virtual void setExposure(double exposure);
-		virtual void setGamma(float gamma);
-		virtual void setFramerate(double framerate);
+namespace et {
+class IdsCamera : public ImageProvider {
+public:
+    explicit IdsCamera(int camera_index);
+    void initialize() override;
+    cv::Mat grabImage() override;
+    cv::Size2i getResolution() override;
+    void close() override;
+    void setExposure(double exposure) override;
+    void setGamma(float gamma) override;
+    void setFramerate(double framerate) override;
 
-	private:
-		void initializeCamera();
-		void initializeImage();
-		void imageGatheringThread();
+private:
+    void initializeCamera();
+    void initializeImage();
+    void imageGatheringThread();
 
-		static constexpr uint32_t IMAGE_IN_QUEUE_COUNT = 10;
+    static constexpr int IMAGE_IN_QUEUE_COUNT = 10;
 
-		std::mutex mtx_image_{};
+    cv::Mat image_queue_[IMAGE_IN_QUEUE_COUNT]{};
+    int image_index_{-1};
 
-		cv::Mat image_queue_[IMAGE_IN_QUEUE_COUNT]{};
-		int32_t image_index_{-1};
+    bool thread_running_{true};
 
-		bool thread_running_{true};
+    std::thread image_gatherer_{};
 
-		std::thread image_gatherer_{};
+    int camera_index_{};
+    int n_cameras_{};
+    PUEYE_CAMERA_LIST camera_list_{};
+    uint32_t camera_handle_{};
+    SENSORINFO sensor_info_{};
+    char *image_handle_{};
+    int image_id_{};
 
-		int32_t camera_index_{};
-		int32_t n_cameras_{};
-		PUEYE_CAMERA_LIST camera_list_{};
-		uint32_t camera_handle_{};
-		SENSORINFO sensor_info_{};
-		char* image_handle_{};
-		int32_t image_id_{};
-
-		cv::Mat temp_image_{};
-	};
-}
+    cv::Mat temp_image_{};
+};
+}// namespace et
 
 #endif

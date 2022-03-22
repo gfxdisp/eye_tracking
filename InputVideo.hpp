@@ -5,20 +5,19 @@
 
 #include <opencv2/opencv.hpp>
 
-namespace et
-{
-	class InputVideo : public ImageProvider
-	{
-	public:
-		InputVideo(std::string &input_video_path);
-		virtual void initialize();
-		virtual cv::Mat grabImage();
-		virtual cv::Size2i getResolution();
-		virtual void close();
-	private:
-		std::string input_video_path_{};
-		cv::VideoCapture video_{};
-	};
-}
+namespace et {
+class InputVideo : public ImageProvider {
+public:
+    explicit InputVideo(std::string &input_video_path);
+    void initialize() override;
+    cv::Mat grabImage() override;
+    cv::Size2i getResolution() override;
+    void close() override;
+
+private:
+    std::string input_video_path_{};
+    cv::VideoCapture video_{};
+};
+}// namespace et
 
 #endif
