@@ -11,7 +11,9 @@
 using cv::Vec3d;
 
 namespace et {
-SocketServer::SocketServer(EyeTracker *eye_tracker, FeatureDetector *feature_detector) : eye_tracker_(eye_tracker), feature_detector_(feature_detector) {}
+SocketServer::SocketServer(EyeTracker *eye_tracker, FeatureDetector *feature_detector)
+    : eye_tracker_(eye_tracker), feature_detector_(feature_detector) {
+}
 
 void SocketServer::startServer() {
     int opt{1};
@@ -100,8 +102,18 @@ void SocketServer::openSocket() {
 
                 uint32_t bytes_read{0};
                 uint32_t size_to_read{0};
-                char *variables[]{(char *)&setup_layout.camera_lambda, (char *)&setup_layout.camera_eye_distance, (char *)&setup_layout.camera_nodal_point_position, (char *)setup_layout.led_positions};
-                uint32_t sizes[]{sizeof(setup_layout.camera_lambda), sizeof(setup_layout.camera_eye_distance), sizeof(setup_layout.camera_nodal_point_position), sizeof(setup_layout.led_positions)};
+                char *variables[]{(char *)&setup_layout.camera_lambda,
+                                  (char *)&setup_layout.camera_eye_distance,
+                                  (char *)&setup_layout.camera_nodal_point_position,
+                                  (char *)setup_layout.led_positions,
+                                  (char *)&setup_layout.alpha,
+                                  (char *)&setup_layout.beta};
+                uint32_t sizes[]{sizeof(setup_layout.camera_lambda),
+                                 sizeof(setup_layout.camera_eye_distance),
+                                 sizeof(setup_layout.camera_nodal_point_position),
+                                 sizeof(setup_layout.led_positions),
+                                 sizeof(setup_layout.alpha),
+                                 sizeof(setup_layout.beta)};
                 for (int i = 0; i < sizeof(variables) / sizeof(variables[0]); i++) {
                     bytes_read = 0;
                     size_to_read = sizes[i];
@@ -113,8 +125,11 @@ void SocketServer::openSocket() {
                         bytes_read += new_bytes;
                     }
                 }
-                std::clog << "Received: " << setup_layout.camera_lambda << " " << setup_layout.camera_eye_distance << " " << setup_layout.camera_nodal_point_position << " " << setup_layout.led_positions[0] << " " << setup_layout.led_positions[1] << std::endl;
-                setup_layout.camera_eye_projection_factor = setup_layout.camera_eye_distance / setup_layout.camera_lambda;
+                std::clog << "Received: " << setup_layout.camera_lambda << " " << setup_layout.camera_eye_distance
+                          << " " << setup_layout.camera_nodal_point_position << " " << setup_layout.led_positions[0]
+                          << " " << setup_layout.led_positions[1] << std::endl;
+                setup_layout.camera_eye_projection_factor =
+                    setup_layout.camera_eye_distance / setup_layout.camera_lambda;
 
                 eye_tracker_->setNewSetupLayout(setup_layout);
             } else if (buffer[0] == 4) {
@@ -163,21 +178,6 @@ void SocketServer::openSocket() {
                     }
                     sent += new_bytes;
                 }
-            } else if (buffer[0] == 8) {
-                feature_detector_->getLeds(leds_locations_);
-                feature_detector_->getPupil(pupil_location_);
-
-                cv::Vec3d ground_truth{};
-                uint32_t bytes_read{0};
-                uint32_t size_to_read{sizeof(ground_truth)};
-                while (bytes_read < size_to_read) {
-                    ssize_t new_bytes{read(socket_handle_, (char *)&ground_truth + bytes_read, size_to_read - bytes_read)};
-                    if (new_bytes < 0) {
-                        break;
-                    }
-                    bytes_read += new_bytes;
-                }
-                eye_tracker_->findBestCameraParameters(ground_truth, pupil_location_, leds_locations_);
             }
         }
         close(socket_handle_);

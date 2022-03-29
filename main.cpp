@@ -48,12 +48,14 @@ int main(int argc, char *argv[]) {
     et::FeatureDetector feature_detector{};
     feature_detector.initializeKalmanFilters(image_provider->getResolution(), framerate);
 
+    cv::Vec3d eye_pos_right{140, 210, 810};
+
     et::SetupLayout setup_layout{};
     setup_layout.camera_lambda = 27.119;
-    setup_layout.camera_nodal_point_position = {173.307, 187.044, 484.442};
-    setup_layout.led_positions[0] = {151.985, 232.464, 747.823};
-    setup_layout.led_positions[1] = {193.252, 233.252, 749.389};
-    setup_layout.camera_eye_distance = 316.29;
+    setup_layout.camera_nodal_point_position = {196.0502, 132.5502, 494.2603};
+    setup_layout.led_positions[0] = {150, 230, 750};
+    setup_layout.led_positions[1] = {190, 230, 750};
+    setup_layout.camera_eye_distance = cv::norm(setup_layout.camera_nodal_point_position - eye_pos_right);
     setup_layout.camera_eye_projection_factor = setup_layout.camera_eye_distance / setup_layout.camera_lambda;
 
     et::EyeTracker eye_tracker{setup_layout, image_provider};
@@ -73,8 +75,7 @@ int main(int argc, char *argv[]) {
         bool features_found{feature_detector.findImageFeatures(image)};
         et::EyePosition eye_position{};
         if (features_found) {
-            //			eye_tracker.calculateJoined(feature_detector.getPupil(), feature_detector.getLeds());
-            eye_tracker.calculateEyePosition(feature_detector.getPupil(), feature_detector.getLeds());
+            eye_tracker.calculateJoined(feature_detector.getPupil(), feature_detector.getLeds());
         }
 
         visualizer.calculateFramerate();

@@ -2,7 +2,9 @@
 
 #include "EyeTracker.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <iostream>
 
 namespace et {
 
@@ -25,7 +27,7 @@ double et::RayPointMinimizer::calc(const double *x) const {
 
     bool intersected{
         EyeTracker::getRaySphereIntersection(screen_glint_, ray_dir_, c, EyeProperties::cornea_curvature_radius, t)};
-    if (intersected) {
+    if (intersected && t > 0) {
         cv::Vec3d pp{screen_glint_ + t * ray_dir_};
         cv::Vec3d vc{pp - c};
         cv::normalize(vc, vc);
@@ -55,5 +57,6 @@ void RayPointMinimizer::setParameters(const cv::Vec3d &np2c_dir, const cv::Vec3d
     lp_ = lp;
     ray_dir_ = np_ - screen_glint_;
     cv::normalize(ray_dir_, ray_dir_);
+    lowest_error_ = 1e5;
 }
 }// namespace et

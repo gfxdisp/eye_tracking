@@ -4,7 +4,7 @@
 #include <opencv2/opencv.hpp>
 
 namespace et {
-class RayPointMinimizer : public cv::MinProblemSolver::Function {
+class RayPointMinimizer : public cv::DownhillSolver::Function {
 public:
     explicit RayPointMinimizer(const cv::Vec3d &np);
     [[nodiscard]] int getDims() const override;

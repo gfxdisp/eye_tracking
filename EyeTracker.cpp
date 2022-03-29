@@ -1,5 +1,4 @@
 #include "EyeTracker.hpp"
-#include "EyePositionFunction.hpp"
 #include "RayPointMinimizer.hpp"
 
 #include <iostream>
@@ -13,10 +12,8 @@ EyeTracker::EyeTracker(SetupLayout &setup_layout, ImageProvider *image_provider)
     minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>{ray_point_minimizer_};
     solver_ = cv::Ptr<cv::DownhillSolver>{cv::DownhillSolver::create()};
     solver_->setFunction(minimizer_function_);
-
     double step[] = {50, 50};
     cv::Mat step_data{1, 2, CV_64F, step};
-
     solver_->setInitStep(step_data);
 }
 
@@ -38,7 +35,7 @@ EyeTracker::~EyeTracker() {
 ///   Snell's law to find a line containing p.
 /// - use (9) to find p (again, finding the intersections of a sphere and the line).
 /// - trace the vector p-c to find d, the centre of rotation of the eye.
-void EyeTracker::calculateEyePosition(const cv::Point2f &pupil_pixel_position, cv::Point2f *glints_pixel_positions) {
+void EyeTracker::calculateEyePosition(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions) {
     if (new_setup_layout_needed_) {
         mtx_setup_to_change_.lock();
         setup_layout_ = new_setup_layout_;
@@ -117,7 +114,9 @@ void EyeTracker::calculateEyePosition(const cv::Point2f &pupil_pixel_position, c
                                 setup_layout_.camera_nodal_point_position - pupil_image)};
     std::optional<cv::Vec3d> pupil{};
     switch (intersections.size()) {
-        case 1: pupil = intersections[0]; break;
+        case 1:
+            pupil = intersections[0];
+            break;
         case 2:
             // Take the one with the lowest Z.
             pupil = intersections[intersections[0](2) < intersections[1](2) ? 0 : 1];
@@ -163,12 +162,16 @@ void EyeTracker::calculateEyePosition(const cv::Point2f &pupil_pixel_position, c
                         + perpendicular * std::abs(std::sin(angle))};// w
     intersections = lineSphereIntersections(*cornea_curvature, EyeProperties::pupil_cornea_distance, *pupil, direction);
     switch (intersections.size()) {
-        case 1: pupil = intersections[0]; break;
+        case 1:
+            pupil = intersections[0];
+            break;
         case 2:
             // Take the one with the lowest Z; the pupil is in front of the lens.
             pupil = intersections[intersections[0](2) < intersections[1](2) ? 0 : 1];
             break;
-        default: pupil = {}; break;
+        default:
+            pupil = {};
+            break;
     }
     if (!pupil) {
         // No solution for p, but at least we have c.
@@ -190,7 +193,7 @@ void EyeTracker::calculateEyePosition(const cv::Point2f &pupil_pixel_position, c
     mtx_eye_position_.unlock();
 }
 
-EyePosition EyeTracker::calculateJoined(const cv::Point2f &pupil_pixel_position, cv::Point2f *glints_pixel_positions) {
+void EyeTracker::calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions) {
     if (new_setup_layout_needed_) {
         mtx_setup_to_change_.lock();
         setup_layout_ = new_setup_layout_;
@@ -202,7 +205,7 @@ EyePosition EyeTracker::calculateJoined(const cv::Point2f &pupil_pixel_position,
 
     cv::Vec3d v11{setup_layout_.led_positions[0] - setup_layout_.camera_nodal_point_position};
     cv::normalize(v11, v11);
-    cv::Vec3d glint_position1{ICStoWCS(glints_pixel_positions[0])};
+    cv::Vec3d glint_position1{project(glints_pixel_positions[0])};
     cv::Vec3d v12{glint_position1 - setup_layout_.camera_nodal_point_position};
     cv::normalize(v12, v12);
     cv::Vec3d nn1{v11.cross(v12)};
@@ -210,7 +213,7 @@ EyePosition EyeTracker::calculateJoined(const cv::Point2f &pupil_pixel_position,
 
     cv::Vec3d v21{setup_layout_.led_positions[1] - setup_layout_.camera_nodal_point_position};
     cv::normalize(v21, v21);
-    cv::Vec3d glint_position2{ICStoWCS(glints_pixel_positions[1])};
+    cv::Vec3d glint_position2{project(glints_pixel_positions[1])};
     cv::Vec3d v22{glint_position2 - setup_layout_.camera_nodal_point_position};
     cv::normalize(v22, v22);
     cv::Vec3d nn2{v21.cross(v22)};
@@ -220,23 +223,20 @@ EyePosition EyeTracker::calculateJoined(const cv::Point2f &pupil_pixel_position,
     cv::normalize(bnorm, bnorm);
     bnorm = -bnorm;
 
-    double data[]{200, 200};
-
-    cv::Mat mat_data{1, 2, CV_64F, data};
-
     ray_point_minimizer_->setParameters(bnorm, glint_position1, setup_layout_.led_positions[0]);
-    solver_->minimize(mat_data);
+    solver_->minimize(cv::Mat{1, 2, CV_64F, {100, 100}});
     cv::Vec3d c1{setup_layout_.camera_nodal_point_position + bnorm * RayPointMinimizer::kk_};
     cv::Vec3d light1_cornea_glint{RayPointMinimizer::pp_};
 
     ray_point_minimizer_->setParameters(bnorm, glint_position2, setup_layout_.led_positions[1]);
-    solver_->minimize(mat_data);
+    solver_->minimize(cv::Mat{1, 2, CV_64F, {100, 100}});
     cv::Vec3d c2{setup_layout_.camera_nodal_point_position + bnorm * RayPointMinimizer::kk_};
     cv::Vec3d light2_cornea_glint{RayPointMinimizer::pp_};
+
     cornea_curvature = (c1 + c2) / 2;
 
     double t{};
-    cv::Vec3d pupil_image_position{ICStoWCS(pupil_pixel_position)};
+    cv::Vec3d pupil_image_position{project(pupil_pixel_position)};
     cv::Vec3d pupil_dir{setup_layout_.camera_nodal_point_position - pupil_image_position};
     cv::normalize(pupil_dir, pupil_dir);
     bool intersected{getRaySphereIntersection(setup_layout_.camera_nodal_point_position, pupil_dir, *cornea_curvature,
@@ -245,7 +245,9 @@ EyePosition EyeTracker::calculateJoined(const cv::Point2f &pupil_pixel_position,
     if (intersected) {
         cv::Vec3d pupil_on_cornea{setup_layout_.camera_nodal_point_position + t * pupil_dir};
         cv::Vec3d nv{pupil_on_cornea - *cornea_curvature};
+        cv::normalize(nv, nv);
         cv::Vec3d mdir{setup_layout_.camera_nodal_point_position - pupil_image_position};
+        cv::normalize(mdir, mdir);
         cv::Vec3d direction{getRefractedRay(mdir, nv, EyeProperties::refraction_index)};
         intersected = getRaySphereIntersection(pupil_on_cornea, direction, *cornea_curvature,
                                                EyeProperties::pupil_cornea_distance, t);
@@ -257,13 +259,11 @@ EyePosition EyeTracker::calculateJoined(const cv::Point2f &pupil_pixel_position,
         }
     }
 
-    EyePosition eye_position{cornea_curvature, pupil, eye_centre};
-    return eye_position;
-
-    //    kalman_.correct((KFMat(3, 1) << (*cornea_curvature)(0), (*cornea_curvature)(1), (*cornea_curvature)(2)));
-    //    mtx_eye_position_.lock();
-    //    eye_position_ = {cornea_curvature, pupil, eye_centre};
-    //    mtx_eye_position_.unlock();
+    kalman_.correct((KFMat(3, 1) << (*cornea_curvature)(0), (*cornea_curvature)(1), (*cornea_curvature)(2)));
+    mtx_eye_position_.lock();
+    eye_position_ = {cornea_curvature, pupil, eye_centre};
+    std::cout << *cornea_curvature;
+    mtx_eye_position_.unlock();
 }
 
 void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &eye_centre) {
@@ -277,13 +277,18 @@ void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &eye_centre) {
 }
 
 void EyeTracker::getGazeDirection(cv::Vec3d &gaze_direction) {
+    cv::Vec3d inv_optical_axis{};
     mtx_eye_position_.lock();
     if (eye_position_) {
-        gaze_direction = *eye_position_.pupil - *eye_position_.cornea_curvature;
+        inv_optical_axis = *eye_position_.eye_centre - *eye_position_.cornea_curvature;
     } else {
-        gaze_direction = cv::Vec3d(1.0, 0.0, 0.0);
+        inv_optical_axis = cv::Vec3d(1.0, 0.0, 0.0);
     }
     mtx_eye_position_.unlock();
+    cv::normalize(inv_optical_axis, inv_optical_axis);
+    cv::Mat visual_axis{inv_optical_axis * setup_layout_.visual_axis_rotation};
+    gaze_direction = visual_axis.reshape(3).at<cv::Vec3d>();
+    gaze_direction = -gaze_direction;
 }
 
 cv::Point2d EyeTracker::getCorneaCurvaturePixelPosition() {
@@ -296,6 +301,8 @@ cv::Point2d EyeTracker::getCorneaCurvaturePixelPosition() {
 void EyeTracker::setNewSetupLayout(SetupLayout &setup_layout) {
     mtx_setup_to_change_.lock();
     new_setup_layout_ = setup_layout;
+    double angles[]{new_setup_layout_.alpha, new_setup_layout_.beta, 0};
+    setup_layout.visual_axis_rotation = euler2rot(angles);
     new_setup_layout_needed_ = true;
     mtx_setup_to_change_.unlock();
 }
@@ -320,12 +327,11 @@ cv::Vec3d EyeTracker::ICStoCCS(const cv::Point2d &point) const {
     cv::Size2i resolution = image_provider_->getResolution();
     const double x = pixel_pitch * (point.x - resolution.width / 2.0);
     const double y = pixel_pitch * (point.y - resolution.height / 2.0);
-    return {x, y, -setup_layout_.camera_lambda};
+    return {x, y, setup_layout_.camera_lambda};
 }
 
 cv::Vec3d EyeTracker::CCStoWCS(const cv::Vec3d &point) const {
-    // std::cout << point + setup_layout_.camera_nodal_point_position << std::endl;
-    return point + setup_layout_.camera_nodal_point_position;
+    return setup_layout_.rotation * point + setup_layout_.camera_nodal_point_position;
 }
 
 cv::Vec3d EyeTracker::WCStoCCS(const cv::Vec3d &point) const {
@@ -393,8 +399,8 @@ bool EyeTracker::getRaySphereIntersection(const cv::Vec3d &ray_pos, const cv::Ve
     double C{v.dot(v) - sphere_radius * sphere_radius};
     double delta{B * B - 4 * A * C};
     if (delta > 0) {
-        double t1{-B - std::sqrt(delta) / (2 * A)};
-        double t2{-B + std::sqrt(delta) / (2 * A)};
+        double t1{(-B - std::sqrt(delta)) / (2 * A)};
+        double t2{(-B + std::sqrt(delta)) / (2 * A)};
         if (t1 < 1e-5) {
             t = t2;
         } else if (t1 < 1e-5) {
@@ -413,35 +419,43 @@ cv::Vec3d EyeTracker::getRefractedRay(const cv::Vec3d &direction, const cv::Vec3
     cv::normalize(t, t);
     return t;
 }
-void EyeTracker::findBestCameraParameters(const cv::Vec3d &ground_truth, const cv::Point2f &pupil_pixel_position,
-                                          cv::Point2f *glints_pixel_positions) {
-    cv::Ptr<cv::DownhillSolver::Function> minimizer_function = cv::Ptr<cv::DownhillSolver::Function>{
-        new EyePositionFunction(this, pupil_pixel_position, glints_pixel_positions, ground_truth)};
-    cv::Ptr<cv::DownhillSolver> solver = cv::Ptr<cv::DownhillSolver>{cv::DownhillSolver::create()};
-    solver->setFunction(minimizer_function);
+cv::Mat3d EyeTracker::euler2rot(double *euler_angles) {
+    cv::Mat3d rotationMatrix(3, 3, CV_64F);
 
-    double step[10];
-    for (double &i : step) {
-        i = 100.0f;
-    }
-    cv::Mat step_data{1, 9, CV_64F, step};
+    double x = euler_angles[0];
+    double y = euler_angles[1];
+    double z = euler_angles[2];
 
-    solver->setInitStep(step_data);
-    double data[10];
-    for (int i = 0; i < 3; i++) {
-        data[i] = setup_layout_.camera_nodal_point_position[i];
-        data[i + 3] = setup_layout_.led_positions[0][i];
-        data[i + 6] = setup_layout_.led_positions[1][i];
-    }
-    data[9] = setup_layout_.camera_lambda;
+    // Assuming the angles are in radians.
+    double ch = cos(z);
+    double sh = sin(z);
+    double ca = cos(y);
+    double sa = sin(y);
+    double cb = cos(x);
+    double sb = sin(x);
 
-    cv::Mat mat_data{1, 9, CV_64F, data};
-    solver->minimize(mat_data);
-    setNewSetupLayout(EyePositionFunction::setup_layout_);
+    double m00, m01, m02, m10, m11, m12, m20, m21, m22;
 
-    EyePosition eye_position = calculateJoined(pupil_pixel_position, glints_pixel_positions);
-    std::cout << EyePositionFunction::setup_layout_.camera_nodal_point_position
-              << EyePositionFunction::setup_layout_.led_positions[0]
-              << EyePositionFunction::setup_layout_.led_positions[1] << *eye_position.cornea_curvature << "\n";
+    m00 = ch * ca;
+    m01 = sh * sb - ch * sa * cb;
+    m02 = ch * sa * sb + sh * cb;
+    m10 = sa;
+    m11 = ca * cb;
+    m12 = -ca * sb;
+    m20 = -sh * ca;
+    m21 = sh * sa * cb + ch * sb;
+    m22 = -sh * sa * sb + ch * cb;
+
+    rotationMatrix.at<double>(0, 0) = m00;
+    rotationMatrix.at<double>(0, 1) = m01;
+    rotationMatrix.at<double>(0, 2) = m02;
+    rotationMatrix.at<double>(1, 0) = m10;
+    rotationMatrix.at<double>(1, 1) = m11;
+    rotationMatrix.at<double>(1, 2) = m12;
+    rotationMatrix.at<double>(2, 0) = m20;
+    rotationMatrix.at<double>(2, 1) = m21;
+    rotationMatrix.at<double>(2, 2) = m22;
+
+    return rotationMatrix;
 }
 }// namespace et

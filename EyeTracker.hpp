@@ -27,7 +27,7 @@ struct EyeProperties {
     static constexpr float pupil_cornea_distance{4.2f};
     static constexpr float refraction_index{1.3375f};
     static constexpr float eye_ball_radius{11.6f};
-    static constexpr float pupil_eye_centre_distance{5.4f};
+    static constexpr float pupil_eye_centre_distance{9.5f};
 };
 
 struct SetupLayout {
@@ -36,6 +36,10 @@ struct SetupLayout {
     cv::Vec3d led_positions[FeatureDetector::LED_COUNT]{};
     double camera_eye_distance{};
     double camera_eye_projection_factor{};
+    cv::Matx33d rotation{cv::Matx33d::eye()};
+    double alpha{};
+    double beta{};
+    cv::Mat3d visual_axis_rotation{};
 };
 
 class EyeTracker {
@@ -44,9 +48,9 @@ public:
 
     virtual ~EyeTracker();
 
-    void calculateEyePosition(const cv::Point2f &pupil_pixel_position, cv::Point2f *glints_pixel_positions);
+    void calculateEyePosition(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions);
 
-    EyePosition calculateJoined(const cv::Point2f &pupil_pixel_position, cv::Point2f *glints_pixel_positions);
+    void calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions);
 
     void getCorneaCurvaturePosition(cv::Vec3d &eye_centre);
 
@@ -62,9 +66,6 @@ public:
                                          const cv::Vec3d &sphere_pos, double sphere_radius, double &t);
 
     static cv::Vec3d getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index);
-
-    void findBestCameraParameters(const cv::Vec3d &ground_truth, const cv::Point2f &pupil_pixel_position,
-                                  cv::Point2f *glints_pixel_positions);
 
 private:
     SetupLayout setup_layout_{};
@@ -109,6 +110,8 @@ private:
                                                           const cv::Vec3d &line_point, const cv::Vec3d &line_direction);
 
     [[nodiscard]] static cv::KalmanFilter makeKalmanFilter(float framerate);
+
+    cv::Mat3d euler2rot(double *euler_angles);
 };
 
 }// namespace et
