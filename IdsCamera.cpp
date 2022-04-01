@@ -45,8 +45,8 @@ void IdsCamera::initializeImage() {
     int result;
 
     IS_RECT area_of_interest{};
-    area_of_interest.s32X = 280;
-    area_of_interest.s32Y = 280;
+    area_of_interest.s32X = 300;
+    area_of_interest.s32Y = 50;
     area_of_interest.s32Width = 560;
     area_of_interest.s32Height = 464;
     result = is_AOI(camera_handle_, IS_AOI_IMAGE_SET_AOI, &area_of_interest, sizeof(area_of_interest));

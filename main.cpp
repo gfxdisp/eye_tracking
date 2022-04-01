@@ -48,16 +48,15 @@ int main(int argc, char *argv[]) {
     et::FeatureDetector feature_detector{};
     feature_detector.initializeKalmanFilters(image_provider->getResolution(), framerate);
 
-    cv::Vec3d eye_pos_right{196, 132, 832};
-
     et::SetupLayout setup_layout{};
     setup_layout.camera_lambda = 27.119;
-    setup_layout.camera_nodal_point_position = {196.0502, 132.5502, 494.2603};
-    setup_layout.led_positions[0] = {150, 230, 750};
-    setup_layout.led_positions[1] = {190, 230, 750};
-    setup_layout.camera_eye_distance = cv::norm(setup_layout.camera_nodal_point_position - eye_pos_right);
+    setup_layout.camera_nodal_point_position = {206.023, 135.415, 507.786};
+    setup_layout.led_positions[0] = {143.046, 223.2, 750.928};
+    setup_layout.led_positions[1] = {171.429, 234.524, 749.077};
+    setup_layout.camera_eye_distance = 328.39;
     setup_layout.camera_eye_projection_factor = setup_layout.camera_eye_distance / setup_layout.camera_lambda;
-    double rotation_data[] = {0.1099, 0.9922, -0.0582, -0.9904, 0.1142, 0.0779, 0.0840, 0.0491, 0.9953};
+    double rotation_data[] = {-0.01263944363592692, -0.996010492298247, 0.08833653658808978, 0.9992362816964321, 
+    	-0.01584811618383168, -0.0357168105366733, 0.03697428574107997, 0.08781763174459042, 0.995450132225974};
     setup_layout.rotation = cv::Mat(3, 3, CV_64F, rotation_data);
 
     et::EyeTracker eye_tracker{setup_layout, image_provider};
@@ -77,6 +76,11 @@ int main(int argc, char *argv[]) {
         bool features_found{feature_detector.findImageFeatures(image)};
         et::EyePosition eye_position{};
         if (eye_tracker.isSetupUpdated() && features_found) {
+        	//cv::Point2f pupil{321.4096, 175.0556};
+        	//cv::Point2f reflections[]{{330.5021, 331.4708},{331.4708,195.9988}};
+        	//float rad = 5.0f;
+            //eye_tracker.calculateJoined(pupil, reflections, rad);
+            //break;
             eye_tracker.calculateJoined(feature_detector.getPupil(), feature_detector.getLeds(), feature_detector.getPupilRadius());
         }
 
