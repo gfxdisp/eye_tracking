@@ -10,18 +10,17 @@ public:
     [[nodiscard]] int getDims() const override;
     double calc(const double *x) const override;
 
-    void setParameters(const cv::Vec3d &np2c_dir, const cv::Vec3d &screen_glint, const cv::Vec3d &lp);
+    void setParameters(const cv::Vec3d &np2c_dir, cv::Vec3d *screen_glint, cv::Vec3d *lp);
 
-    static cv::Vec3d pp_;
     static double kk_;
     static double lowest_error_;
 
 private:
     cv::Vec3d np_{};
     cv::Vec3d np2c_dir_{};
-    cv::Vec3d screen_glint_{};
-    cv::Vec3d lp_{};
-    cv::Vec3d ray_dir_{};
+    cv::Vec3d screen_glint_[2]{};
+    cv::Vec3d lp_[2]{};
+    cv::Vec3d ray_dir_[2]{};
 };
 
 }// namespace et

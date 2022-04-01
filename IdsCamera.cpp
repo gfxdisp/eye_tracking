@@ -59,12 +59,10 @@ void IdsCamera::initializeImage() {
     result = is_SetImageMem(camera_handle_, image_handle_, image_id_);
     assert(result == IS_SUCCESS);
 
-    image_resolution_.width = area_of_interest.s32Height;
-    image_resolution_.height = area_of_interest.s32Width;
+    image_resolution_.width = area_of_interest.s32Width;
+    image_resolution_.height = area_of_interest.s32Height;
 
     image_.create(image_resolution_.height, image_resolution_.width, CV_8UC1);
-    temp_image_.create(image_resolution_.width, image_resolution_.height, CV_8UC1);
-
     for (auto & i : image_queue_) {
         i.create(image_resolution_.height, image_resolution_.width, CV_8UC1);
     }
@@ -80,10 +78,8 @@ void IdsCamera::imageGatheringThread() {
         result = is_FreezeVideo(camera_handle_, IS_WAIT);
         assert(result == IS_SUCCESS);
 
-        result = is_CopyImageMem(camera_handle_, image_handle_, image_id_, (char *)temp_image_.data);
+        result = is_CopyImageMem(camera_handle_, image_handle_, image_id_, (char *)image_queue_[new_image_index].data);
         assert(result == IS_SUCCESS);
-
-        cv::rotate(temp_image_, image_queue_[new_image_index], cv::ROTATE_90_COUNTERCLOCKWISE);
 
         image_index_ = new_image_index;
     }

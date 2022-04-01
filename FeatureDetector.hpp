@@ -69,10 +69,10 @@ private:
 
     int glints_threshold_{150};
     float max_glint_radius_{5.0f};
-    float min_vertical_distance{0.0f};
-    float max_vertical_distance{5.0f};
-    float min_horizontal_distance{30.0f};
-    float max_horizontal_distance{50.0f};
+    float min_horizontal_distance{0.0f};
+    float max_horizontal_distance{5.0f};
+    float min_vertical_distance{30.0f};
+    float max_vertical_distance{50.0f};
 
     static inline cv::Point2f toPoint(cv::Mat m) {
         return {(float)m.at<double>(0, 0), (float)m.at<double>(0, 1)};

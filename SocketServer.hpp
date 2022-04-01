@@ -26,8 +26,6 @@ namespace et
         cv::Vec3d gaze_direction_{};
 
         float pupil_diameter_{};
-        
-        float pupil_radius_{0};
         cv::Point2f pupil_location_{};
         cv::Point2f leds_locations_[FeatureDetector::LED_COUNT]{};
 

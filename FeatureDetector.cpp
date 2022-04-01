@@ -154,7 +154,7 @@ bool FeatureDetector::findGlints() {
                 best_rating = rating;
                 best_centre[0] = glint_candidates[i].location;
                 best_centre[1] = glint_candidates[j].location;
-                if (best_centre[0].x > best_centre[1].x) {
+                if (best_centre[0].y > best_centre[1].y) {
                     std::swap(best_centre[0], best_centre[1]);
                 }
             }

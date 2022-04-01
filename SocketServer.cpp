@@ -127,18 +127,17 @@ void SocketServer::openSocket() {
                 }
                 std::clog << "Received: " << setup_layout.camera_lambda << " " << setup_layout.camera_eye_distance
                           << " " << setup_layout.camera_nodal_point_position << " " << setup_layout.led_positions[0]
-                          << " " << setup_layout.led_positions[1] << std::endl;
+                          << " " << setup_layout.led_positions[1] << " " << setup_layout.alpha << " " << setup_layout.beta << std::endl;
                 setup_layout.camera_eye_projection_factor =
                     setup_layout.camera_eye_distance / setup_layout.camera_lambda;
 
                 eye_tracker_->setNewSetupLayout(setup_layout);
             } else if (buffer[0] == 4) {
-                feature_detector_->getPupilRadius(pupil_radius_);
-                pupil_radius_ *= 20.0f / 175.0f;
+                eye_tracker_->getPupilDiameter(pupil_diameter_);
                 uint32_t sent{0};
-                uint32_t size_to_send{sizeof(pupil_radius_)};
+                uint32_t size_to_send{sizeof(pupil_diameter_)};
                 while (sent < size_to_send) {
-                    ssize_t new_bytes{send(socket_handle_, (char *)&pupil_radius_ + sent, size_to_send - sent, 0)};
+                    ssize_t new_bytes{send(socket_handle_, (char *)&pupil_diameter_ + sent, size_to_send - sent, 0)};
                     if (new_bytes < 0) {
                         break;
                     }

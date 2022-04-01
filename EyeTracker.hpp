@@ -39,7 +39,7 @@ struct SetupLayout {
     cv::Matx33d rotation{cv::Matx33d::eye()};
     double alpha{};
     double beta{};
-    cv::Mat3d visual_axis_rotation{};
+    cv::Mat visual_axis_rotation{};
 };
 
 class EyeTracker {
@@ -50,11 +50,13 @@ public:
 
     void calculateEyePosition(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions);
 
-    void calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions);
+    void calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions, float pupil_radius);
 
     void getCorneaCurvaturePosition(cv::Vec3d &eye_centre);
 
     void getGazeDirection(cv::Vec3d &gaze_direction);
+
+    void getPupilDiameter(float &pupil_diameter);
 
     cv::Point2d getCorneaCurvaturePixelPosition();
 
@@ -67,10 +69,13 @@ public:
 
     static cv::Vec3d getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index);
 
+    bool isSetupUpdated();
+
 private:
     SetupLayout setup_layout_{};
-    SetupLayout new_setup_layout_{};
-    bool new_setup_layout_needed_{false};
+    bool setup_updated_{false};
+
+    float pupil_diameter_{};
 
     ImageProvider *image_provider_{};
     cv::KalmanFilter kalman_{};
@@ -111,7 +116,7 @@ private:
 
     [[nodiscard]] static cv::KalmanFilter makeKalmanFilter(float framerate);
 
-    cv::Mat3d euler2rot(double *euler_angles);
+    cv::Mat euler2rot(double *euler_angles);
 };
 
 }// namespace et

@@ -2,6 +2,8 @@
 #include "RayPointMinimizer.hpp"
 
 #include <iostream>
+#include <chrono>
+#include <thread>
 
 using KFMat = cv::Mat_<double>;
 
@@ -36,13 +38,6 @@ EyeTracker::~EyeTracker() {
 /// - use (9) to find p (again, finding the intersections of a sphere and the line).
 /// - trace the vector p-c to find d, the centre of rotation of the eye.
 void EyeTracker::calculateEyePosition(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions) {
-    if (new_setup_layout_needed_) {
-        mtx_setup_to_change_.lock();
-        setup_layout_ = new_setup_layout_;
-        new_setup_layout_needed_ = false;
-        mtx_setup_to_change_.unlock();
-    }
-
     std::optional<cv::Vec3d> cornea_curvature{};
     for (int i = 0; i < FeatureDetector::LED_COUNT; i++) {
         cv::Vec3d glint_position{project(glints_pixel_positions[i])};
@@ -193,28 +188,21 @@ void EyeTracker::calculateEyePosition(cv::Point2f pupil_pixel_position, cv::Poin
     mtx_eye_position_.unlock();
 }
 
-void EyeTracker::calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions) {
-    if (new_setup_layout_needed_) {
-        mtx_setup_to_change_.lock();
-        setup_layout_ = new_setup_layout_;
-        new_setup_layout_needed_ = false;
-        mtx_setup_to_change_.unlock();
-    }
-
+void EyeTracker::calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions, float pupil_radius) {
     std::optional<cv::Vec3d> cornea_curvature{}, pupil{}, eye_centre{};
+
+    cv::Vec3d glint_positions[]{ICStoWCS(glints_pixel_positions[0]), ICStoWCS(glints_pixel_positions[1])};
 
     cv::Vec3d v11{setup_layout_.led_positions[0] - setup_layout_.camera_nodal_point_position};
     cv::normalize(v11, v11);
-    cv::Vec3d glint_position1{project(glints_pixel_positions[0])};
-    cv::Vec3d v12{glint_position1 - setup_layout_.camera_nodal_point_position};
+    cv::Vec3d v12{glint_positions[0] - setup_layout_.camera_nodal_point_position};
     cv::normalize(v12, v12);
     cv::Vec3d nn1{v11.cross(v12)};
     cv::normalize(nn1, nn1);
 
     cv::Vec3d v21{setup_layout_.led_positions[1] - setup_layout_.camera_nodal_point_position};
     cv::normalize(v21, v21);
-    cv::Vec3d glint_position2{project(glints_pixel_positions[1])};
-    cv::Vec3d v22{glint_position2 - setup_layout_.camera_nodal_point_position};
+    cv::Vec3d v22{glint_positions[1] - setup_layout_.camera_nodal_point_position};
     cv::normalize(v22, v22);
     cv::Vec3d nn2{v21.cross(v22)};
     cv::normalize(nn2, nn2);
@@ -223,20 +211,16 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *
     cv::normalize(bnorm, bnorm);
     bnorm = -bnorm;
 
-    ray_point_minimizer_->setParameters(bnorm, glint_position1, setup_layout_.led_positions[0]);
+    ray_point_minimizer_->setParameters(bnorm, glint_positions, setup_layout_.led_positions);
     solver_->minimize(cv::Mat{1, 2, CV_64F, {100, 100}});
-    cv::Vec3d c1{setup_layout_.camera_nodal_point_position + bnorm * RayPointMinimizer::kk_};
-    cv::Vec3d light1_cornea_glint{RayPointMinimizer::pp_};
-
-    ray_point_minimizer_->setParameters(bnorm, glint_position2, setup_layout_.led_positions[1]);
-    solver_->minimize(cv::Mat{1, 2, CV_64F, {100, 100}});
-    cv::Vec3d c2{setup_layout_.camera_nodal_point_position + bnorm * RayPointMinimizer::kk_};
-    cv::Vec3d light2_cornea_glint{RayPointMinimizer::pp_};
-
-    cornea_curvature = (c1 + c2) / 2;
+    cornea_curvature = setup_layout_.camera_nodal_point_position + bnorm * RayPointMinimizer::kk_;
 
     double t{};
-    cv::Vec3d pupil_image_position{project(pupil_pixel_position)};
+    cv::Vec3d pupil_image_position{ICStoWCS(pupil_pixel_position)};
+
+    cv::Vec3d pupil_top = project(pupil_pixel_position + cv::Point2f(pupil_radius, 0.0f));
+    cv::Vec3d pupil_bottom = project(pupil_pixel_position - cv::Point2f(pupil_radius, 0.0f));
+
     cv::Vec3d pupil_dir{setup_layout_.camera_nodal_point_position - pupil_image_position};
     cv::normalize(pupil_dir, pupil_dir);
     bool intersected{getRaySphereIntersection(setup_layout_.camera_nodal_point_position, pupil_dir, *cornea_curvature,
@@ -262,16 +246,16 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *
     kalman_.correct((KFMat(3, 1) << (*cornea_curvature)(0), (*cornea_curvature)(1), (*cornea_curvature)(2)));
     mtx_eye_position_.lock();
     eye_position_ = {cornea_curvature, pupil, eye_centre};
-    std::cout << *cornea_curvature;
+    pupil_diameter_ = cv::norm(pupil_top - pupil_bottom);
     mtx_eye_position_.unlock();
 }
 
 void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &eye_centre) {
     mtx_eye_position_.lock();
     if (eye_position_) {
-        eye_centre = *eye_position_.cornea_curvature;
+    	eye_centre = *eye_position_.cornea_curvature;
     } else {
-        eye_centre = cv::Vec3d(0.0, 0.0, 0.0);
+    	eye_centre = cv::Vec3d(0.0, 0.0, 0.0);
     }
     mtx_eye_position_.unlock();
 }
@@ -286,9 +270,14 @@ void EyeTracker::getGazeDirection(cv::Vec3d &gaze_direction) {
     }
     mtx_eye_position_.unlock();
     cv::normalize(inv_optical_axis, inv_optical_axis);
-    cv::Mat visual_axis{inv_optical_axis * setup_layout_.visual_axis_rotation};
+    cv::Mat visual_axis{inv_optical_axis.t() * setup_layout_.visual_axis_rotation};
     gaze_direction = visual_axis.reshape(3).at<cv::Vec3d>();
-    gaze_direction = -gaze_direction;
+}
+
+void EyeTracker::getPupilDiameter(float &pupil_diameter) {
+	mtx_eye_position_.lock();
+	pupil_diameter = pupil_diameter_;
+	mtx_eye_position_.unlock();
 }
 
 cv::Point2d EyeTracker::getCorneaCurvaturePixelPosition() {
@@ -299,12 +288,10 @@ cv::Point2d EyeTracker::getCorneaCurvaturePixelPosition() {
 }
 
 void EyeTracker::setNewSetupLayout(SetupLayout &setup_layout) {
-    mtx_setup_to_change_.lock();
-    new_setup_layout_ = setup_layout;
-    double angles[]{new_setup_layout_.alpha, new_setup_layout_.beta, 0};
-    setup_layout.visual_axis_rotation = euler2rot(angles);
-    new_setup_layout_needed_ = true;
-    mtx_setup_to_change_.unlock();
+    setup_layout_ = setup_layout;
+    double angles[]{setup_layout_.alpha, setup_layout_.beta, 0};
+    setup_layout_.visual_axis_rotation = euler2rot(angles).clone();
+    setup_updated_ = true;
 }
 
 void EyeTracker::initializeKalmanFilter(float framerate) {
@@ -327,7 +314,7 @@ cv::Vec3d EyeTracker::ICStoCCS(const cv::Point2d &point) const {
     cv::Size2i resolution = image_provider_->getResolution();
     const double x = pixel_pitch * (point.x - resolution.width / 2.0);
     const double y = pixel_pitch * (point.y - resolution.height / 2.0);
-    return {x, y, setup_layout_.camera_lambda};
+    return {x, y, -setup_layout_.camera_lambda};
 }
 
 cv::Vec3d EyeTracker::CCStoWCS(const cv::Vec3d &point) const {
@@ -419,8 +406,12 @@ cv::Vec3d EyeTracker::getRefractedRay(const cv::Vec3d &direction, const cv::Vec3
     cv::normalize(t, t);
     return t;
 }
-cv::Mat3d EyeTracker::euler2rot(double *euler_angles) {
-    cv::Mat3d rotationMatrix(3, 3, CV_64F);
+
+bool EyeTracker::isSetupUpdated() {
+	return setup_updated_;
+}
+cv::Mat EyeTracker::euler2rot(double *euler_angles) {
+    cv::Mat rotationMatrix(3, 3, CV_64F);
 
     double x = euler_angles[0];
     double y = euler_angles[1];
