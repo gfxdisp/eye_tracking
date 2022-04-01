@@ -25,8 +25,7 @@ void SocketServer::startServer() {
 
     fcntl(server_handle_, F_SETFL, O_NONBLOCK);
 
-    if (setsockopt(server_handle_, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
-                   &opt, sizeof(opt))) {
+    if (setsockopt(server_handle_, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
         perror("setsockopt");
         close(server_handle_);
         return;
@@ -35,9 +34,7 @@ void SocketServer::startServer() {
     address_.sin_addr.s_addr = inet_addr("127.0.0.1");
     address_.sin_port = htons(8080);
 
-    if (bind(server_handle_, (sockaddr *)&address_,
-             sizeof(address_))
-        < 0) {
+    if (bind(server_handle_, (sockaddr *)&address_, sizeof(address_)) < 0) {
         perror("bind failed");
         close(server_handle_);
         return;
@@ -102,17 +99,14 @@ void SocketServer::openSocket() {
 
                 uint32_t bytes_read{0};
                 uint32_t size_to_read{0};
-                char *variables[]{(char *)&setup_layout.camera_lambda,
-                                  (char *)&setup_layout.camera_eye_distance,
-                                  (char *)&setup_layout.camera_nodal_point_position,
-                                  (char *)setup_layout.led_positions,
-                                  (char *)&setup_layout.alpha,
-                                  (char *)&setup_layout.beta};
-                uint32_t sizes[]{sizeof(setup_layout.camera_lambda),
-                                 sizeof(setup_layout.camera_eye_distance),
-                                 sizeof(setup_layout.camera_nodal_point_position),
-                                 sizeof(setup_layout.led_positions),
-                                 sizeof(setup_layout.alpha),
+                char *variables[]{
+                    (char *)&setup_layout.camera_lambda, (char *)&setup_layout.camera_eye_distance,
+                    (char *)&setup_layout.rotation,      (char *)&setup_layout.camera_nodal_point_position,
+                    (char *)setup_layout.led_positions,  (char *)&setup_layout.alpha,
+                    (char *)&setup_layout.beta};
+                uint32_t sizes[]{sizeof(setup_layout.camera_lambda), sizeof(setup_layout.camera_eye_distance),
+                                 sizeof(setup_layout.rotation),      sizeof(setup_layout.camera_nodal_point_position),
+                                 sizeof(setup_layout.led_positions), sizeof(setup_layout.alpha),
                                  sizeof(setup_layout.beta)};
                 for (int i = 0; i < sizeof(variables) / sizeof(variables[0]); i++) {
                     bytes_read = 0;
@@ -125,9 +119,13 @@ void SocketServer::openSocket() {
                         bytes_read += new_bytes;
                     }
                 }
-                std::clog << "Received: " << setup_layout.camera_lambda << " " << setup_layout.camera_eye_distance
-                          << " " << setup_layout.camera_nodal_point_position << " " << setup_layout.led_positions[0]
-                          << " " << setup_layout.led_positions[1] << " " << setup_layout.alpha << " " << setup_layout.beta << std::endl;
+                std::clog << "Lambda: " << setup_layout.camera_lambda
+                          << "\nCamera-eye distance: " << setup_layout.camera_eye_distance
+                          << "\nRotation: " << setup_layout.rotation
+                          << "\nNodal point position: " << setup_layout.camera_nodal_point_position
+                          << "\nLED 1: " << setup_layout.led_positions[0]
+                          << "\nLED 2: " << setup_layout.led_positions[1] << "\n Alpha: " << setup_layout.alpha
+                          << "\nBeta: " << setup_layout.beta << std::endl;
                 setup_layout.camera_eye_projection_factor =
                     setup_layout.camera_eye_distance / setup_layout.camera_lambda;
 
