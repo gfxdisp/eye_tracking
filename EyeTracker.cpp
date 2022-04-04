@@ -308,6 +308,7 @@ cv::Point2d EyeTracker::unproject(const cv::Vec3d &point) const {
 cv::Vec3d EyeTracker::ICStoCCS(const cv::Point2d &point) const {
     const double pixel_pitch = image_provider_->getPixelPitch();
     cv::Size2i resolution = image_provider_->getResolution();
+    cv::Point2d offset =  image_provider_->getOffset();
     const double x = pixel_pitch * (point.x - resolution.width / 2.0);
     const double y = pixel_pitch * (point.y - resolution.height / 2.0);
     return {x, y, -setup_layout_.camera_lambda};

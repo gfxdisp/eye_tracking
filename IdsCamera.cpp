@@ -91,7 +91,7 @@ cv::Mat IdsCamera::grabImage() {
 }
 
 cv::Size2i IdsCamera::getResolution() {
-    return image_resolution_;
+    return {1280, 1024};
 }
 
 void IdsCamera::close() {
@@ -127,5 +127,8 @@ void IdsCamera::setFramerate(double framerate) {
 
     result = is_SetFrameRate(camera_handle_, framerate, &framerate);
     assert(result == IS_SUCCESS);
+}
+cv::Point2d IdsCamera::getOffset() {
+    return {300, 50};
 }
 }// namespace et

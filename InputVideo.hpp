@@ -12,6 +12,7 @@ public:
     void initialize() override;
     cv::Mat grabImage() override;
     cv::Size2i getResolution() override;
+    cv::Point2d getOffset() override;
     void close() override;
 
 private:

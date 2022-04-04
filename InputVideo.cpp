@@ -26,10 +26,13 @@ cv::Mat InputVideo::grabImage() {
 }
 
 cv::Size2i InputVideo::getResolution() {
-    return image_resolution_;
+    return {1280, 1024};
 }
 
 void InputVideo::close() {
     video_.release();
+}
+cv::Point2d InputVideo::getOffset() {
+    return {300, 50};
 }
 }// namespace et

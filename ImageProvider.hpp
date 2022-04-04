@@ -9,6 +9,7 @@ public:
     virtual void initialize() = 0;
     virtual cv::Mat grabImage() = 0;
     virtual cv::Size2i getResolution() = 0;
+    virtual cv::Point2d getOffset() = 0;
     virtual void close() = 0;
     virtual double getPixelPitch();
     [[maybe_unused]] virtual void setExposure(double exposure);
