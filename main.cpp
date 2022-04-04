@@ -76,11 +76,15 @@ int main(int argc, char *argv[]) {
         bool features_found{feature_detector.findImageFeatures(image)};
         et::EyePosition eye_position{};
         if (eye_tracker.isSetupUpdated() && features_found) {
-        	//cv::Point2f pupil{321.4096, 175.0556};
-        	//cv::Point2f reflections[]{{330.5021, 331.4708},{331.4708,195.9988}};
-        	//float rad = 5.0f;
-            //eye_tracker.calculateJoined(pupil, reflections, rad);
-            //break;
+        	// cv::Point2f pupil{321.4096, 175.0556};
+        	// cv::Point2f reflections[]{{330.5021, 331.4708},{331.4708,195.9988}};
+        	// float rad = 5.0f;
+         //    eye_tracker.calculateJoined(pupil, reflections, rad);
+         //    cv::Vec3d eye_position{};
+         //    eye_tracker.getCorneaCurvaturePosition(eye_position);
+         //    std::cout << eye_position << std::endl;
+
+         //    break;
             eye_tracker.calculateJoined(feature_detector.getPupil(), feature_detector.getLeds(), feature_detector.getPupilRadius());
         }
 

@@ -252,11 +252,7 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *
 
 void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &eye_centre) {
     mtx_eye_position_.lock();
-    if (eye_position_) {
-    	eye_centre = *eye_position_.cornea_curvature;
-    } else {
-    	eye_centre = cv::Vec3d(0.0, 0.0, 0.0);
-    }
+	eye_centre = *eye_position_.cornea_curvature;
     mtx_eye_position_.unlock();
 }
 

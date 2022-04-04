@@ -130,6 +130,10 @@ void SocketServer::openSocket() {
                     setup_layout.camera_eye_distance / setup_layout.camera_lambda;
 
                 eye_tracker_->setNewSetupLayout(setup_layout);
+                eye_tracker_->calculateJoined(pupil_location_, leds_locations_, 5);
+                cv::Vec3d cornea_position{};
+                eye_tracker_->getCorneaCurvaturePosition(cornea_position);
+                std::cout << "Detected cornea position: " << cornea_position << std::endl;
             } else if (buffer[0] == 4) {
                 eye_tracker_->getPupilDiameter(pupil_diameter_);
                 uint32_t sent{0};
