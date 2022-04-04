@@ -102,10 +102,12 @@ void SocketServer::openSocket() {
                 char *variables[]{
                     (char *)&setup_layout.camera_lambda, (char *)&setup_layout.camera_eye_distance,
                     (char *)&setup_layout.rotation,      (char *)&setup_layout.camera_nodal_point_position,
+                    (char *)&setup_layout.translation,
                     (char *)setup_layout.led_positions,  (char *)&setup_layout.alpha,
                     (char *)&setup_layout.beta};
                 uint32_t sizes[]{sizeof(setup_layout.camera_lambda), sizeof(setup_layout.camera_eye_distance),
                                  sizeof(setup_layout.rotation),      sizeof(setup_layout.camera_nodal_point_position),
+                                 sizeof(setup_layout.translation),
                                  sizeof(setup_layout.led_positions), sizeof(setup_layout.alpha),
                                  sizeof(setup_layout.beta)};
                 for (int i = 0; i < sizeof(variables) / sizeof(variables[0]); i++) {

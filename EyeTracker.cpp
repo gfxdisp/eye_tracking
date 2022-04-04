@@ -314,7 +314,7 @@ cv::Vec3d EyeTracker::ICStoCCS(const cv::Point2d &point) const {
 }
 
 cv::Vec3d EyeTracker::CCStoWCS(const cv::Vec3d &point) const {
-    return setup_layout_.rotation * point + setup_layout_.camera_nodal_point_position;
+    return (point - setup_layout_.camera_nodal_point_position) * setup_layout_.rotation;
 }
 
 cv::Vec3d EyeTracker::WCStoCCS(const cv::Vec3d &point) const {

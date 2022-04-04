@@ -37,6 +37,7 @@ struct SetupLayout {
     double camera_eye_distance{};
     double camera_eye_projection_factor{};
     cv::Matx33d rotation{cv::Matx33d::eye()};
+    cv::Vec3d translation{};
     double alpha{};
     double beta{};
     cv::Mat visual_axis_rotation{};
