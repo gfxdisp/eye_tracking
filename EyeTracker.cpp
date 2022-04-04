@@ -207,9 +207,8 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *
     cv::Vec3d nn2{v21.cross(v22)};
     cv::normalize(nn2, nn2);
 
-    cv::Vec3d bnorm{nn1.cross(nn2)};
+    cv::Vec3d bnorm{nn2.cross(nn1)};
     cv::normalize(bnorm, bnorm);
-    bnorm = -bnorm;
 
     ray_point_minimizer_->setParameters(bnorm, glint_positions, setup_layout_.led_positions);
     solver_->minimize(cv::Mat{1, 2, CV_64F, {100, 100}});
@@ -309,13 +308,13 @@ cv::Vec3d EyeTracker::ICStoCCS(const cv::Point2d &point) const {
     const double pixel_pitch = image_provider_->getPixelPitch();
     cv::Size2i resolution = image_provider_->getResolution();
     cv::Point2d offset =  image_provider_->getOffset();
-    const double x = pixel_pitch * (point.x - resolution.width / 2.0);
-    const double y = pixel_pitch * (point.y - resolution.height / 2.0);
+    const double x = pixel_pitch * (point.x + offset.x - resolution.width / 2.0);
+    const double y = pixel_pitch * (point.y + offset.y - resolution.height / 2.0);
     return {x, y, -setup_layout_.camera_lambda};
 }
 
 cv::Vec3d EyeTracker::CCStoWCS(const cv::Vec3d &point) const {
-    return (point - setup_layout_.camera_nodal_point_position) * setup_layout_.rotation;
+    return setup_layout_.rotation * (point - setup_layout_.translation);
 }
 
 cv::Vec3d EyeTracker::WCStoCCS(const cv::Vec3d &point) const {

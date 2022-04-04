@@ -50,13 +50,13 @@ int main(int argc, char *argv[]) {
 
     et::SetupLayout setup_layout{};
     setup_layout.camera_lambda = 27.119;
-    setup_layout.camera_nodal_point_position = {206.023, 135.415, 507.786};
-    setup_layout.led_positions[0] = {143.046, 223.2, 750.928};
-    setup_layout.led_positions[1] = {171.429, 234.524, 749.077};
-    setup_layout.camera_eye_distance = 328.39;
+    setup_layout.camera_nodal_point_position = {206.1571, 135.3370, 507.8423};
+    setup_layout.led_positions[0] = {185.4109, 144.5800, 778.9492};
+    setup_layout.led_positions[1] = {235.4109, 130.3241, 763.2100};
+    setup_layout.camera_eye_distance = 324.9387;
+    setup_layout.translation = {-151.4050, -162.8820, -518.9091};
     setup_layout.camera_eye_projection_factor = setup_layout.camera_eye_distance / setup_layout.camera_lambda;
-    double rotation_data[] = {-0.01263944363592692, -0.996010492298247, 0.08833653658808978, 0.9992362816964321, 
-    	-0.01584811618383168, -0.0357168105366733, 0.03697428574107997, 0.08781763174459042, 0.995450132225974};
+    double rotation_data[] = {-0.0126, 0.9960, 0.0883, 0.9992, 0.0158, -0.0357, 0.0370, -0.0878, 0.9955};
     setup_layout.rotation = cv::Mat(3, 3, CV_64F, rotation_data);
 
     et::EyeTracker eye_tracker{setup_layout, image_provider};
@@ -76,15 +76,15 @@ int main(int argc, char *argv[]) {
         bool features_found{feature_detector.findImageFeatures(image)};
         et::EyePosition eye_position{};
         if (eye_tracker.isSetupUpdated() && features_found) {
-        	// cv::Point2f pupil{321.4096, 175.0556};
-        	// cv::Point2f reflections[]{{330.5021, 331.4708},{331.4708,195.9988}};
-        	// float rad = 5.0f;
-         //    eye_tracker.calculateJoined(pupil, reflections, rad);
-         //    cv::Vec3d eye_position{};
-         //    eye_tracker.getCorneaCurvaturePosition(eye_position);
-         //    std::cout << eye_position << std::endl;
-
-         //    break;
+        // {
+        // 	cv::Point2f pupil{310.9498, 184.5560};
+        // 	cv::Point2f reflections[]{{320.1631, 163.7441},{320.2516, 206.1573}};
+        // 	float rad = 5.0f;
+        //     eye_tracker.calculateJoined(pupil, reflections, rad);
+        //     cv::Vec3d cornea{};
+        //     eye_tracker.getCorneaCurvaturePosition(cornea);
+        //     std::cout << cornea << std::endl;
+        //     break;
             eye_tracker.calculateJoined(feature_detector.getPupil(), feature_detector.getLeds(), feature_detector.getPupilRadius());
         }
 
