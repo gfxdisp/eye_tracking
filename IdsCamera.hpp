@@ -19,7 +19,8 @@ public:
     explicit IdsCamera(int camera_index);
     void initialize() override;
     cv::Mat grabImage() override;
-    cv::Size2i getResolution() override;
+    cv::Size2i getImageResolution() override;
+    cv::Size2i getDeviceResolution() override;
     cv::Point2d getOffset() override;
     void close() override;
     void setExposure(double exposure) override;

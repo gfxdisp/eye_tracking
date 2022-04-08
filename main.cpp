@@ -46,15 +46,15 @@ int main(int argc, char *argv[]) {
     image_provider->setFramerate(framerate);
 
     et::FeatureDetector feature_detector{};
-    feature_detector.initializeKalmanFilters(image_provider->getResolution(), framerate);
+    feature_detector.initializeKalmanFilters(image_provider->getImageResolution(), framerate);
 
     et::SetupLayout setup_layout{};
     setup_layout.camera_lambda = 27.119;
-    setup_layout.camera_nodal_point_position = {206.1571, 135.3370, 507.8423};
+    setup_layout.camera_nodal_point_position = {224.1558, 139.7573, 491.9391};
     setup_layout.led_positions[0] = {185.4109, 144.5800, 778.9492};
     setup_layout.led_positions[1] = {235.4109, 130.3241, 763.2100};
     setup_layout.camera_eye_distance = 324.9387;
-    setup_layout.translation = {-151.4050, -162.8820, -518.9091};
+    setup_layout.translation = {-59.1085, -25.8134, -554.6367};
     setup_layout.camera_eye_projection_factor = setup_layout.camera_eye_distance / setup_layout.camera_lambda;
     double rotation_data[] = {-0.0126, 0.9960, 0.0883, 0.9992, 0.0158, -0.0357, 0.0370, -0.0878, 0.9955};
     setup_layout.rotation = cv::Mat(3, 3, CV_64F, rotation_data);
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
                     std::string filename{"videos/" + getCurrentTimeText() + ".mp4"};
                     std::clog << "Saving video to " << filename << "\n";
                     video_output.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
-                                      image_provider->getResolution(), false);
+                                      image_provider->getImageResolution(), false);
                 }
                 break;
             case 's':
@@ -153,11 +153,11 @@ int main(int argc, char *argv[]) {
 
     socket_server.finished = true;
 
-    t.join();
-
     if (video_output.isOpened()) {
         video_output.release();
     }
+
+    t.join();
 
     image_provider->close();
     socket_server.closeSocket();

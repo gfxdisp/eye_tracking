@@ -306,7 +306,7 @@ cv::Point2d EyeTracker::unproject(const cv::Vec3d &point) const {
 
 cv::Vec3d EyeTracker::ICStoCCS(const cv::Point2d &point) const {
     const double pixel_pitch = image_provider_->getPixelPitch();
-    cv::Size2i resolution = image_provider_->getResolution();
+    cv::Size2i resolution = image_provider_->getDeviceResolution();
     cv::Point2d offset =  image_provider_->getOffset();
     const double x = pixel_pitch * (point.x + offset.x - resolution.width / 2.0);
     const double y = pixel_pitch * (point.y + offset.y - resolution.height / 2.0);
@@ -327,7 +327,7 @@ cv::Vec3d EyeTracker::WCStoCCS(const cv::Vec3d &point) const {
 
 cv::Point2d EyeTracker::CCStoICS(cv::Vec3d point) const {
     const double pixel_pitch = image_provider_->getPixelPitch();
-    cv::Size2i resolution = image_provider_->getResolution();
+    cv::Size2i resolution = image_provider_->getDeviceResolution();
     return static_cast<cv::Point2d>(resolution) / 2 + cv::Point2d(point(0), point(1)) / pixel_pitch;
 }
 

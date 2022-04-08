@@ -125,6 +125,7 @@ void SocketServer::openSocket() {
                           << "\nCamera-eye distance: " << setup_layout.camera_eye_distance
                           << "\nRotation: " << setup_layout.rotation
                           << "\nNodal point position: " << setup_layout.camera_nodal_point_position
+                          << "\nTranslation: " << setup_layout.translation
                           << "\nLED 1: " << setup_layout.led_positions[0]
                           << "\nLED 2: " << setup_layout.led_positions[1] << "\n Alpha: " << setup_layout.alpha
                           << "\nBeta: " << setup_layout.beta << std::endl;

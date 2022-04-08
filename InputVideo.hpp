@@ -11,7 +11,8 @@ public:
     explicit InputVideo(std::string &input_video_path);
     void initialize() override;
     cv::Mat grabImage() override;
-    cv::Size2i getResolution() override;
+    cv::Size2i getImageResolution() override;
+    cv::Size2i getDeviceResolution() override;
     cv::Point2d getOffset() override;
     void close() override;
 

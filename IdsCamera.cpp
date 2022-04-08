@@ -6,6 +6,7 @@
 namespace et {
 IdsCamera::IdsCamera(int camera_index) : camera_index_(camera_index) {
     assert(camera_index_ >= 0);
+    image_resolution_ = cv::Size2i(560, 464);
 }
 
 void IdsCamera::initialize() {
@@ -45,10 +46,10 @@ void IdsCamera::initializeImage() {
     int result;
 
     IS_RECT area_of_interest{};
-    area_of_interest.s32X = 300;
-    area_of_interest.s32Y = 50;
-    area_of_interest.s32Width = 560;
-    area_of_interest.s32Height = 464;
+    area_of_interest.s32X = offset_.x;
+    area_of_interest.s32Y = offset_.y;
+    area_of_interest.s32Width = image_resolution_.width;
+    area_of_interest.s32Height = image_resolution_.height;
     result = is_AOI(camera_handle_, IS_AOI_IMAGE_SET_AOI, &area_of_interest, sizeof(area_of_interest));
     assert(result == IS_SUCCESS);
 
@@ -90,9 +91,14 @@ cv::Mat IdsCamera::grabImage() {
     return image_;
 }
 
-cv::Size2i IdsCamera::getResolution() {
+cv::Size2i IdsCamera::getImageResolution() {
+    return image_resolution_;
+}
+
+cv::Size2i IdsCamera::getDeviceResolution() {
     return {1280, 1024};
 }
+
 
 void IdsCamera::close() {
     int result;
@@ -129,6 +135,6 @@ void IdsCamera::setFramerate(double framerate) {
     assert(result == IS_SUCCESS);
 }
 cv::Point2d IdsCamera::getOffset() {
-    return {300, 50};
+    return offset_;
 }
 }// namespace et
