@@ -182,6 +182,17 @@ void SocketServer::openSocket() {
                     }
                     sent += new_bytes;
                 }
+            } else if (buffer[0] == 8) {
+                feature_detector_->getPupil(pupil_location_);
+                uint32_t sent{0};
+                uint32_t size_to_send{sizeof(pupil_location_)};
+                while (sent < size_to_send) {
+                    ssize_t new_bytes{send(socket_handle_, (char *)&pupil_location_ + sent, size_to_send - sent, 0)};
+                    if (new_bytes < 0) {
+                        break;
+                    }
+                    sent += new_bytes;
+                }
             }
         }
         close(socket_handle_);

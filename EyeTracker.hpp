@@ -49,10 +49,8 @@ public:
 
     virtual ~EyeTracker();
 
-    void calculateEyePosition(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions);
-
-    void calculateJoined(cv::Point2f pupil_pixel_position, cv::Point2f *glints_pixel_positions, float pupil_radius);
-
+    void calculateJoined(const cv::Point2f &pupil_pixel_position, cv::Point2f *glints_pixel_positions, float
+                                                                                                           pupil_radius);
     void getCorneaCurvaturePosition(cv::Vec3d &eye_centre);
 
     void getGazeDirection(cv::Vec3d &gaze_direction);

@@ -134,11 +134,11 @@ int main(int argc, char *argv[]) {
             case 'e':
                 visualization_type = VisualizationType::STANDARD;
                 break;
-            case 't':
-                visualization_type = VisualizationType::THRESHOLD_PUPIL;
-                break;
             case 'r':
                 visualization_type = VisualizationType::THRESHOLD_GLINTS;
+                break;
+            case 't':
+                visualization_type = VisualizationType::THRESHOLD_PUPIL;
                 break;
             case 171:
                 feature_detector.pupil_threshold++;
