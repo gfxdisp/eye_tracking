@@ -56,12 +56,18 @@ or to print results to standard output (if it is `ON`)
 
     # Run on a pre-recorded video file
     ./eye_tracker file /path/to/file.mp4
-    # Run on a stream from an IDS uEye camera, if only one is connected
-    ./eye_tracker ueye
-    # Run on a stream from a specific uEye camera
-    ./eye_tracker ueye 2
-    # Run on a stream from a specific uEye camera, using a specific GPU for CUDA
-    ./eye_tracker ueye 2 1
+    # Run on a stream from an IDS uEye camera
+    ./eye_tracker ids 0
+
+## Controls
+
+- **W** - starts the video capture that will be saved to the `videos` directory.
+- **S** - saves current frame as a `fullFrame.png` file.
+- **Q** - disables window output to improve the performance.
+- **E** - shows standard output window.
+- **R** - shows thresholded image used for glint detection as a video output.
+- **T** - shows thresholded image used for pupil detection as a video output.
+- **+/-** - increases/decreases the threshold value for pupil detection.
 
 ## Known issues/further work
 
