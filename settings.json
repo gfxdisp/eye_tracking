@@ -1,0 +1,61 @@
+{
+	"camera_params": {
+		"name": "UI314xCP-M",
+		"dimensions": [1280, 1024],
+		"region_of_interest": [0, 0],
+		"capture_offset": [0, 0],
+		"framerate": 90,
+		"gamma":  3.5,
+		"intrinsic_matrix_opencv": [
+			5206.82760023005, 0, 640.063366628527,
+			0, 5207.15776524228, 513.093225551166,
+			0, 0, 1
+		],
+		"distortion_coefficients": [0.00384152408665942, -0.324285745122857, 0, 0, 0]
+	},
+	"leds_params": [
+		{
+			"position": [-28, -10, 300]
+		},
+		{
+			"position": [-28, 10, 300]
+		}
+	],
+	"eye_params": {
+		"cornea_curvature_radius": 7.8,
+		"pupil_cornea_distance": 4.2,
+		"cornea_refraction_index": 1.3375,
+		"eyeball_radius": 11.6,
+		"pupil_eye_centre_distance": 9.5
+	},
+	"features_params": {
+		"default": {
+			"min_pupil_radius": 20,
+			"max_pupil_radius": 90,
+			"pupil_threshold": 50,
+			"glint_threshold": 240,
+			"min_glint_radius": 0,
+			"max_glint_radius": 5,
+			"min_hor_glint_distance": 0,
+			"max_hor_glint_distance": 5,
+			"min_vert_glint_distance": 20,
+			"max_vert_glint_distance": 70,
+			"alpha": 0,
+			"beta": 0
+		},
+		"mw861": {
+			"min_pupil_radius": 20,
+			"max_pupil_radius": 90,
+			"pupil_threshold": 50,
+			"glint_threshold": 240,
+			"min_glint_radius": 0,
+			"max_glint_radius": 5,
+			"min_hor_glint_distance": 0,
+			"max_hor_glint_distance": 5,
+			"min_vert_glint_distance": 0,
+			"max_vert_glint_distance": 70,
+			"alpha": 0,
+			"beta": 0
+		}
+	}
+}

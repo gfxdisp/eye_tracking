@@ -1,7 +1,8 @@
 #include "InputVideo.hpp"
 
 namespace et {
-InputVideo::InputVideo(std::string &input_video_path) : input_video_path_(std::move(input_video_path)) {
+InputVideo::InputVideo(std::string &input_video_path)
+    : input_video_path_(std::move(input_video_path)) {
 }
 
 void InputVideo::initialize() {
@@ -9,9 +10,6 @@ void InputVideo::initialize() {
 
     video_.open(input_video_path_);
     assert(video_.isOpened());
-
-    image_resolution_.width = static_cast<int>(video_.get(cv::CAP_PROP_FRAME_WIDTH));
-    image_resolution_.height = static_cast<int>(video_.get(cv::CAP_PROP_FRAME_HEIGHT));
 }
 
 cv::Mat InputVideo::grabImage() {
@@ -25,18 +23,7 @@ cv::Mat InputVideo::grabImage() {
     return image_;
 }
 
-cv::Size2i InputVideo::getImageResolution() {
-    return image_resolution_;
-}
-
-cv::Size2i InputVideo::getDeviceResolution() {
-    return {1280, 1024};
-}
-
 void InputVideo::close() {
     video_.release();
-}
-cv::Point2d InputVideo::getOffset() {
-    return offset_;
 }
 }// namespace et

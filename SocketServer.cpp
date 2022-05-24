@@ -11,7 +11,8 @@
 using cv::Vec3d;
 
 namespace et {
-SocketServer::SocketServer(EyeTracker *eye_tracker, FeatureDetector *feature_detector)
+SocketServer::SocketServer(EyeTracker *eye_tracker,
+                           FeatureDetector *feature_detector)
     : eye_tracker_(eye_tracker), feature_detector_(feature_detector) {
 }
 
@@ -25,7 +26,8 @@ void SocketServer::startServer() {
 
     fcntl(server_handle_, F_SETFL, O_NONBLOCK);
 
-    if (setsockopt(server_handle_, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+    if (setsockopt(server_handle_, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
+                   &opt, sizeof(opt))) {
         perror("setsockopt");
         close(server_handle_);
         return;
@@ -34,7 +36,7 @@ void SocketServer::startServer() {
     address_.sin_addr.s_addr = inet_addr("127.0.0.1");
     address_.sin_port = htons(8080);
 
-    if (bind(server_handle_, (sockaddr *)&address_, sizeof(address_)) < 0) {
+    if (bind(server_handle_, (sockaddr *) &address_, sizeof(address_)) < 0) {
         perror("bind failed");
         close(server_handle_);
         return;
@@ -51,7 +53,9 @@ void SocketServer::openSocket() {
     while (!finished) {
         int addrlen = sizeof(address_);
         while (socket_handle_ < 0 && !finished) {
-            socket_handle_ = accept(server_handle_, (struct sockaddr *)&address_, (socklen_t *)&addrlen);
+            socket_handle_ =
+                accept(server_handle_, (struct sockaddr *) &address_,
+                       (socklen_t *) &addrlen);
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
@@ -62,14 +66,15 @@ void SocketServer::openSocket() {
             }
 
             if (buffer[0] == 0) {
-                std::cout << "Socket closed.\n";
                 finished = true;
             } else if (buffer[0] == 1) {
                 eye_tracker_->getCorneaCurvaturePosition(eye_position_);
                 uint32_t sent{0};
                 uint32_t size_to_send{sizeof(eye_position_)};
                 while (sent < size_to_send) {
-                    ssize_t new_bytes{send(socket_handle_, (char *)&eye_position_ + sent, size_to_send - sent, 0)};
+                    ssize_t new_bytes{send(socket_handle_,
+                                           (char *) &eye_position_ + sent,
+                                           size_to_send - sent, 0)};
                     if (new_bytes < 0) {
                         break;
                     }
@@ -77,72 +82,38 @@ void SocketServer::openSocket() {
                 }
 
             } else if (buffer[0] == 2) {
-                feature_detector_->getLeds(leds_locations_);
+                feature_detector_->getGlints(glint_locations_);
                 feature_detector_->getPupil(pupil_location_);
                 uint32_t sent{0};
                 uint32_t size_to_send{0};
-                char *variables[]{(char *)&leds_locations_, (char *)&pupil_location_};
-                uint32_t sizes[]{sizeof(leds_locations_), sizeof(pupil_location_)};
-                for (int i = 0; i < sizeof(variables) / sizeof(variables[0]); i++) {
+                char *variables[]{(char *) glint_locations_.data(),
+                                  (char *) &pupil_location_};
+                uint32_t sizes[]{
+                    static_cast<uint32_t>(sizeof(glint_locations_[0])
+                                          * glint_locations_.size()),
+                    sizeof(pupil_location_)};
+                for (int i = 0; i < sizeof(variables) / sizeof(variables[0]);
+                     i++) {
                     sent = 0;
                     size_to_send = sizes[i];
                     while (sent < size_to_send) {
-                        ssize_t new_bytes{send(socket_handle_, variables[i] + sent, size_to_send - sent, 0)};
+                        ssize_t new_bytes{send(socket_handle_,
+                                               variables[i] + sent,
+                                               size_to_send - sent, 0)};
                         if (new_bytes < 0) {
                             break;
                         }
                         sent += new_bytes;
                     }
                 }
-            } else if (buffer[0] == 3) {
-                SetupLayout setup_layout{};
-
-                uint32_t bytes_read{0};
-                uint32_t size_to_read{0};
-                char *variables[]{
-                    (char *)&setup_layout.camera_lambda, (char *)&setup_layout.camera_eye_distance,
-                    (char *)&setup_layout.rotation,      (char *)&setup_layout.camera_nodal_point_position,
-                    (char *)&setup_layout.translation,
-                    (char *)setup_layout.led_positions,  (char *)&setup_layout.alpha,
-                    (char *)&setup_layout.beta};
-                uint32_t sizes[]{sizeof(setup_layout.camera_lambda), sizeof(setup_layout.camera_eye_distance),
-                                 sizeof(setup_layout.rotation),      sizeof(setup_layout.camera_nodal_point_position),
-                                 sizeof(setup_layout.translation),
-                                 sizeof(setup_layout.led_positions), sizeof(setup_layout.alpha),
-                                 sizeof(setup_layout.beta)};
-                for (int i = 0; i < sizeof(variables) / sizeof(variables[0]); i++) {
-                    bytes_read = 0;
-                    size_to_read = sizes[i];
-                    while (bytes_read < size_to_read) {
-                        ssize_t new_bytes{read(socket_handle_, variables[i] + bytes_read, size_to_read - bytes_read)};
-                        if (new_bytes < 0) {
-                            break;
-                        }
-                        bytes_read += new_bytes;
-                    }
-                }
-                std::clog << "Lambda: " << setup_layout.camera_lambda
-                          << "\nCamera-eye distance: " << setup_layout.camera_eye_distance
-                          << "\nRotation: " << setup_layout.rotation
-                          << "\nNodal point position: " << setup_layout.camera_nodal_point_position
-                          << "\nTranslation: " << setup_layout.translation
-                          << "\nLED 1: " << setup_layout.led_positions[0]
-                          << "\nLED 2: " << setup_layout.led_positions[1] << "\n Alpha: " << setup_layout.alpha
-                          << "\nBeta: " << setup_layout.beta << std::endl;
-                setup_layout.camera_eye_projection_factor =
-                    setup_layout.camera_eye_distance / setup_layout.camera_lambda;
-
-                eye_tracker_->setNewSetupLayout(setup_layout);
-                eye_tracker_->calculateJoined(pupil_location_, leds_locations_, 5);
-                cv::Vec3d cornea_position{};
-                eye_tracker_->getCorneaCurvaturePosition(cornea_position);
-                std::cout << "Detected cornea position: " << cornea_position << std::endl;
             } else if (buffer[0] == 4) {
                 eye_tracker_->getPupilDiameter(pupil_diameter_);
                 uint32_t sent{0};
                 uint32_t size_to_send{sizeof(pupil_diameter_)};
                 while (sent < size_to_send) {
-                    ssize_t new_bytes{send(socket_handle_, (char *)&pupil_diameter_ + sent, size_to_send - sent, 0)};
+                    ssize_t new_bytes{send(socket_handle_,
+                                           (char *) &pupil_diameter_ + sent,
+                                           size_to_send - sent, 0)};
                     if (new_bytes < 0) {
                         break;
                     }
@@ -153,30 +124,9 @@ void SocketServer::openSocket() {
                 uint32_t sent{0};
                 uint32_t size_to_send{sizeof(gaze_direction_)};
                 while (sent < size_to_send) {
-                    ssize_t new_bytes{send(socket_handle_, (char *)&gaze_direction_ + sent, size_to_send - sent, 0)};
-                    if (new_bytes < 0) {
-                        break;
-                    }
-                    sent += new_bytes;
-                }
-            } else if (buffer[0] == 6) {
-                int threshold;
-                uint32_t bytes_read{0};
-                uint32_t size_to_read{sizeof(threshold)};
-                while (bytes_read < size_to_read) {
-                    ssize_t new_bytes{read(socket_handle_, (char *)&threshold + bytes_read, size_to_read - bytes_read)};
-                    if (new_bytes < 0) {
-                        break;
-                    }
-                    bytes_read += new_bytes;
-                }
-                feature_detector_->pupil_threshold = threshold;
-            } else if (buffer[0] == 7) {
-                int threshold = feature_detector_->pupil_threshold;
-                uint32_t sent{0};
-                uint32_t size_to_send{sizeof(threshold)};
-                while (sent < size_to_send) {
-                    ssize_t new_bytes{send(socket_handle_, (char *)&threshold + sent, size_to_send - sent, 0)};
+                    ssize_t new_bytes{send(socket_handle_,
+                                           (char *) &gaze_direction_ + sent,
+                                           size_to_send - sent, 0)};
                     if (new_bytes < 0) {
                         break;
                     }
@@ -187,7 +137,9 @@ void SocketServer::openSocket() {
                 uint32_t sent{0};
                 uint32_t size_to_send{sizeof(pupil_location_)};
                 while (sent < size_to_send) {
-                    ssize_t new_bytes{send(socket_handle_, (char *)&pupil_location_ + sent, size_to_send - sent, 0)};
+                    ssize_t new_bytes{send(socket_handle_,
+                                           (char *) &pupil_location_ + sent,
+                                           size_to_send - sent, 0)};
                     if (new_bytes < 0) {
                         break;
                     }
@@ -198,6 +150,7 @@ void SocketServer::openSocket() {
         close(socket_handle_);
     }
     close(socket_handle_);
+    std::cout << "Socket closed.\n";
 }
 
 void SocketServer::closeSocket() {

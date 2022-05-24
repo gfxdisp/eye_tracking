@@ -6,34 +6,34 @@
 
 #include <netinet/in.h>
 #include <opencv2/opencv.hpp>
+#include <vector>
 
-namespace et
-{
-    class SocketServer {
-    public:
-        SocketServer(EyeTracker *tracker, FeatureDetector *feature_detector);
+namespace et {
+class SocketServer {
+public:
+    SocketServer(EyeTracker *tracker, FeatureDetector *feature_detector);
 
-        void startServer();
-        void openSocket();
-        void closeSocket();
+    void startServer();
+    void openSocket();
+    void closeSocket();
 
-        bool finished{false};
-    private:
-        EyeTracker *eye_tracker_{};
-        FeatureDetector *feature_detector_{};
+    bool finished{false};
 
-        cv::Vec3d eye_position_{};
-        cv::Vec3d gaze_direction_{};
+private:
+    EyeTracker *eye_tracker_{};
+    FeatureDetector *feature_detector_{};
 
-        float pupil_diameter_{};
-        cv::Point2f pupil_location_{};
-        cv::Point2f leds_locations_[FeatureDetector::LED_COUNT]{};
+    cv::Vec3d eye_position_{};
+    cv::Vec3d gaze_direction_{};
 
-        sockaddr_in address_{};
-        int server_handle_{};
-        int socket_handle_{-1};
-    };
-}
+    float pupil_diameter_{};
+    cv::Point2f pupil_location_{};
+    std::vector<cv::Point2f> glint_locations_{};
 
+    sockaddr_in address_{};
+    int server_handle_{};
+    int socket_handle_{-1};
+};
+}// namespace et
 
 #endif

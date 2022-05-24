@@ -8,13 +8,13 @@ AllowAllArgumentsOnNextLine: false
 AllowAllConstructorInitializersOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Never
-AllowShortCaseLabelsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: Never
-AllowShortLambdasOnASingleLine: None
+AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterReturnType: None
-AlwaysBreakTemplateDeclarations: Yes
+AlwaysBreakTemplateDeclarations: MultiLine
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterCaseLabel: false
@@ -27,13 +27,13 @@ BraceWrapping:
   BeforeCatch: false
   BeforeElse: false
   IndentBraces: false
-  SplitEmptyFunction: true
-  SplitEmptyRecord: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
 BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakInheritanceList: BeforeColon
-ColumnLimit: 120
+ColumnLimit: 80
 CompactNamespaces: false
 ContinuationIndentWidth: 4
 IndentCaseLabels: true
@@ -43,10 +43,11 @@ KeepEmptyLinesAtTheStartOfBlocks: true
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None
 ObjCSpaceAfterProperty: false
-ObjCSpaceBeforeProtocolList: false
+ObjCSpaceBeforeProtocolList: true
 PointerAlignment: Right
 ReflowComments: false
-SpaceAfterCStyleCast: false
+SeparateDefinitionBlocks : Always
+SpaceAfterCStyleCast: true
 SpaceAfterLogicalNot: false
 SpaceAfterTemplateKeyword: false
 SpaceBeforeAssignmentOperators: true

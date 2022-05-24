@@ -13,6 +13,7 @@ namespace et {
 struct GlintCandidate {
     cv::Point2f location;
     float rating;
+    bool found;
 };
 
 class FeatureDetector {
@@ -25,36 +26,36 @@ public:
 
     void getPupil(cv::Point2f &pupil);
 
-    [[nodiscard]] float getPupilRadius() const;
+    [[nodiscard]] int getPupilRadius() const;
 
-    void getPupilRadius(float &pupil_radius);
+    void getPupilRadius(int &pupil_radius);
 
-    cv::Point2f *getLeds();
+    std::vector<cv::Point2f> *getGlints();
 
-    void getLeds(cv::Point2f *leds_locations);
+    void getGlints(std::vector<cv::Point2f> &glint_locations);
 
     cv::Mat getThresholdedPupilImage();
 
     cv::Mat getThresholdedGlintsImage();
-
-    static constexpr int LED_COUNT = 2;
-
-    int pupil_threshold{5};
 
 private:
     bool findPupil();
 
     bool findGlints();
 
-    static cv::KalmanFilter makeKalmanFilter(const cv::Size2i &resolution, float framerate);
+    static cv::KalmanFilter makeKalmanFilter(const cv::Size2i &resolution,
+                                             float framerate);
+
+    void findBestGlintPair(std::vector<GlintCandidate> &glint_candidates,
+                           std::pair<cv::Point2f, cv::Point2f> &best_pair);
 
     std::mutex mtx_features_{};
 
-    float pupil_radius_{0};
+    int pupil_radius_{0};
     cv::Point2f pupil_location_{};
     cv::KalmanFilter pupil_kalman_{};
-    cv::Point2f leds_locations_[LED_COUNT]{};
-    cv::KalmanFilter led_kalmans_[LED_COUNT]{};
+    std::vector<cv::Point2f> glint_locations_{};
+    std::vector<cv::KalmanFilter> led_kalmans_{};
 
     cv::Mat cpu_image_{};
     cv::cuda::GpuMat gpu_image_{};
@@ -64,18 +65,10 @@ private:
     std::vector<std::vector<cv::Point>> contours_{};
     std::vector<cv::Vec4i> hierarchy_{};// Unused output
 
-    int min_pupil_radius_{20};
-    int max_pupil_radius_{90};
-
-    int glints_threshold_{150};
-    float max_glint_radius_{5.0f};
-    float min_horizontal_distance{0.0f};
-    float max_horizontal_distance{5.0f};
-    float min_vertical_distance{30.0f};
-    float max_vertical_distance{50.0f};
+    bool rotated_video_{false};
 
     static inline cv::Point2f toPoint(cv::Mat m) {
-        return {(float)m.at<double>(0, 0), (float)m.at<double>(0, 1)};
+        return {(float) m.at<double>(0, 0), (float) m.at<double>(0, 1)};
     }
 
     static inline float euclideanDistance(cv::Point2f &p, cv::Point2f &q) {

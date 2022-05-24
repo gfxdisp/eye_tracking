@@ -16,12 +16,8 @@
 namespace et {
 class IdsCamera : public ImageProvider {
 public:
-    explicit IdsCamera(int camera_index);
     void initialize() override;
     cv::Mat grabImage() override;
-    cv::Size2i getImageResolution() override;
-    cv::Size2i getDeviceResolution() override;
-    cv::Point2d getOffset() override;
     void close() override;
     void setExposure(double exposure) override;
     void setGamma(float gamma) override;
@@ -41,7 +37,6 @@ private:
 
     std::thread image_gatherer_{};
 
-    int camera_index_{};
     int n_cameras_{};
     PUEYE_CAMERA_LIST camera_list_{};
     uint32_t camera_handle_{};

@@ -3,20 +3,29 @@
 #include "IdsCamera.hpp"
 #include "ImageProvider.hpp"
 #include "InputVideo.hpp"
+#include "Settings.hpp"
 #include "SocketServer.hpp"
 #include "Visualizer.hpp"
 
 #include <opencv2/opencv.hpp>
 
 #include <cassert>
+#include <chrono>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <thread>
 
-enum class VisualizationType { DISABLED, STANDARD, THRESHOLD_PUPIL, THRESHOLD_GLINTS };
+enum class VisualizationType {
+    DISABLED,
+    STANDARD,
+    THRESHOLD_PUPIL,
+    THRESHOLD_GLINTS
+};
 
 std::string getCurrentTimeText() {
-    std::time_t now{std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())};
+    std::time_t now{
+        std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())};
     char buffer[80];
 
     std::strftime(buffer, 80, "%Y-%m-%d_%H-%M-%S", std::localtime(&now));
@@ -25,42 +34,47 @@ std::string getCurrentTimeText() {
 }
 
 int main(int argc, char *argv[]) {
-    assert(argc >= 3 && argc <= 4);
-    std::string input_type{argv[1]};
+    et::Settings settings("settings.json");
+    //    setenv("DISPLAY", "10.248.97.27:0", true);
+    assert(argc >= 2 && argc <= 4);
 
+    int user_idx{};
+
+    std::string input_type{argv[1]};
     et::ImageProvider *image_provider;
     if (input_type == "ids") {
-        int camera_index{std::stoi(std::string(argv[2]))};
-        image_provider = new et::IdsCamera(camera_index);
+        image_provider = new et::IdsCamera();
+        user_idx = 2;
     } else if (input_type == "file") {
         std::string input_file{argv[2]};
+        user_idx = 3;
         image_provider = new et::InputVideo(input_file);
     } else {
         return EXIT_FAILURE;
     }
-
-    float framerate{90.0f};
+    if (argc > user_idx) {
+        std::string user{argv[user_idx]};
+        if (!et::Settings::parameters.features_params.contains(user)) {
+            et::Settings::parameters.features_params[user] =
+                et::Settings::parameters.features_params["default"];
+        }
+        et::Settings::parameters.user_params =
+            &et::Settings::parameters.features_params[user];
+    }
 
     image_provider->initialize();
-    image_provider->setGamma(3.5f);
-    image_provider->setFramerate(framerate);
+    image_provider->setGamma(et::Settings::parameters.camera_params.gamma);
+    image_provider->setFramerate(
+        et::Settings::parameters.camera_params.framerate);
 
     et::FeatureDetector feature_detector{};
-    feature_detector.initializeKalmanFilters(image_provider->getImageResolution(), framerate);
+    feature_detector.initializeKalmanFilters(
+        et::Settings::parameters.camera_params.dimensions,
+        et::Settings::parameters.camera_params.framerate);
 
-    et::SetupLayout setup_layout{};
-    setup_layout.camera_lambda = 27.119;
-    setup_layout.camera_nodal_point_position = {224.1558, 139.7573, 491.9391};
-    setup_layout.led_positions[0] = {185.4109, 144.5800, 778.9492};
-    setup_layout.led_positions[1] = {235.4109, 130.3241, 763.2100};
-    setup_layout.camera_eye_distance = 324.9387;
-    setup_layout.translation = {-59.1085, -25.8134, -554.6367};
-    setup_layout.camera_eye_projection_factor = setup_layout.camera_eye_distance / setup_layout.camera_lambda;
-    double rotation_data[] = {-0.0126, 0.9960, 0.0883, 0.9992, 0.0158, -0.0357, 0.0370, -0.0878, 0.9955};
-    setup_layout.rotation = cv::Mat(3, 3, CV_64F, rotation_data);
-
-    et::EyeTracker eye_tracker{setup_layout, image_provider};
-    eye_tracker.initializeKalmanFilter(framerate);
+    et::EyeTracker eye_tracker{image_provider};
+    eye_tracker.initializeKalmanFilter(
+        et::Settings::parameters.camera_params.framerate);
 
     et::SocketServer socket_server{&eye_tracker, &feature_detector};
     socket_server.startServer();
@@ -70,22 +84,20 @@ int main(int argc, char *argv[]) {
     VisualizationType visualization_type = VisualizationType::STANDARD;
 
     cv::VideoWriter video_output{};
+    cv::Point2f pupil{};
+    cv::Point2f *glints{};
 
     while (!socket_server.finished) {
         cv::Mat image{image_provider->grabImage()};
+        if (image.empty()) {
+            break;
+        }
         bool features_found{feature_detector.findImageFeatures(image)};
         et::EyePosition eye_position{};
-        if (eye_tracker.isSetupUpdated() && features_found) {
-        // {
-        // 	cv::Point2f pupil{310.9498, 184.5560};
-        // 	cv::Point2f reflections[]{{320.1631, 163.7441},{320.2516, 206.1573}};
-        // 	float rad = 5.0f;
-        //     eye_tracker.calculateJoined(pupil, reflections, rad);
-        //     cv::Vec3d cornea{};
-        //     eye_tracker.getCorneaCurvaturePosition(cornea);
-        //     std::cout << cornea << std::endl;
-        //     break;
-            eye_tracker.calculateJoined(feature_detector.getPupil(), feature_detector.getLeds(), feature_detector.getPupilRadius());
+        if (features_found) {
+            eye_tracker.calculateJoined(feature_detector.getPupil(),
+                                        *feature_detector.getGlints(),
+                                        feature_detector.getPupilRadius());
         }
 
         visualizer.calculateFramerate();
@@ -119,38 +131,27 @@ int main(int argc, char *argv[]) {
                 break;
             case 'w':
                 if (input_type != "file") {
-                    std::string filename{"videos/" + getCurrentTimeText() + ".mp4"};
+                    std::string filename{"videos/" + getCurrentTimeText()
+                                         + ".mp4"};
                     std::clog << "Saving video to " << filename << "\n";
-                    video_output.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
-                                      image_provider->getImageResolution(), false);
+                    video_output.open(
+                        filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                        30, et::Settings::parameters.camera_params.dimensions,
+                        false);
                 }
                 break;
-            case 's':
-                imwrite("fullFrame.png", image);
-                break;
-            case 'q':
-                visualization_type = VisualizationType::DISABLED;
-                break;
-            case 'e':
-                visualization_type = VisualizationType::STANDARD;
-                break;
+            case 's': imwrite("fullFrame.png", image); break;
+            case 'q': visualization_type = VisualizationType::DISABLED; break;
+            case 'e': visualization_type = VisualizationType::STANDARD; break;
             case 'r':
                 visualization_type = VisualizationType::THRESHOLD_GLINTS;
                 break;
             case 't':
                 visualization_type = VisualizationType::THRESHOLD_PUPIL;
                 break;
-            case 171:
-                feature_detector.pupil_threshold++;
-                break;
-            case 173:
-                feature_detector.pupil_threshold--;
-                break;
-            default:
-                break;
+            default: break;
         }
     }
-
     socket_server.finished = true;
 
     if (video_output.isOpened()) {

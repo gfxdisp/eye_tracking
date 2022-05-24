@@ -3,24 +3,27 @@
 
 #include <opencv2/opencv.hpp>
 
+#include <vector>
+
 namespace et {
 class RayPointMinimizer : public cv::DownhillSolver::Function {
 public:
-    explicit RayPointMinimizer(const cv::Vec3d &np);
+    RayPointMinimizer();
     [[nodiscard]] int getDims() const override;
     double calc(const double *x) const override;
 
-    void setParameters(const cv::Vec3d &np2c_dir, cv::Vec3d *screen_glint, cv::Vec3d *lp);
+    void setParameters(const cv::Vec3f &np2c_dir, cv::Vec3f *screen_glint,
+                       std::vector<cv::Vec3f> &lp);
 
     static double kk_;
     static double lowest_error_;
 
 private:
-    cv::Vec3d np_{};
-    cv::Vec3d np2c_dir_{};
-    cv::Vec3d screen_glint_[2]{};
-    cv::Vec3d lp_[2]{};
-    cv::Vec3d ray_dir_[2]{};
+    cv::Vec3f np_{};
+    cv::Vec3f np2c_dir_{};
+    std::vector<cv::Vec3f> screen_glint_{};
+    std::vector<cv::Vec3f> lp_{};
+    std::vector<cv::Vec3f> ray_dir_{};
 };
 
 }// namespace et

@@ -1,13 +1,10 @@
 #include "IdsCamera.hpp"
+#include "Settings.hpp"
 
 #include <cassert>
 #include <iostream>
 
 namespace et {
-IdsCamera::IdsCamera(int camera_index) : camera_index_(camera_index) {
-    assert(camera_index_ >= 0);
-    image_resolution_ = cv::Size2i(560, 464);
-}
 
 void IdsCamera::initialize() {
     initializeCamera();
@@ -20,13 +17,24 @@ void IdsCamera::initializeCamera() {
 
     result = is_GetNumberOfCameras(&n_cameras_);
     assert(result == IS_SUCCESS);
-    assert(n_cameras_ > 0 && camera_index_ < n_cameras_);
+    assert(n_cameras_ > 0);
 
     camera_list_ = new UEYE_CAMERA_LIST[n_cameras_];
     result = is_GetCameraList(camera_list_);
     assert(result == IS_SUCCESS);
 
-    camera_handle_ = camera_list_->uci[camera_index_].dwCameraID;
+    int camera_index{-1};
+
+    for (int i = 0; i < n_cameras_; i++) {
+        if (std::string(camera_list_->uci[i].Model)
+            == et::Settings::parameters.camera_params.name) {
+            camera_index = i;
+            break;
+        }
+    }
+    assert(camera_index >= 0);
+
+    camera_handle_ = camera_list_->uci[camera_index].dwCameraID;
 
     result = is_InitCamera(&camera_handle_, nullptr);
     assert(result == IS_SUCCESS);
@@ -46,26 +54,31 @@ void IdsCamera::initializeImage() {
     int result;
 
     IS_RECT area_of_interest{};
-    area_of_interest.s32X = offset_.x;
-    area_of_interest.s32Y = offset_.y;
-    area_of_interest.s32Width = image_resolution_.width;
-    area_of_interest.s32Height = image_resolution_.height;
-    result = is_AOI(camera_handle_, IS_AOI_IMAGE_SET_AOI, &area_of_interest, sizeof(area_of_interest));
+    area_of_interest.s32X =
+        Settings::parameters.camera_params.capture_offset.width;
+    area_of_interest.s32Y =
+        Settings::parameters.camera_params.capture_offset.height;
+    area_of_interest.s32Width =
+        Settings::parameters.camera_params.region_of_interest.width;
+    area_of_interest.s32Height =
+        Settings::parameters.camera_params.region_of_interest.height;
+    result = is_AOI(camera_handle_, IS_AOI_IMAGE_SET_AOI, &area_of_interest,
+                    sizeof(area_of_interest));
     assert(result == IS_SUCCESS);
 
-    result = is_AllocImageMem(camera_handle_, area_of_interest.s32Width, area_of_interest.s32Height,
-                              sizeof(char) * CHAR_BIT, &image_handle_, &image_id_);
+    result = is_AllocImageMem(
+        camera_handle_, area_of_interest.s32Width, area_of_interest.s32Height,
+        sizeof(char) * CHAR_BIT, &image_handle_, &image_id_);
     assert(result == IS_SUCCESS);
 
     result = is_SetImageMem(camera_handle_, image_handle_, image_id_);
     assert(result == IS_SUCCESS);
 
-    image_resolution_.width = area_of_interest.s32Width;
-    image_resolution_.height = area_of_interest.s32Height;
-
-    image_.create(image_resolution_.height, image_resolution_.width, CV_8UC1);
-    for (auto & i : image_queue_) {
-        i.create(image_resolution_.height, image_resolution_.width, CV_8UC1);
+    image_.create(area_of_interest.s32Height, area_of_interest.s32Width,
+                  CV_8UC1);
+    for (auto &i : image_queue_) {
+        i.create(area_of_interest.s32Height, area_of_interest.s32Width,
+                 CV_8UC1);
     }
 }
 
@@ -79,7 +92,8 @@ void IdsCamera::imageGatheringThread() {
         result = is_FreezeVideo(camera_handle_, IS_WAIT);
         assert(result == IS_SUCCESS);
 
-        result = is_CopyImageMem(camera_handle_, image_handle_, image_id_, (char *)image_queue_[new_image_index].data);
+        result = is_CopyImageMem(camera_handle_, image_handle_, image_id_,
+                                 (char *) image_queue_[new_image_index].data);
         assert(result == IS_SUCCESS);
 
         image_index_ = new_image_index;
@@ -90,15 +104,6 @@ cv::Mat IdsCamera::grabImage() {
     image_ = image_queue_[image_index_];
     return image_;
 }
-
-cv::Size2i IdsCamera::getImageResolution() {
-    return image_resolution_;
-}
-
-cv::Size2i IdsCamera::getDeviceResolution() {
-    return {1280, 1024};
-}
-
 
 void IdsCamera::close() {
     int result;
@@ -116,7 +121,8 @@ void IdsCamera::close() {
 void IdsCamera::setExposure(double exposure) {
     int result;
 
-    result = is_Exposure(camera_handle_, IS_EXPOSURE_CMD_SET_EXPOSURE, (void *)&exposure, sizeof(exposure));
+    result = is_Exposure(camera_handle_, IS_EXPOSURE_CMD_SET_EXPOSURE,
+                         (void *) &exposure, sizeof(exposure));
     assert(result == IS_SUCCESS);
 }
 
@@ -124,7 +130,8 @@ void IdsCamera::setGamma(float gamma) {
     int result;
 
     int scaled_gamma = static_cast<int>(gamma * 100);
-    result = is_Gamma(camera_handle_, IS_GAMMA_CMD_SET, (void *)&scaled_gamma, sizeof(scaled_gamma));
+    result = is_Gamma(camera_handle_, IS_GAMMA_CMD_SET, (void *) &scaled_gamma,
+                      sizeof(scaled_gamma));
     assert(result == IS_SUCCESS);
 }
 
@@ -133,8 +140,5 @@ void IdsCamera::setFramerate(double framerate) {
 
     result = is_SetFrameRate(camera_handle_, framerate, &framerate);
     assert(result == IS_SUCCESS);
-}
-cv::Point2d IdsCamera::getOffset() {
-    return offset_;
 }
 }// namespace et
