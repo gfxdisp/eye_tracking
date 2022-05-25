@@ -2,8 +2,8 @@
 	"camera_params": {
 		"name": "UI314xCP-M",
 		"dimensions": [1280, 1024],
-		"region_of_interest": [0, 0],
-		"capture_offset": [0, 0],
+		"region_of_interest": [560, 464],
+		"capture_offset": [400, 50],
 		"framerate": 90,
 		"gamma":  3.5,
 		"intrinsic_matrix_opencv": [

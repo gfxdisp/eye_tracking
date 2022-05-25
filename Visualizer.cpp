@@ -17,7 +17,9 @@ Visualizer::Visualizer(FeatureDetector *feature_detector,
     : feature_detector_(feature_detector), eye_tracker_(eye_tracker) {
     last_frame_time_ = std::chrono::steady_clock::now();
     fps_text_ << std::fixed << std::setprecision(2);
+
     namedWindow(SLIDER_WINDOW_NAME.begin(), cv::WINDOW_AUTOSIZE);
+
     FeaturesParams *user_params = Settings::parameters.user_params;
 
     pupil_threshold_tracker_ = user_params->pupil_threshold;
