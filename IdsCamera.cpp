@@ -62,6 +62,8 @@ void IdsCamera::initializeImage() {
         Settings::parameters.camera_params.region_of_interest.width;
     area_of_interest.s32Height =
         Settings::parameters.camera_params.region_of_interest.height;
+
+    std::cout << area_of_interest.s32X << area_of_interest.s32Y << area_of_interest.s32Width << area_of_interest.s32Height << std::endl;
     result = is_AOI(camera_handle_, IS_AOI_IMAGE_SET_AOI, &area_of_interest,
                     sizeof(area_of_interest));
     assert(result == IS_SUCCESS);
