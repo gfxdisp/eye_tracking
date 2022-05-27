@@ -40,6 +40,8 @@ public:
 
     cv::Point2f getCorneaCurvaturePixelPosition();
 
+    cv::Point2f getEyeCentrePixelPosition();
+
     void initializeKalmanFilter(float framerate);
 
     static bool getRaySphereIntersection(const cv::Vec3f &ray_pos,

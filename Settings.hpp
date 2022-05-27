@@ -16,7 +16,7 @@ struct CameraParams {
     cv::Size2i capture_offset{};
     float framerate{};
     float gamma{};
-    float intrinsic_matrix[3][3]{};
+    cv::Mat intrinsic_matrix{};
     float distortion_coefficients[5]{};
 };
 

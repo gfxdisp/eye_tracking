@@ -23,11 +23,14 @@ void from_json(const json &j, CameraParams &camera_params) {
     camera_params.capture_offset = cv::Size2i(idata[0], idata[1]);
     j.at("framerate").get_to(camera_params.framerate);
     j.at("gamma").get_to(camera_params.gamma);
-    std::vector<double> ddata{};
+    std::vector<float> ddata{};
     j.at("intrinsic_matrix_opencv").get_to(ddata);
-    for (int i = 0; i < 9; i++) {
-        camera_params.intrinsic_matrix[i / 3][i % 3] =
-            static_cast<float>(ddata[i]);
+    camera_params.intrinsic_matrix = cv::Mat(3, 3, CV_32FC1);
+    for (int i = 0; i < 3; i++) {
+        for (int k = 0; k < 3; k++) {
+            camera_params.intrinsic_matrix.at<float>(cv::Point(i, k)) =
+                ddata[i * 3 + k];
+        }
     }
     ddata.clear();
     j.at("distortion_coefficients").get_to(ddata);

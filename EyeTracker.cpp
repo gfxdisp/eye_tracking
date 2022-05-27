@@ -125,6 +125,13 @@ cv::Point2f EyeTracker::getCorneaCurvaturePixelPosition() {
     return {0.0, 0.0};
 }
 
+cv::Point2f EyeTracker::getEyeCentrePixelPosition() {
+    if (eye_position_) {
+        return unproject(*eye_position_.eye_centre);
+    }
+    return {0.0, 0.0};
+}
+
 void EyeTracker::initializeKalmanFilter(float framerate) {
     kalman_ = makeKalmanFilter(framerate);
 }
@@ -134,7 +141,11 @@ cv::Vec3f EyeTracker::project(const cv::Vec3f &point) const {
 }
 
 cv::Vec2f EyeTracker::unproject(const cv::Vec3f &point) const {
-    return cv::Point2f(0.0f);
+    cv::Mat unprojected = Settings::parameters.camera_params.intrinsic_matrix.t() * point;
+    float x = unprojected.at<float>(0);
+    float y = unprojected.at<float>(1);
+    float w = unprojected.at<float>(2);
+    return {x / w, y / w};
 }
 
 cv::Vec3f EyeTracker::ICStoCCS(const cv::Point2f &point) const {
@@ -293,10 +304,14 @@ cv::Mat EyeTracker::euler2rot(double *euler_angles) {
 }
 
 cv::Point2f EyeTracker::undistort(cv::Point2f point) {
-    float fx{Settings::parameters.camera_params.intrinsic_matrix[0][0]};
-    float fy{Settings::parameters.camera_params.intrinsic_matrix[1][1]};
-    float cx{Settings::parameters.camera_params.intrinsic_matrix[0][2]};
-    float cy{Settings::parameters.camera_params.intrinsic_matrix[1][2]};
+    float fx{Settings::parameters.camera_params.intrinsic_matrix.at<float>(
+        cv::Point(0, 0))};
+    float fy{Settings::parameters.camera_params.intrinsic_matrix.at<float>(
+        cv::Point(1, 1))};
+    float cx{Settings::parameters.camera_params.intrinsic_matrix.at<float>(
+        cv::Point(0, 2))};
+    float cy{Settings::parameters.camera_params.intrinsic_matrix.at<float>(
+        cv::Point(1, 2))};
     float k1{Settings::parameters.camera_params.distortion_coefficients[0]};
     float k2{Settings::parameters.camera_params.distortion_coefficients[1]};
     cv::Point2f new_point{};
@@ -325,14 +340,19 @@ void EyeTracker::createProjectionMatrix() {
     cv::Mat projection_matrix{4, 4, CV_32FC1, view_data};
     projection_matrix = projection_matrix.t();
 
-    float(*intr_mtx)[3][3] =
-        &Settings::parameters.camera_params.intrinsic_matrix;
+    float intr_mtx[9];
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            intr_mtx[i * 3 + j] =
+                Settings::parameters.camera_params.intrinsic_matrix.at<float>(
+                    cv::Point(i, j));
+        }
+    }
 
-    float intrinsic_data[4][4]{
-        {(*intr_mtx)[0][0], (*intr_mtx)[1][0], (*intr_mtx)[2][0], 0},
-        {(*intr_mtx)[0][1], (*intr_mtx)[1][1], (*intr_mtx)[2][1], 0},
-        {0, 0, (*intr_mtx)[2][2], 0},
-        {(*intr_mtx)[0][2], (*intr_mtx)[1][2], 0, 1}};
+    float intrinsic_data[4][4]{{intr_mtx[0], intr_mtx[3], intr_mtx[6], 0},
+                               {intr_mtx[1], intr_mtx[4], intr_mtx[7], 0},
+                               {0, 0, intr_mtx[8], 0},
+                               {intr_mtx[2], intr_mtx[5], 0, 1}};
 
     cv::Mat intrinsic_matrix{4, 4, CV_32FC1, intrinsic_data};
 
