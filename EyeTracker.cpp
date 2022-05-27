@@ -142,10 +142,11 @@ cv::Vec3f EyeTracker::project(const cv::Vec3f &point) const {
 
 cv::Vec2f EyeTracker::unproject(const cv::Vec3f &point) const {
     cv::Mat unprojected = Settings::parameters.camera_params.intrinsic_matrix.t() * point;
+    cv::Size2i offset{Settings::parameters.camera_params.capture_offset};
     float x = unprojected.at<float>(0);
     float y = unprojected.at<float>(1);
     float w = unprojected.at<float>(2);
-    return {x / w, y / w};
+    return {x / w - offset.width, y / w - offset.height};
 }
 
 cv::Vec3f EyeTracker::ICStoCCS(const cv::Point2f &point) const {
@@ -314,9 +315,10 @@ cv::Point2f EyeTracker::undistort(cv::Point2f point) {
         cv::Point(1, 2))};
     float k1{Settings::parameters.camera_params.distortion_coefficients[0]};
     float k2{Settings::parameters.camera_params.distortion_coefficients[1]};
+    cv::Size2i offset{Settings::parameters.camera_params.capture_offset};
     cv::Point2f new_point{};
-    float x{(float) (point.x - cx) / fx};
-    float y{(float) (point.y - cy) / fy};
+    float x{(float) (point.x + offset.width - cx) / fx};
+    float y{(float) (point.y + offset.height - cy) / fy};
     float x0{x};
     float y0{y};
     for (int i = 0; i < 3; i++) {

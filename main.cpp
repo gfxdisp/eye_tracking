@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
         et::Settings::parameters.user_params =
             &et::Settings::parameters.features_params[user];
     } else {
-    	et::Settings::parameters.user_params =
+        et::Settings::parameters.user_params =
             &et::Settings::parameters.features_params["default"];
     }
 
@@ -139,7 +139,9 @@ int main(int argc, char *argv[]) {
                     std::clog << "Saving video to " << filename << "\n";
                     video_output.open(
                         filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
-                        30, et::Settings::parameters.camera_params.region_of_interest,
+                        30,
+                        et::Settings::parameters.camera_params
+                            .region_of_interest,
                         false);
                 }
                 break;
