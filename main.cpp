@@ -69,6 +69,8 @@ int main(int argc, char *argv[]) {
     image_provider->setGamma(et::Settings::parameters.camera_params.gamma);
     image_provider->setFramerate(
         et::Settings::parameters.camera_params.framerate);
+    image_provider->setExposure(
+        et::Settings::parameters.camera_params.exposure);
 
     et::FeatureDetector feature_detector{};
     feature_detector.initializeKalmanFilters(
@@ -127,7 +129,7 @@ int main(int argc, char *argv[]) {
             video_output.write(image);
         }
 
-        int key_pressed = cv::waitKey(7) & 0xFF;
+        int key_pressed = cv::waitKey(1) & 0xFF;
         switch (key_pressed) {
             case 27:// Esc
                 socket_server.finished = true;

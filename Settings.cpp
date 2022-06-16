@@ -22,6 +22,7 @@ void from_json(const json &j, CameraParams &camera_params) {
     j.at("capture_offset").get_to(idata);
     camera_params.capture_offset = cv::Size2i(idata[0], idata[1]);
     j.at("framerate").get_to(camera_params.framerate);
+    j.at("exposure").get_to(camera_params.exposure);
     j.at("gamma").get_to(camera_params.gamma);
     std::vector<float> ddata{};
     j.at("intrinsic_matrix_opencv").get_to(ddata);

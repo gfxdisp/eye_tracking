@@ -9,7 +9,7 @@ public:
     virtual void initialize() = 0;
     virtual cv::Mat grabImage() = 0;
     virtual void close() = 0;
-    [[maybe_unused]] virtual void setExposure(double exposure);
+    virtual void setExposure(double exposure);
     virtual void setGamma(float gamma);
     virtual void setFramerate(double framerate);
 

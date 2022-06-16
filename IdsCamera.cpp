@@ -45,9 +45,9 @@ void IdsCamera::initializeCamera() {
     result = is_GetSensorInfo(camera_handle_, &sensor_info_);
     assert(result == IS_SUCCESS);
 
-    // double enable_auto_gain = 1.0;
-    // result = is_SetAutoParameter(camera_handle_, IS_SET_ENABLE_AUTO_GAIN, &enable_auto_gain, nullptr);
-    // assert(result == IS_SUCCESS);
+    double enable_auto_gain = 0.0;
+    result = is_SetAutoParameter(camera_handle_, IS_SET_ENABLE_AUTO_GAIN, &enable_auto_gain, nullptr);
+    assert(result == IS_SUCCESS);
 }
 
 void IdsCamera::initializeImage() {

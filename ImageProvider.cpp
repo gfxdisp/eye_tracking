@@ -2,7 +2,7 @@
 
 namespace et {
 
-[[maybe_unused]] void ImageProvider::setExposure(double exposure) {
+void ImageProvider::setExposure(double exposure) {
 }
 
 void ImageProvider::setGamma(float gamma) {
