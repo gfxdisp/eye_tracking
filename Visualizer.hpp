@@ -12,7 +12,7 @@ namespace et {
 class Visualizer {
 public:
     Visualizer(FeatureDetector *feature_detector, EyeTracker *eye_tracker);
-    void drawUi(cv::Mat image);
+    void drawUi(const cv::Mat& image);
     void show();
     void calculateFramerate();
     void printFramerateInterval();

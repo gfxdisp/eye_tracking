@@ -78,18 +78,31 @@ void from_json(
             .get_to(features_params[name].min_vert_glint_distance);
         value.at("max_vert_glint_distance")
             .get_to(features_params[name].max_vert_glint_distance);
+        value.at("max_hor_glint_pupil_distance")
+            .get_to(features_params[name].max_hor_glint_pupil_distance);
+        value.at("max_vert_glint_pupil_distance")
+            .get_to(features_params[name].max_vert_glint_pupil_distance);
     }
 }
 
 void from_json(const json &j, Parameters &parameters) {
     j.at("camera_params").get_to(parameters.camera_params);
-    for (auto item : j.at("leds_params")) {
-        std::vector<double> data{};
-        item.at("position").get_to(data);
-        parameters.leds_positions.emplace_back(static_cast<float>(data[0]),
-                                               static_cast<float>(data[1]),
-                                               static_cast<float>(data[2]));
+    std::vector<std::vector<float>> data{};
+    j.at("led_positions").get_to(data);
+    for (const auto &item : data) {
+        parameters.leds_positions.push_back({item[0], item[1], item[2]});
     }
+
+    static cv::Vec3f origin{-100.0f, -100.0f, -100.0f};
+
+    std::sort(parameters.leds_positions.begin(),
+              parameters.leds_positions.end(),
+              [](const auto &lhs, const auto &rhs) {
+                  float dist_lhs = cv::norm(lhs - origin);
+                  float dist_rhs = cv::norm(rhs - origin);
+                  return dist_lhs < dist_rhs;
+              });
+
     j.at("eye_params").get_to(parameters.eye_params);
     j.at("features_params").get_to(parameters.features_params);
 }

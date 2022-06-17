@@ -35,30 +35,38 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
     cv::Vec3f glint_positions[]{ICStoCCS(undistort(glint_pix_positions[0])),
                                 ICStoCCS(undistort(glint_pix_positions[1]))};
 
-    cv::Vec3f v11{Settings::parameters.leds_positions[0]};
-    cv::normalize(v11, v11);
-    cv::Vec3d v12{glint_positions[0]};
-    cv::normalize(v12, v12);
-    cv::Vec3d nn1{v11.cross(v12)};
-    cv::normalize(nn1, nn1);
-
-    cv::Vec3f v21{Settings::parameters.leds_positions[1]};
-    cv::normalize(v21, v21);
-    cv::Vec3d v22{glint_positions[1]};
-    cv::normalize(v22, v22);
-    cv::Vec3d nn2{v21.cross(v22)};
-    cv::normalize(nn2, nn2);
-
-    cv::Vec3d bnorm{nn2.cross(nn1)};
-    cv::normalize(bnorm, bnorm);
-    if (bnorm(2) < 0) {
-        bnorm = -bnorm;
+    std::vector<cv::Vec3d> v1v2s{};
+    for (int i = 0; i < glint_pix_positions.size(); i++) {
+        cv::Vec3f v1{Settings::parameters.leds_positions[i]};
+        cv::normalize(v1, v1);
+        cv::Vec3f v2{ICStoCCS(undistort(glint_pix_positions[i]))};
+        cv::normalize(v2, v2);
+        cv::Vec3d v1v2{v1.cross(v2)};
+        cv::normalize(v1v2, v1v2);
+        v1v2s.push_back(v1v2);
     }
 
-    ray_point_minimizer_->setParameters(bnorm, glint_positions,
+    cv::Vec3d avg_bnorm{};
+    for (int i = 0; i < v1v2s.size(); i++) {
+        for (int j = i + 1; j < v1v2s.size(); j++) {
+            cv::Vec3d bnorm{v1v2s[i].cross(v1v2s[j])};
+            cv::normalize(bnorm, bnorm);
+            if (bnorm(2) < 0) {
+                bnorm = -bnorm;
+            }
+            avg_bnorm += bnorm;
+        }
+    }
+
+    int total = ((int)v1v2s.size() * ((int)v1v2s.size() - 1)) / 2;
+    for (int i = 0; i < 3; i++) {
+        avg_bnorm(i) = avg_bnorm(i) / total;
+    }
+
+    ray_point_minimizer_->setParameters(avg_bnorm, glint_positions,
                                         Settings::parameters.leds_positions);
     solver_->minimize(cv::Mat{1, 2, CV_64F, {300, 300}});
-    cornea_curvature = bnorm * RayPointMinimizer::kk_;
+    cornea_curvature = avg_bnorm * RayPointMinimizer::kk_;
 
     double t{};
     cv::Vec3f pupil_position{ICStoCCS(undistort(pupil_pix_position))};
@@ -141,7 +149,8 @@ cv::Vec3f EyeTracker::project(const cv::Vec3f &point) const {
 }
 
 cv::Vec2f EyeTracker::unproject(const cv::Vec3f &point) const {
-    cv::Mat unprojected = Settings::parameters.camera_params.intrinsic_matrix.t() * point;
+    cv::Mat unprojected =
+        Settings::parameters.camera_params.intrinsic_matrix.t() * point;
     cv::Size2i offset{Settings::parameters.camera_params.capture_offset};
     float x = unprojected.at<float>(0);
     float y = unprojected.at<float>(1);

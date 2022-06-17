@@ -40,6 +40,8 @@ struct FeaturesParams {
     float max_hor_glint_distance{};
     float min_vert_glint_distance{};
     float max_vert_glint_distance{};
+    float max_hor_glint_pupil_distance{};
+    float max_vert_glint_pupil_distance{};
 };
 
 struct Parameters {

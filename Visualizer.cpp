@@ -33,7 +33,7 @@ Visualizer::Visualizer(FeatureDetector *feature_detector,
                        Visualizer::onGlintThresholdUpdate);
 }
 
-void Visualizer::drawUi(cv::Mat image) {
+void Visualizer::drawUi(const cv::Mat& image) {
     cv::cvtColor(image, image_, cv::COLOR_GRAY2BGR);
     auto led_positions = feature_detector_->getGlints();
     for (const auto &led : (*led_positions)) {

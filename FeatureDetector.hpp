@@ -1,6 +1,8 @@
 #ifndef FEATURE_DETECTOR_H
 #define FEATURE_DETECTOR_H
 
+#include "Settings.hpp"
+
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudafilters.hpp>
 #include <opencv2/cudaimgproc.hpp>
@@ -74,6 +76,18 @@ private:
     static inline float euclideanDistance(cv::Point2f &p, cv::Point2f &q) {
         cv::Point2f diff = p - q;
         return cv::sqrt(diff.x * diff.x + diff.y * diff.y);
+    }
+
+    static inline bool isInEllipse(cv::Point2f &point, cv::Point2f &centre) {
+        float semi_major =
+            Settings::parameters.user_params->max_hor_glint_pupil_distance;
+        float semi_minor =
+            Settings::parameters.user_params->max_vert_glint_pupil_distance;
+        float major = ((point.x - centre.x) * (point.x - centre.x))
+            / (semi_major * semi_major);
+        float minor = ((point.y - centre.y) * (point.y - centre.y))
+            / (semi_minor * semi_minor);
+        return major + minor <= 1;
     }
 };
 }// namespace et

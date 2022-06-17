@@ -1,5 +1,4 @@
 #include "FeatureDetector.hpp"
-#include "Settings.hpp"
 
 #include <opencv2/cudaarithm.hpp>
 
@@ -137,6 +136,10 @@ bool FeatureDetector::findGlints() {
         if (radius > Settings::parameters.user_params->max_glint_radius)
             continue;
 
+        if (!isInEllipse(centre, pupil_location_)) {
+            continue;
+        }
+
         float distance = euclideanDistance(centre, image_centre);
         if (distance > max_distance)
             continue;
@@ -162,10 +165,20 @@ bool FeatureDetector::findGlints() {
         return false;
     }
 
-    //TODO: Make it more flexible to allow different number of LEDs
-    std::pair<cv::Point2f, cv::Point2f> best_pair{};
-    findBestGlintPair(glint_candidates, best_pair);
-    std::vector<cv::Point2f> glints{best_pair.first, best_pair.second};
+    std::vector<cv::Point2f> glints{};
+    for (int i = 0; i < Settings::parameters.leds_positions.size() / 2; i++) {
+        std::pair<cv::Point2f, cv::Point2f> best_pair{};
+        findBestGlintPair(glint_candidates, best_pair);
+        glints.push_back(best_pair.first);
+        glints.push_back(best_pair.second);
+    }
+
+    static cv::Point2f glints_origin{0.0f, -100.0f};
+    std::sort(glints.begin(), glints.end(), [](const auto &lhs, const auto &rhs)  {
+        float dist_lhs = cv::norm(lhs - glints_origin);
+        float dist_rhs = cv::norm(rhs - glints_origin);
+        return dist_lhs < dist_rhs;
+    });
 
     for (int i = 0; i < glints.size(); i++) {
         led_kalmans_[i].correct((KFMat(2, 1) << glints[i].x, glints[i].y));
@@ -219,6 +232,8 @@ void FeatureDetector::findBestGlintPair(
     std::vector<GlintCandidate> &glint_candidates,
     std::pair<cv::Point2f, cv::Point2f> &best_pair) {
     float best_rating{0};
+    GlintCandidate *best_first{};
+    GlintCandidate *best_second{};
     for (int i = 0; i < glint_candidates.size(); i++) {
         if (glint_candidates[i].found) {
             continue;
@@ -247,14 +262,18 @@ void FeatureDetector::findBestGlintPair(
                 glint_candidates[i].rating + glint_candidates[j].rating;
             if (rating > best_rating) {
                 best_rating = rating;
-                best_pair.first = glint_candidates[i].location;
-                best_pair.second = glint_candidates[j].location;
-                if (best_pair.first.y > best_pair.second.y) {
-                    std::swap(best_pair.first, best_pair.second);
-                }
+                best_first = &glint_candidates[i];
+                best_second = &glint_candidates[j];
             }
         }
     }
+    if (best_first) {
+        best_pair.first = best_first->location;
+        best_pair.second = best_second->location;
+        best_first->found = true;
+        best_second->found = true;
+    }
+
 }
 
 }// namespace et
