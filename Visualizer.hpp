@@ -16,6 +16,7 @@ public:
     void show();
     void calculateFramerate();
     void printFramerateInterval();
+    cv::Mat getUiImage();
 
 private:
     static constexpr int FRAMES_FOR_FPS_MEASUREMENT{8};

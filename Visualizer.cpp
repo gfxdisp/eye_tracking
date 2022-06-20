@@ -74,6 +74,12 @@ void Visualizer::printFramerateInterval() {
     }
 }
 
+cv::Mat Visualizer::getUiImage() {
+	cv::Mat bgr_image;
+    cv::cvtColor(image_, bgr_image, cv::COLOR_BGR2GRAY);
+	return bgr_image;
+}
+
 void Visualizer::onPupilThresholdUpdate(int, void *) {
     Settings::parameters.user_params->pupil_threshold =
         pupil_threshold_tracker_;

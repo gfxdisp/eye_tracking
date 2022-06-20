@@ -126,7 +126,11 @@ int main(int argc, char *argv[]) {
         }
 
         if (video_output.isOpened()) {
-            video_output.write(image);
+        	if (input_type == "file") {
+        		video_output.write(visualizer.getUiImage());
+        	} else {
+            	video_output.write(image);
+        	}
         }
 
         int key_pressed = cv::waitKey(1) & 0xFF;
@@ -135,18 +139,18 @@ int main(int argc, char *argv[]) {
                 socket_server.finished = true;
                 break;
             case 'w':
-                if (input_type != "file") {
-                    std::string filename{"videos/" + getCurrentTimeText()
-                                         + ".mp4"};
-                    std::clog << "Saving video to " << filename << "\n";
-                    video_output.open(
-                        filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
-                        30,
-                        et::Settings::parameters.camera_params
-                            .region_of_interest,
-                        false);
-                }
+            {
+                std::string filename{"videos/" + getCurrentTimeText()
+                                     + ".mp4"};
+                std::clog << "Saving video to " << filename << "\n";
+                video_output.open(
+                    filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                    30,
+                    et::Settings::parameters.camera_params
+                        .region_of_interest,
+                    false);
                 break;
+            }
             case 's': imwrite("fullFrame.png", image); break;
             case 'q': visualization_type = VisualizationType::DISABLED; break;
             case 'e': visualization_type = VisualizationType::STANDARD; break;
