@@ -26,6 +26,8 @@ private:
     cv::Vec3d eye_position_{};
     cv::Vec3d gaze_direction_{};
 
+    EyeData eye_data_{};
+
     float pupil_diameter_{};
     cv::Point2f pupil_location_{};
     std::vector<cv::Point2f> glint_locations_{};

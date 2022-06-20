@@ -184,4 +184,5 @@ eye_tracker
 
 .idea/*
 videos/*
+images/*
 cmake-build-*/*

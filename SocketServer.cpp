@@ -82,16 +82,25 @@ void SocketServer::openSocket() {
                 }
 
             } else if (buffer[0] == 2) {
-                feature_detector_->getGlints(glint_locations_);
-                feature_detector_->getPupil(pupil_location_);
+                eye_tracker_->getEyeData(eye_data_);
                 uint32_t sent{0};
                 uint32_t size_to_send{0};
-                char *variables[]{(char *) glint_locations_.data(),
-                                  (char *) &pupil_location_};
+                uint32_t glint_count = eye_data_.glint_pix_positions.size();
+                char *variables[]{(char *) &eye_data_.pupil_pix_position,
+                                  (char *) &glint_count,
+                                  (char *) eye_data_.glint_pix_positions.data(),
+                                  (char *) &eye_data_.cornea_curvature,
+                                  (char *) &eye_data_.pupil,
+                                  (char *) &eye_data_.eye_centre};
                 uint32_t sizes[]{
-                    static_cast<uint32_t>(sizeof(glint_locations_[0])
-                                          * glint_locations_.size()),
-                    sizeof(pupil_location_)};
+                    static_cast<uint32_t>(sizeof(eye_data_.pupil_pix_position)),
+                    static_cast<uint32_t>(sizeof(glint_count)),
+                    static_cast<uint32_t>(sizeof(eye_data_.glint_pix_positions[0]) 
+                        * eye_data_.glint_pix_positions.size()),
+                    static_cast<uint32_t>(sizeof(eye_data_.cornea_curvature)),
+                    static_cast<uint32_t>(sizeof(eye_data_.pupil)),
+                    static_cast<uint32_t>(sizeof(eye_data_.eye_centre)),
+                    };
                 for (int i = 0; i < sizeof(variables) / sizeof(variables[0]);
                      i++) {
                     sent = 0;

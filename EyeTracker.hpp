@@ -23,6 +23,14 @@ struct EyePosition {
     }
 };
 
+struct EyeData {
+    cv::Point2f pupil_pix_position{};
+    std::vector<cv::Point2f> glint_pix_positions{};
+    cv::Vec3f cornea_curvature{};
+    cv::Vec3f pupil{};
+    cv::Vec3f eye_centre{};
+};
+
 class EyeTracker {
 public:
     EyeTracker(ImageProvider *image_provider);
@@ -37,6 +45,8 @@ public:
     void getGazeDirection(cv::Vec3d &gaze_direction);
 
     void getPupilDiameter(float &pupil_diameter);
+
+    void getEyeData(EyeData &eye_data);
 
     cv::Point2f getCorneaCurvaturePixelPosition();
 
@@ -69,6 +79,9 @@ private:
     RayPointMinimizer *ray_point_minimizer_{};
     cv::Ptr<cv::DownhillSolver::Function> minimizer_function_{};
     cv::Ptr<cv::DownhillSolver> solver_{};
+
+    cv::Point2f pupil_pix_position_{};
+    std::vector<cv::Point2f> glint_pix_positions_{};
 
     cv::Mat full_projection_matrix_{};
 

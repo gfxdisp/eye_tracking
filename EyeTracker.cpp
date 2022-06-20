@@ -32,19 +32,22 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
                                  float pupil_radius) {
     std::optional<cv::Vec3f> cornea_curvature{}, pupil{}, eye_centre{};
 
-    cv::Vec3f glint_positions[]{ICStoCCS(undistort(glint_pix_positions[0])),
-                                ICStoCCS(undistort(glint_pix_positions[1]))};
+    pupil_pix_position_ = pupil_pix_position;
+    glint_pix_positions_ = glint_pix_positions;
 
-    cv::Vec3f pupil_position{ICStoCCS(undistort(pupil_pix_position))};
+    cv::Vec3f pupil_position{ICStoCCS(undistort(pupil_pix_position_))};
 
     cv::Vec3f pupil_top_position = ICStoCCS(
-        undistort(pupil_pix_position + cv::Point2f(pupil_radius, 0.0f)));
+        undistort(pupil_pix_position_ + cv::Point2f(pupil_radius, 0.0f)));
+
+    std::vector<cv::Vec3f> glint_positions{};
 
     std::vector<cv::Vec3d> v1v2s{};
-    for (int i = 0; i < glint_pix_positions.size(); i++) {
+    for (int i = 0; i < glint_pix_positions_.size(); i++) {
         cv::Vec3f v1{Settings::parameters.leds_positions[i]};
         cv::normalize(v1, v1);
-        cv::Vec3f v2{ICStoCCS(undistort(glint_pix_positions[i]))};
+        cv::Vec3f v2{ICStoCCS(undistort(glint_pix_positions_[i]))};
+        glint_positions.push_back(v2);
         cv::normalize(v2, v2);
         cv::Vec3d v1v2{v1.cross(v2)};
         cv::normalize(v1v2, v1v2);
@@ -73,7 +76,7 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
         avg_bnorm(i) = avg_bnorm(i) / counter;
     }
 
-    ray_point_minimizer_->setParameters(avg_bnorm, glint_positions,
+    ray_point_minimizer_->setParameters(avg_bnorm, glint_positions.data(),
                                         Settings::parameters.leds_positions);
     cv::Mat x = (cv::Mat_<double>(1, 2) << 400, 400);
     solver_->minimize(x);
@@ -134,6 +137,26 @@ void EyeTracker::getPupilDiameter(float &pupil_diameter) {
     mtx_eye_position_.lock();
     pupil_diameter = pupil_diameter_;
     mtx_eye_position_.unlock();
+}
+
+void EyeTracker::getEyeData(EyeData &eye_data) {
+    eye_data.pupil_pix_position = pupil_pix_position_;
+    eye_data.glint_pix_positions = glint_pix_positions_;
+    if (eye_position_.cornea_curvature) {
+        eye_data.cornea_curvature = *eye_position_.cornea_curvature;
+    } else {
+        eye_data.cornea_curvature = cv::Vec3f(0, 0, 0);
+    }
+    if (eye_position_.pupil) {
+        eye_data.pupil = *eye_position_.pupil;
+    } else {
+        eye_data.pupil = cv::Vec3f(0, 0, 0);
+    }
+    if (eye_position_.eye_centre) {
+        eye_data.eye_centre = *eye_position_.eye_centre;
+    } else {
+        eye_data.eye_centre = cv::Vec3f(0, 0, 0);
+    }
 }
 
 cv::Point2f EyeTracker::getCorneaCurvaturePixelPosition() {

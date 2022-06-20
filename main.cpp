@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
     }
     if (argc > user_idx) {
         std::string user{argv[user_idx]};
+        std::cout << "Starting eye-tracking for user: \"" << user << "\"\n";
         if (!et::Settings::parameters.features_params.contains(user)) {
             et::Settings::parameters.features_params[user] =
                 et::Settings::parameters.features_params["default"];
@@ -152,6 +153,11 @@ int main(int argc, char *argv[]) {
         case 's':
             slow_mode = !slow_mode;
             break;
+		case 'p': {
+			std::string filename{"images/" + getCurrentTimeText() + ".png"};
+			imwrite(filename.c_str(), image); 
+			break;
+		}
         case 'q':
             visualization_type = VisualizationType::DISABLED;
             break;

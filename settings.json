@@ -8,17 +8,17 @@
 		"exposure": 3,
 		"gamma":  1,
 		"intrinsic_matrix_opencv": [
-			5206.82760023005, 0, 640.063366628527,
-			0, 5207.15776524228, 513.093225551166,
+			5381.88136088651, 0, 624.433728000635,
+			0, 5410.89509062222, 650.948276212053,
 			0, 0, 1
 		],
-		"distortion_coefficients": [0.00384152408665942, -0.324285745122857, 0, 0, 0]
+		"distortion_coefficients": [-0.606494922069488, 10.6426358680958, 0, 0, 0]
 	},
 	"led_positions": [
-		[-28, -10, 300],
-		[-28,  10, 300],
-		[ 28, -10, 300],
-		[ 28,  10, 300]
+		[-28, -10, 350],
+		[-28,  10, 350],
+		[ 28, -10, 350],
+		[ 28,  10, 350]
 	],
 	"eye_params": {
 		"cornea_curvature_radius": 7.8,
@@ -53,7 +53,7 @@
 			"max_glint_radius": 10,
 			"min_hor_glint_distance": 0,
 			"max_hor_glint_distance": 5,
-			"min_vert_glint_distance": 0,
+			"min_vert_glint_distance": 20,
 			"max_vert_glint_distance": 70,
 			"max_hor_glint_pupil_distance": 100,
 			"max_vert_glint_pupil_distance": 150,
