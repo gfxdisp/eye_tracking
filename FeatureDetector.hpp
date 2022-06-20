@@ -49,7 +49,7 @@ private:
                                              float framerate);
 
     void findBestGlintPair(std::vector<GlintCandidate> &glint_candidates,
-                           std::pair<cv::Point2f, cv::Point2f> &best_pair);
+                           std::pair<cv::Vec2f, cv::Vec2f> &best_pair);
 
     std::mutex mtx_features_{};
 

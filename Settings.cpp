@@ -2,6 +2,7 @@
 
 #include "json.hpp"
 
+#include <algorithm>
 #include <fstream>
 
 using nlohmann::json;
@@ -89,17 +90,21 @@ void from_json(const json &j, Parameters &parameters) {
     j.at("camera_params").get_to(parameters.camera_params);
     std::vector<std::vector<float>> data{};
     j.at("led_positions").get_to(data);
+
+    static cv::Vec3f origin{1e6, 1e6, 1e6};
+    origin(0) = origin(1) = origin(2) = 1e6;
     for (const auto &item : data) {
         parameters.leds_positions.push_back({item[0], item[1], item[2]});
+        for (int i = 0; i < 3; i++) {
+            origin(i) = std::min(origin(i), item[i]);
+        }
     }
-
-    static cv::Vec3f origin{-100.0f, -100.0f, -100.0f};
 
     std::sort(parameters.leds_positions.begin(),
               parameters.leds_positions.end(),
               [](const auto &lhs, const auto &rhs) {
-                  float dist_lhs = cv::norm(lhs - origin);
-                  float dist_rhs = cv::norm(rhs - origin);
+                  float dist_lhs = cv::norm(cv::Vec3f(10, 1, 1).mul(lhs - origin));
+                  float dist_rhs = cv::norm(cv::Vec3f(10, 1, 1).mul(rhs - origin));
                   return dist_lhs < dist_rhs;
               });
 

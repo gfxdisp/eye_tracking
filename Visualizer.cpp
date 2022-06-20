@@ -62,6 +62,8 @@ void Visualizer::calculateFramerate() {
         fps_text_ << 1s / (frame_time / FRAMES_FOR_FPS_MEASUREMENT);
         frame_index_ = 0;
         last_frame_time_ = std::chrono::steady_clock::now();
+        total_frames_++;
+        total_framerate_ += 1s / (frame_time / FRAMES_FOR_FPS_MEASUREMENT);
     }
 }
 
@@ -88,5 +90,9 @@ void Visualizer::onPupilThresholdUpdate(int, void *) {
 void Visualizer::onGlintThresholdUpdate(int, void *) {
     Settings::parameters.user_params->glint_threshold =
         glint_threshold_tracker_;
+}
+
+float Visualizer::getAvgFramerate() {
+    return total_framerate_ / total_frames_;
 }
 }// namespace et

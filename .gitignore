@@ -181,3 +181,7 @@ output/**
 build_options.hpp
 Makefile
 eye_tracker
+
+.idea/*
+videos/*
+cmake-build-*/*

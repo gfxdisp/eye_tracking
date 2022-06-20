@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 file(GLOB SOURCES *.cpp)
 add_executable(eye_tracker ${SOURCES})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-set(CMAKE_BUILD_TYPE "Release")
+#set(CMAKE_BUILD_TYPE "Release")
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -pg")
 #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")

@@ -35,7 +35,7 @@ std::string getCurrentTimeText() {
 
 int main(int argc, char *argv[]) {
     et::Settings settings("settings.json");
-    //    setenv("DISPLAY", "10.248.97.27:0", true);
+//    setenv("DISPLAY", "10.248.97.227:0", true);
     assert(argc >= 2 && argc <= 4);
 
     int user_idx{};
@@ -92,6 +92,8 @@ int main(int argc, char *argv[]) {
     cv::Point2f pupil{};
     cv::Point2f *glints{};
 
+    bool slow_mode{false};
+
     while (!socket_server.finished) {
         cv::Mat image{image_provider->grabImage()};
         if (image.empty()) {
@@ -108,62 +110,68 @@ int main(int argc, char *argv[]) {
         visualizer.calculateFramerate();
 
         switch (visualization_type) {
-            case VisualizationType::STANDARD:
-                visualizer.drawUi(image);
-                visualizer.show();
-                break;
-            case VisualizationType::THRESHOLD_PUPIL:
-                visualizer.drawUi(feature_detector.getThresholdedPupilImage());
-                visualizer.show();
-                break;
-            case VisualizationType::THRESHOLD_GLINTS:
-                visualizer.drawUi(feature_detector.getThresholdedGlintsImage());
-                visualizer.show();
-                break;
-            case VisualizationType::DISABLED:
-                visualizer.printFramerateInterval();
-                break;
+        case VisualizationType::STANDARD:
+            visualizer.drawUi(image);
+            visualizer.show();
+            break;
+        case VisualizationType::THRESHOLD_PUPIL:
+            visualizer.drawUi(feature_detector.getThresholdedPupilImage());
+            visualizer.show();
+            break;
+        case VisualizationType::THRESHOLD_GLINTS:
+            visualizer.drawUi(feature_detector.getThresholdedGlintsImage());
+            visualizer.show();
+            break;
+        case VisualizationType::DISABLED:
+            visualizer.printFramerateInterval();
+            break;
         }
 
         if (video_output.isOpened()) {
-        	if (input_type == "file") {
-        		video_output.write(visualizer.getUiImage());
-        	} else {
-            	video_output.write(image);
-        	}
+            if (input_type == "file") {
+                video_output.write(visualizer.getUiImage());
+            } else {
+                video_output.write(image);
+            }
         }
 
-        int key_pressed = cv::waitKey(1) & 0xFF;
+        int key_pressed = cv::waitKey(slow_mode ? 30 : 1) & 0xFF;
         switch (key_pressed) {
-            case 27:// Esc
-                socket_server.finished = true;
-                break;
-            case 'w':
-            {
-                std::string filename{"videos/" + getCurrentTimeText()
-                                     + ".mp4"};
-                std::clog << "Saving video to " << filename << "\n";
-                video_output.open(
-                    filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
-                    30,
-                    et::Settings::parameters.camera_params
-                        .region_of_interest,
-                    false);
-                break;
-            }
-            case 's': imwrite("fullFrame.png", image); break;
-            case 'q': visualization_type = VisualizationType::DISABLED; break;
-            case 'e': visualization_type = VisualizationType::STANDARD; break;
-            case 'r':
-                visualization_type = VisualizationType::THRESHOLD_GLINTS;
-                break;
-            case 't':
-                visualization_type = VisualizationType::THRESHOLD_PUPIL;
-                break;
-            default: break;
+        case 27: // Esc
+            socket_server.finished = true;
+            break;
+        case 'w': {
+            std::string filename{"videos/" + getCurrentTimeText() + ".mp4"};
+            std::clog << "Saving video to " << filename << "\n";
+            video_output.open(
+                filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+                et::Settings::parameters.camera_params.region_of_interest,
+                false);
+            break;
+        }
+        case 's':
+            slow_mode = !slow_mode;
+            break;
+        case 'q':
+            visualization_type = VisualizationType::DISABLED;
+            break;
+        case 'e':
+            visualization_type = VisualizationType::STANDARD;
+            break;
+        case 'r':
+            visualization_type = VisualizationType::THRESHOLD_GLINTS;
+            break;
+        case 't':
+            visualization_type = VisualizationType::THRESHOLD_PUPIL;
+            break;
+        default:
+            break;
         }
     }
     socket_server.finished = true;
+
+    std::cout << "Average framerate: " << visualizer.getAvgFramerate()
+              << " fps\n";
 
     if (video_output.isOpened()) {
         video_output.release();

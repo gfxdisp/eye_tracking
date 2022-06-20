@@ -17,6 +17,7 @@ public:
     void calculateFramerate();
     void printFramerateInterval();
     cv::Mat getUiImage();
+    float getAvgFramerate();
 
 private:
     static constexpr int FRAMES_FOR_FPS_MEASUREMENT{8};
@@ -40,6 +41,8 @@ private:
     std::ostringstream fps_text_{};
     int frame_index_{};
     std::chrono::time_point<std::chrono::steady_clock> last_frame_time_{};
+    int total_frames_{0};
+    float total_framerate_{0};
 };
 }// namespace et
 #endif

@@ -8,9 +8,6 @@
 
 namespace et {
 
-double RayPointMinimizer::kk_{};
-double RayPointMinimizer::lowest_error_{1e5};
-
 RayPointMinimizer::RayPointMinimizer() {
     np_ = cv::Vec3f(0.0);
     unsigned long n_leds = Settings::parameters.leds_positions.size();
@@ -53,11 +50,6 @@ double RayPointMinimizer::calc(const double *x) const {
         }
     }
 
-    if (error < lowest_error_) {
-        lowest_error_ = error;
-        kk_ = x[0];
-    }
-
     return error;
 }
 
@@ -71,7 +63,5 @@ void RayPointMinimizer::setParameters(const cv::Vec3f &np2c_dir,
         ray_dir_[i] = np_ - screen_glint_[i];
         cv::normalize(ray_dir_[i], ray_dir_[i]);
     }
-
-    lowest_error_ = 1e5;
 }
 }// namespace et

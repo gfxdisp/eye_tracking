@@ -14,11 +14,11 @@ EyeTracker::EyeTracker(ImageProvider *image_provider)
     ray_point_minimizer_ = new RayPointMinimizer();
     minimizer_function_ =
         cv::Ptr<cv::DownhillSolver::Function>{ray_point_minimizer_};
-    solver_ = cv::Ptr<cv::DownhillSolver>{cv::DownhillSolver::create()};
+    solver_ = cv::DownhillSolver::create();
     solver_->setFunction(minimizer_function_);
-    double step[] = {50, 50};
-    cv::Mat step_data{1, 2, CV_64F, step};
-    solver_->setInitStep(step_data);
+    cv::Mat step = (cv::Mat_<double>(1, 2) << 50, 50);
+    solver_->setInitStep(step);
+
     createProjectionMatrix();
 }
 
@@ -35,6 +35,11 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
     cv::Vec3f glint_positions[]{ICStoCCS(undistort(glint_pix_positions[0])),
                                 ICStoCCS(undistort(glint_pix_positions[1]))};
 
+    cv::Vec3f pupil_position{ICStoCCS(undistort(pupil_pix_position))};
+
+    cv::Vec3f pupil_top_position = ICStoCCS(
+        undistort(pupil_pix_position + cv::Point2f(pupil_radius, 0.0f)));
+
     std::vector<cv::Vec3d> v1v2s{};
     for (int i = 0; i < glint_pix_positions.size(); i++) {
         cv::Vec3f v1{Settings::parameters.leds_positions[i]};
@@ -47,6 +52,7 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
     }
 
     cv::Vec3d avg_bnorm{};
+    int counter{0};
     for (int i = 0; i < v1v2s.size(); i++) {
         for (int j = i + 1; j < v1v2s.size(); j++) {
             cv::Vec3d bnorm{v1v2s[i].cross(v1v2s[j])};
@@ -55,24 +61,28 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
                 bnorm = -bnorm;
             }
             avg_bnorm += bnorm;
+            counter++;
         }
     }
 
-    int total = ((int)v1v2s.size() * ((int)v1v2s.size() - 1)) / 2;
+    if (counter == 0) {
+        return;
+    }
+
     for (int i = 0; i < 3; i++) {
-        avg_bnorm(i) = avg_bnorm(i) / total;
+        avg_bnorm(i) = avg_bnorm(i) / counter;
     }
 
     ray_point_minimizer_->setParameters(avg_bnorm, glint_positions,
                                         Settings::parameters.leds_positions);
-    solver_->minimize(cv::Mat{1, 2, CV_64F, {300, 300}});
-    cornea_curvature = avg_bnorm * RayPointMinimizer::kk_;
-
-    double t{};
-    cv::Vec3f pupil_position{ICStoCCS(undistort(pupil_pix_position))};
-
-    cv::Vec3f pupil_top_position = ICStoCCS(
-        undistort(pupil_pix_position + cv::Point2f(pupil_radius, 0.0f)));
+    cv::Mat x = (cv::Mat_<double>(1, 2) << 400, 400);
+    solver_->minimize(x);
+    double test_k = x.at<double>(0, 0);
+    static double k = test_k;
+    if (abs(test_k - k) < 100) {
+        k = test_k;
+    }
+    cornea_curvature = avg_bnorm * k;
 
     pupil = ICStoEyePosition(pupil_position, *cornea_curvature);
     cv::Vec3f pupil_top =
@@ -198,10 +208,10 @@ EyeTracker::lineSphereIntersections(const cv::Vec3d &sphere_centre,
     const double DISCRIMINANT{std::pow(b, 2)
                               - 4 * a * (c - std::pow(radius, 2))};
     if (std::abs(DISCRIMINANT) < 1e-6) {
-        return {line_point - line_direction * b / (2 * a)};// One solution
+        return {line_point - line_direction * b / (2 * a)}; // One solution
     } else if (DISCRIMINANT < 0) {
-        return {};// No solutions
-    } else {      // Two solutions
+        return {}; // No solutions
+    } else {       // Two solutions
         const double sqrtDISCRIMINANT{std::sqrt(DISCRIMINANT)};
         return {line_point + line_direction * (-b + sqrtDISCRIMINANT) / (2 * a),
                 line_point
@@ -231,7 +241,7 @@ cv::KalmanFilter EyeTracker::makeKalmanFilter(float framerate) {
     KF.measurementNoiseCov = MEASUREMENT_NOISE_COV.clone();
     KF.errorCovPost = ERROR_COV_POST.clone();
     KF.statePost = STATE_POST.clone();
-    KF.predict();// Without this line, OpenCV complains about incorrect matrix dimensions
+    KF.predict(); // Without this line, OpenCV complains about incorrect matrix dimensions
     return KF;
 }
 
@@ -399,4 +409,4 @@ cv::Vec3f EyeTracker::ICStoEyePosition(const cv::Vec3f &point,
     return eye_position;
 }
 
-}// namespace et
+} // namespace et

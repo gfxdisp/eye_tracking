@@ -2,6 +2,7 @@
 
 #include <opencv2/cudaarithm.hpp>
 
+#include <algorithm>
 #include <cmath>
 
 using KFMat = cv::Mat_<double>;
@@ -165,23 +166,32 @@ bool FeatureDetector::findGlints() {
         return false;
     }
 
-    std::vector<cv::Point2f> glints{};
+    std::vector<cv::Vec2f> glints{};
+    static cv::Vec2f glints_origin{1000.0f, 1000.0f};
+    glints_origin(0) = 1000.0f;
+    glints_origin(1) = 1000.0f;
     for (int i = 0; i < Settings::parameters.leds_positions.size() / 2; i++) {
-        std::pair<cv::Point2f, cv::Point2f> best_pair{};
+        std::pair<cv::Vec2f, cv::Vec2f> best_pair{};
         findBestGlintPair(glint_candidates, best_pair);
         glints.push_back(best_pair.first);
         glints.push_back(best_pair.second);
+        for (int j = 0; j < 2; j++) {
+            glints_origin(j) = std::min(glints_origin(j), best_pair.first(j));
+            glints_origin(j) = std::min(glints_origin(j), best_pair.second(j));
+        }
     }
 
-    static cv::Point2f glints_origin{0.0f, -100.0f};
-    std::sort(glints.begin(), glints.end(), [](const auto &lhs, const auto &rhs)  {
-        float dist_lhs = cv::norm(lhs - glints_origin);
-        float dist_rhs = cv::norm(rhs - glints_origin);
-        return dist_lhs < dist_rhs;
-    });
+    std::sort(glints.begin(), glints.end(),
+              [](const auto &lhs, const auto &rhs) {
+                  float dist_lhs =
+                      cv::norm(cv::Vec2f(1, 2).mul(lhs - glints_origin));
+                  float dist_rhs =
+                      cv::norm(cv::Vec2f(1, 2).mul(rhs - glints_origin));
+                  return dist_lhs < dist_rhs;
+              });
 
     for (int i = 0; i < glints.size(); i++) {
-        led_kalmans_[i].correct((KFMat(2, 1) << glints[i].x, glints[i].y));
+        led_kalmans_[i].correct((KFMat(2, 1) << glints[i](0), glints[i](1)));
         mtx_features_.lock();
         glint_locations_[i] = toPoint(led_kalmans_[i].predict());
         mtx_features_.unlock();
@@ -230,7 +240,7 @@ cv::Mat FeatureDetector::getThresholdedGlintsImage() {
 
 void FeatureDetector::findBestGlintPair(
     std::vector<GlintCandidate> &glint_candidates,
-    std::pair<cv::Point2f, cv::Point2f> &best_pair) {
+    std::pair<cv::Vec2f, cv::Vec2f> &best_pair) {
     float best_rating{0};
     GlintCandidate *best_first{};
     GlintCandidate *best_second{};
@@ -273,7 +283,6 @@ void FeatureDetector::findBestGlintPair(
         best_first->found = true;
         best_second->found = true;
     }
-
 }
 
 }// namespace et
