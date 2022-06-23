@@ -103,8 +103,8 @@ void from_json(const json &j, Parameters &parameters) {
     std::sort(parameters.leds_positions.begin(),
               parameters.leds_positions.end(),
               [](const auto &lhs, const auto &rhs) {
-                  float dist_lhs = cv::norm(cv::Vec3f(10, 1, 1).mul(lhs - origin));
-                  float dist_rhs = cv::norm(cv::Vec3f(10, 1, 1).mul(rhs - origin));
+                  float dist_lhs = cv::norm(cv::Vec3f(1, 2, 1).mul(lhs - origin));
+                  float dist_rhs = cv::norm(cv::Vec3f(1, 2, 1).mul(rhs - origin));
                   return dist_lhs < dist_rhs;
               });
 

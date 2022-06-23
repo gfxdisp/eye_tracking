@@ -80,11 +80,7 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
                                         Settings::parameters.leds_positions);
     cv::Mat x = (cv::Mat_<double>(1, 2) << 400, 400);
     solver_->minimize(x);
-    double test_k = x.at<double>(0, 0);
-    static double k = test_k;
-    if (abs(test_k - k) < 100) {
-        k = test_k;
-    }
+    double k = x.at<double>(0, 0);
     cornea_curvature = avg_bnorm * k;
 
     pupil = ICStoEyePosition(pupil_position, *cornea_curvature);

@@ -13,6 +13,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <thread>
 
@@ -153,11 +154,11 @@ int main(int argc, char *argv[]) {
         case 's':
             slow_mode = !slow_mode;
             break;
-		case 'p': {
-			std::string filename{"images/" + getCurrentTimeText() + ".png"};
-			imwrite(filename.c_str(), image); 
-			break;
-		}
+        case 'p': {
+            std::string filename{"images/" + getCurrentTimeText() + ".png"};
+            imwrite(filename.c_str(), image);
+            break;
+        }
         case 'q':
             visualization_type = VisualizationType::DISABLED;
             break;
