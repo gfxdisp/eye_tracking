@@ -3,7 +3,7 @@
 		"name": "UI314xCP-M",
 		"dimensions": [1280, 1024],
 		"region_of_interest": [560, 400],
-		"capture_offset": [520, 0],
+		"capture_offset": [400, 0],
 		"framerate": 240,
 		"exposure": 3,
 		"gamma":  1,
@@ -15,10 +15,10 @@
 		"distortion_coefficients": [-0.606494922069488, 10.6426358680958, 0, 0, 0]
 	},
 	"led_positions": [
-		[-45.668178, -64.409947, 285.110876],
-  		[-2.193027, -63.372024, 291.806693],
-  		[-47.762279, -14.804323, 291.018222],
-  		[-4.287128, -13.766399, 297.714039]
+		[-56.781081, -64.947114, 283.959353],
+  		[-13.938473, -62.053909, 293.558326],
+  		[-61.048222, -15.296915, 288.039709],
+  		[-18.205614, -12.403711, 297.638683]
 	],
 	"eye_params": {
 		"cornea_curvature_radius": 7.8,
@@ -47,8 +47,8 @@
 		"mw861": {
 			"min_pupil_radius": 20,
 			"max_pupil_radius": 90,
-			"pupil_threshold": 50,
-			"glint_threshold": 240,
+			"pupil_threshold": 35,
+			"glint_threshold": 250,
 			"min_glint_radius": 5,
 			"max_glint_radius": 10,
 			"min_hor_glint_distance": 0,
