@@ -87,12 +87,12 @@ bool FeatureDetector::findPupil() {
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
-        if (distance > max_distance)
-            continue;
+        //        if (distance > max_distance)
+        //            continue;
 
         const float contour_area = static_cast<float>(cv::contourArea(contour));
-        if (contour_area <= 0)
-            continue;
+        //        if (contour_area <= 0)
+        //            continue;
         const float circle_area = 3.1415926f * powf(radius, 2);
         float rating =
             contour_area / circle_area * (1.0f - distance / max_distance);
@@ -135,61 +135,74 @@ bool FeatureDetector::findGlints() {
         cv::Point2f centre;
         float radius;
         cv::minEnclosingCircle(contour, centre, radius);
-        if (radius > Settings::parameters.user_params->max_glint_radius)
+        if (radius > Settings::parameters.user_params->max_glint_radius
+            || radius < Settings::parameters.user_params->min_glint_radius)
             continue;
 
         if (!isInEllipse(centre, pupil_location_)) {
             continue;
         }
 
-        float distance = euclideanDistance(centre, image_centre);
-        if (distance > max_distance)
-            continue;
-
         const float contour_area = static_cast<float>(cv::contourArea(contour));
-        if (contour_area <= 0)
-            continue;
         const float circle_area = 3.1415926f * powf(radius, 2);
-        float rating = contour_area / circle_area
-            * (1.0f - distance / max_distance) * radius
-            / Settings::parameters.user_params->max_glint_radius;
+        float rating = contour_area / circle_area;
         GlintCandidate glint_candidate{};
-        if (rotated_video_) {
-            std::swap(centre.x, centre.y);
-        }
         glint_candidate.location = centre;
         glint_candidate.rating = rating;
         glint_candidate.found = false;
+        glint_candidate.right_neighbour = nullptr;
+        glint_candidate.bottom_neighbour = nullptr;
+        glint_candidate.neighbour_count = 0;
         glint_candidates.push_back(glint_candidate);
     }
 
     if (glint_candidates.size() < Settings::parameters.leds_positions.size()) {
         return false;
     }
+    size_t led_count{Settings::parameters.leds_positions.size()};
+    size_t leds_per_row{led_count / 2};
 
-    std::vector<cv::Vec2f> glints{};
-    static cv::Vec2f glints_origin{1000.0f, 1000.0f};
-    glints_origin(0) = 1000.0f;
-    glints_origin(1) = 1000.0f;
-    for (int i = 0; i < Settings::parameters.leds_positions.size() / 2; i++) {
-        std::pair<cv::Vec2f, cv::Vec2f> best_pair{};
-        findBestGlintPair(glint_candidates, best_pair);
-        glints.push_back(best_pair.first);
-        glints.push_back(best_pair.second);
-        for (int j = 0; j < 2; j++) {
-            glints_origin(j) = std::min(glints_origin(j), best_pair.first(j));
-            glints_origin(j) = std::min(glints_origin(j), best_pair.second(j));
+    GlintCandidate *best_glint{};
+    findBestGlintPair(glint_candidates);
+    for (auto &glint : glint_candidates) {
+        float rating{0};
+        int neighbour_count{0};
+        GlintCandidate *current_glint = &glint;
+        while (current_glint) {
+            rating += current_glint->rating;
+            neighbour_count++;
+            current_glint = current_glint->right_neighbour;
+        }
+        current_glint = glint.bottom_neighbour;
+        while (current_glint) {
+            rating += current_glint->rating;
+            neighbour_count++;
+            current_glint = current_glint->right_neighbour;
+        }
+        glint.rating = rating;
+        glint.neighbour_count = neighbour_count;
+        if (!best_glint || neighbour_count > best_glint->neighbour_count
+            || (neighbour_count == best_glint->neighbour_count
+                && rating > best_glint->rating)) {
+            best_glint = &glint;
         }
     }
 
-    std::sort(glints.begin(), glints.end(),
-              [](const auto &lhs, const auto &rhs) {
-                  float dist_lhs =
-                      cv::norm(cv::Vec2f(1, 2).mul(lhs - glints_origin));
-                  float dist_rhs =
-                      cv::norm(cv::Vec2f(1, 2).mul(rhs - glints_origin));
-                  return dist_lhs < dist_rhs;
-              });
+    std::vector<cv::Vec2f> glints{};
+    GlintCandidate *current_glint = best_glint;
+    int added_glints{0};
+    while (current_glint && added_glints < leds_per_row) {
+        glints.push_back(current_glint->location);
+        current_glint = current_glint->right_neighbour;
+        added_glints++;
+    }
+    current_glint = best_glint->bottom_neighbour;
+    added_glints = 0;
+    while (current_glint && added_glints < leds_per_row) {
+        glints.push_back(current_glint->location);
+        current_glint = current_glint->right_neighbour;
+        added_glints++;
+    }
 
     for (int i = 0; i < glints.size(); i++) {
         led_kalmans_[i].correct((KFMat(2, 1) << glints[i](0), glints[i](1)));
@@ -223,7 +236,7 @@ cv::KalmanFilter FeatureDetector::makeKalmanFilter(const cv::Size2i &resolution,
     KF.measurementNoiseCov = MEASUREMENT_NOISE_COV.clone();
     KF.errorCovPost = ERROR_COV_POST.clone();
     KF.statePost = STATE_POST.clone();
-    KF.predict();// Without this line, OpenCV complains about incorrect matrix dimensions
+    KF.predict(); // Without this line, OpenCV complains about incorrect matrix dimensions
     return KF;
 }
 
@@ -240,50 +253,32 @@ cv::Mat FeatureDetector::getThresholdedGlintsImage() {
 }
 
 void FeatureDetector::findBestGlintPair(
-    std::vector<GlintCandidate> &glint_candidates,
-    std::pair<cv::Vec2f, cv::Vec2f> &best_pair) {
-    float best_rating{0};
-    GlintCandidate *best_first{};
-    GlintCandidate *best_second{};
-    for (int i = 0; i < glint_candidates.size(); i++) {
-        if (glint_candidates[i].found) {
-            continue;
-        }
-        for (int j = i + 1; j < glint_candidates.size(); j++) {
-            if (glint_candidates[j].found) {
+    std::vector<GlintCandidate> &glint_candidates) {
+    FeaturesParams *params = Settings::parameters.user_params;
+    for (auto &first : glint_candidates) {
+        for (auto &second : glint_candidates) {
+            if (&first == &second) {
                 continue;
             }
-            if (abs(glint_candidates[i].location.y
-                    - glint_candidates[j].location.y)
-                > Settings::parameters.user_params->max_vert_glint_distance)
-                continue;
-            if (abs(glint_candidates[i].location.y
-                    - glint_candidates[j].location.y)
-                < Settings::parameters.user_params->min_vert_glint_distance)
-                continue;
-            if (abs(glint_candidates[i].location.x
-                    - glint_candidates[j].location.x)
-                > Settings::parameters.user_params->max_hor_glint_distance)
-                continue;
-            if (abs(glint_candidates[i].location.x
-                    - glint_candidates[j].location.x)
-                < Settings::parameters.user_params->min_hor_glint_distance)
-                continue;
-            float rating =
-                glint_candidates[i].rating + glint_candidates[j].rating;
-            if (rating > best_rating) {
-                best_rating = rating;
-                best_first = &glint_candidates[i];
-                best_second = &glint_candidates[j];
+            if (first.bottom_neighbour && first.right_neighbour) {
+                break;
+            }
+
+            cv::Point2f distance = second.location - first.location;
+            if (distance.y < params->glint_bottom_vert_distance[1]
+                && distance.y > params->glint_bottom_vert_distance[0]
+                && distance.x < params->glint_bottom_hor_distance[1]
+                && distance.x > params->glint_bottom_hor_distance[0]) {
+                first.bottom_neighbour = &second;
+            }
+            if (distance.y < params->glint_right_vert_distance[1]
+                && distance.y > params->glint_right_vert_distance[0]
+                && distance.x < params->glint_right_hor_distance[1]
+                && distance.x > params->glint_right_hor_distance[0]) {
+                first.right_neighbour = &second;
             }
         }
-    }
-    if (best_first) {
-        best_pair.first = best_first->location;
-        best_pair.second = best_second->location;
-        best_first->found = true;
-        best_second->found = true;
     }
 }
 
-}// namespace et
+} // namespace et

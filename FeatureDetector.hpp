@@ -15,6 +15,9 @@ namespace et {
 struct GlintCandidate {
     cv::Point2f location;
     float rating;
+    int neighbour_count;
+    GlintCandidate *right_neighbour;
+    GlintCandidate *bottom_neighbour;
     bool found;
 };
 
@@ -48,8 +51,7 @@ private:
     static cv::KalmanFilter makeKalmanFilter(const cv::Size2i &resolution,
                                              float framerate);
 
-    void findBestGlintPair(std::vector<GlintCandidate> &glint_candidates,
-                           std::pair<cv::Vec2f, cv::Vec2f> &best_pair);
+    void findBestGlintPair(std::vector<GlintCandidate> &glint_candidates);
 
     std::mutex mtx_features_{};
 
@@ -65,7 +67,7 @@ private:
     cv::cuda::GpuMat glints_thresholded_image_{};
 
     std::vector<std::vector<cv::Point>> contours_{};
-    std::vector<cv::Vec4i> hierarchy_{};// Unused output
+    std::vector<cv::Vec4i> hierarchy_{}; // Unused output
 
     bool rotated_video_{false};
 
@@ -90,6 +92,6 @@ private:
         return major + minor <= 1;
     }
 };
-}// namespace et
+} // namespace et
 
 #endif

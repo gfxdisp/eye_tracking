@@ -36,10 +36,10 @@ struct FeaturesParams {
     int glint_threshold{};
     float min_glint_radius{};
     float max_glint_radius{};
-    float min_hor_glint_distance{};
-    float max_hor_glint_distance{};
-    float min_vert_glint_distance{};
-    float max_vert_glint_distance{};
+    float glint_bottom_hor_distance[2]{};
+    float glint_bottom_vert_distance[2]{};
+    float glint_right_hor_distance[2]{};
+    float glint_right_vert_distance[2]{};
     float max_hor_glint_pupil_distance{};
     float max_vert_glint_pupil_distance{};
 };

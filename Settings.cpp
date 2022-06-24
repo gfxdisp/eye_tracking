@@ -71,14 +71,14 @@ void from_json(
             .get_to(features_params[name].min_glint_radius);
         value.at("max_glint_radius")
             .get_to(features_params[name].max_glint_radius);
-        value.at("min_hor_glint_distance")
-            .get_to(features_params[name].min_hor_glint_distance);
-        value.at("max_hor_glint_distance")
-            .get_to(features_params[name].max_hor_glint_distance);
-        value.at("min_vert_glint_distance")
-            .get_to(features_params[name].min_vert_glint_distance);
-        value.at("max_vert_glint_distance")
-            .get_to(features_params[name].max_vert_glint_distance);
+        value.at("glint_bottom_hor_distance")
+            .get_to(features_params[name].glint_bottom_hor_distance);
+        value.at("glint_bottom_vert_distance")
+            .get_to(features_params[name].glint_bottom_vert_distance);
+        value.at("glint_right_hor_distance")
+            .get_to(features_params[name].glint_right_hor_distance);
+        value.at("glint_right_vert_distance")
+            .get_to(features_params[name].glint_right_vert_distance);
         value.at("max_hor_glint_pupil_distance")
             .get_to(features_params[name].max_hor_glint_pupil_distance);
         value.at("max_vert_glint_pupil_distance")
