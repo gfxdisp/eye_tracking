@@ -5,8 +5,8 @@
 		"region_of_interest": [560, 400],
 		"capture_offset": [400, 0],
 		"framerate": 240,
-		"exposure": 3,
-		"gamma":  1,
+		"exposure": 6,
+		"gamma":  2.2,
 		"intrinsic_matrix_opencv": [
 			5381.88136088651, 0, 624.433728000635,
 			0, 5410.89509062222, 650.948276212053,
@@ -15,10 +15,12 @@
 		"distortion_coefficients": [-0.606494922069488, 10.6426358680958, 0, 0, 0]
 	},
 	"led_positions": [
-		[-56.781081, -64.947114, 283.959353],
-  		[-13.938473, -62.053909, 293.558326],
-  		[-61.048222, -15.296915, 288.039709],
-  		[-18.205614, -12.403711, 297.638683]
+		[-53.692016, -65.318215, 279.451586],
+  		[-34.218104, -64.003122, 283.814756],
+  		[-14.744191, -62.688029, 288.177926],
+  		[-58.129842, -13.682008, 283.695157],
+  		[-38.655930, -12.366915, 288.058327],
+  		[-19.182017, -11.051822, 292.421496]
 	],
 	"eye_params": {
 		"cornea_curvature_radius": 7.8,
@@ -45,6 +47,22 @@
 			"beta": 0
 		},
 		"mw861": {
+			"min_pupil_radius": 20,
+			"max_pupil_radius": 90,
+			"pupil_threshold": 35,
+			"glint_threshold": 250,
+			"min_glint_radius": 5,
+			"max_glint_radius": 10,
+			"min_hor_glint_distance": 0,
+			"max_hor_glint_distance": 5,
+			"min_vert_glint_distance": 20,
+			"max_vert_glint_distance": 70,
+			"max_hor_glint_pupil_distance": 100,
+			"max_vert_glint_pupil_distance": 150,
+			"alpha": 0,
+			"beta": 0
+		},
+		"rkm38": {
 			"min_pupil_radius": 20,
 			"max_pupil_radius": 90,
 			"pupil_threshold": 35,

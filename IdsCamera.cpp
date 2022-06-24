@@ -39,7 +39,7 @@ void IdsCamera::initializeCamera() {
     result = is_InitCamera(&camera_handle_, nullptr);
     assert(result == IS_SUCCESS);
 
-    result = is_SetColorMode(camera_handle_, IS_CM_MONO8);
+    result = is_SetColorMode(camera_handle_, IS_CM_MONO16);
     assert(result == IS_SUCCESS);
 
     result = is_GetSensorInfo(camera_handle_, &sensor_info_);
@@ -63,31 +63,29 @@ void IdsCamera::initializeImage() {
     area_of_interest.s32Height =
         Settings::parameters.camera_params.region_of_interest.height;
 
-    std::cout << area_of_interest.s32X << area_of_interest.s32Y << area_of_interest.s32Width << area_of_interest.s32Height << std::endl;
     result = is_AOI(camera_handle_, IS_AOI_IMAGE_SET_AOI, &area_of_interest,
                     sizeof(area_of_interest));
     assert(result == IS_SUCCESS);
 
     result = is_AllocImageMem(
         camera_handle_, area_of_interest.s32Width, area_of_interest.s32Height,
-        sizeof(char) * CHAR_BIT, &image_handle_, &image_id_);
+        sizeof(char) * CHAR_BIT * 2, &image_handle_, &image_id_);
     assert(result == IS_SUCCESS);
 
     result = is_SetImageMem(camera_handle_, image_handle_, image_id_);
     assert(result == IS_SUCCESS);
 
     image_.create(area_of_interest.s32Height, area_of_interest.s32Width,
-                  CV_8UC1);
+                  CV_16UC1);
     for (auto &i : image_queue_) {
         i.create(area_of_interest.s32Height, area_of_interest.s32Width,
-                 CV_8UC1);
+                 CV_16UC1);
     }
 }
 
 void IdsCamera::imageGatheringThread() {
     int result;
     int new_image_index{image_index_};
-
     while (thread_running_) {
         new_image_index = (new_image_index + 1) % IMAGE_IN_QUEUE_COUNT;
 
@@ -104,6 +102,7 @@ void IdsCamera::imageGatheringThread() {
 
 cv::Mat IdsCamera::grabImage() {
     image_ = image_queue_[image_index_];
+    image_.convertTo(image_, CV_8UC1, 1.0 / 256.0);
     return image_;
 }
 
