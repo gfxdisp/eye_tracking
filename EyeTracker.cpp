@@ -83,6 +83,11 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
     double k = x.at<double>(0, 0);
     cornea_curvature = avg_bnorm * k;
 
+    kalman_.correct((KFMat(3, 1) << (*cornea_curvature)(0),
+                     (*cornea_curvature)(1), (*cornea_curvature)(2)));
+
+    cornea_curvature = toPoint(kalman_.predict());
+
     pupil = ICStoEyePosition(pupil_position, *cornea_curvature);
     cv::Vec3f pupil_top =
         ICStoEyePosition(pupil_top_position, *cornea_curvature);
@@ -93,9 +98,6 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
             + Settings::parameters.eye_params.pupil_eye_centre_distance
                 * pupil_direction;
     }
-
-    kalman_.correct((KFMat(3, 1) << (*cornea_curvature)(0),
-                     (*cornea_curvature)(1), (*cornea_curvature)(2)));
     mtx_eye_position_.lock();
     eye_position_ = {cornea_curvature, pupil, eye_centre};
     if (*pupil != cv::Vec3f() && pupil_top != cv::Vec3f()) {
@@ -239,17 +241,17 @@ EyeTracker::lineSphereIntersections(const cv::Vec3d &sphere_centre,
 }
 
 cv::KalmanFilter EyeTracker::makeKalmanFilter(float framerate) {
-    constexpr static double VELOCITY_DECAY = 0.9;
+    constexpr static double VELOCITY_DECAY = 1.0;
     const static cv::Mat TRANSITION_MATRIX =
         (KFMat(6, 6) << 1, 0, 0, 1.0f / framerate, 0, 0, 0, 1, 0, 0,
          1.0f / framerate, 0, 0, 0, 1, 0, 0, 1.0f / framerate, 0, 0, 0,
          VELOCITY_DECAY, 0, 0, 0, 0, 0, 0, VELOCITY_DECAY, 0, 0, 0, 0, 0, 0,
          VELOCITY_DECAY);
     const static cv::Mat MEASUREMENT_MATRIX = cv::Mat::eye(3, 6, CV_64F);
-    const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(6, 6, CV_64F) * 100;
+    const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(6, 6, CV_64F) * 1000;
     const static cv::Mat MEASUREMENT_NOISE_COV =
-        cv::Mat::eye(3, 3, CV_64F) * 50;
-    const static cv::Mat ERROR_COV_POST = cv::Mat::eye(6, 6, CV_64F) * 0.1;
+        cv::Mat::eye(3, 3, CV_64F) * 0.1;
+    const static cv::Mat ERROR_COV_POST = cv::Mat::eye(6, 6, CV_64F) * 1000;
     const static cv::Mat STATE_POST = cv::Mat::zeros(6, 1, CV_64F);
 
     cv::KalmanFilter KF(6, 3);

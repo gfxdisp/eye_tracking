@@ -4,7 +4,7 @@
 		"dimensions": [1280, 1024],
 		"region_of_interest": [560, 400],
 		"capture_offset": [400, 0],
-		"framerate": 240,
+		"framerate": 170,
 		"exposure": 6,
 		"gamma":  2.2,
 		"intrinsic_matrix_opencv": [

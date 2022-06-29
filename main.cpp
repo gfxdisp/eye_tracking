@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
 
     et::FeatureDetector feature_detector{};
     feature_detector.initializeKalmanFilters(
-        et::Settings::parameters.camera_params.dimensions,
+        et::Settings::parameters.camera_params.region_of_interest,
         et::Settings::parameters.camera_params.framerate);
 
     et::EyeTracker eye_tracker{image_provider};

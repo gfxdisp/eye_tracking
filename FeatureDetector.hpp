@@ -58,8 +58,8 @@ private:
     int pupil_radius_{0};
     cv::Point2f pupil_location_{};
     cv::KalmanFilter pupil_kalman_{};
+    cv::KalmanFilter leds_kalman_{};
     std::vector<cv::Point2f> glint_locations_{};
-    std::vector<cv::KalmanFilter> led_kalmans_{};
 
     cv::Mat cpu_image_{};
     cv::cuda::GpuMat gpu_image_{};

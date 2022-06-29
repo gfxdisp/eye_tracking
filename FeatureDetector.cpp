@@ -13,9 +13,7 @@ namespace et {
 void FeatureDetector::initializeKalmanFilters(const cv::Size2i &resolution,
                                               float framerate) {
     pupil_kalman_ = makeKalmanFilter(resolution, framerate);
-    for (int i = 0; i < Settings::parameters.leds_positions.size(); i++) {
-        led_kalmans_.emplace_back(makeKalmanFilter(resolution, framerate));
-    }
+    leds_kalman_ = makeKalmanFilter(resolution, framerate);
     glint_locations_.resize(Settings::parameters.leds_positions.size());
 }
 
@@ -204,26 +202,38 @@ bool FeatureDetector::findGlints() {
         added_glints++;
     }
 
+    cv::Vec2f glints_centre{};
+    cv::Vec2f new_glints_centre{};
+
     for (int i = 0; i < glints.size(); i++) {
-        led_kalmans_[i].correct((KFMat(2, 1) << glints[i](0), glints[i](1)));
+        glints_centre += glints[i];
+    }
+
+    glints_centre(0) /= glints.size();
+    glints_centre(1) /= glints.size();
+
+    leds_kalman_.correct((KFMat(2, 1) << glints_centre(0), glints_centre(1)));
+    new_glints_centre = toPoint(leds_kalman_.predict());
+    for (int i = 0; i < glints.size(); i++) {
         mtx_features_.lock();
-        glint_locations_[i] = toPoint(led_kalmans_[i].predict());
+        glint_locations_[i] = glints[i] + (new_glints_centre - glints_centre);
         mtx_features_.unlock();
     }
+
     return true;
 }
 
 cv::KalmanFilter FeatureDetector::makeKalmanFilter(const cv::Size2i &resolution,
                                                    float framerate) {
-    constexpr static double VELOCITY_DECAY = 0.9;
+    constexpr static double VELOCITY_DECAY = 1.0;
     const static cv::Mat TRANSITION_MATRIX =
         (KFMat(4, 4) << 1, 0, 1.0f / framerate, 0, 0, 1, 0, 1.0f / framerate, 0,
          0, VELOCITY_DECAY, 0, 0, 0, 0, VELOCITY_DECAY);
     const static cv::Mat MEASUREMENT_MATRIX =
         (KFMat(2, 4) << 1, 0, 0, 0, 0, 1, 0, 0);
-    const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(4, 4, CV_64F) * 100;
+    const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(4, 4, CV_64F) * 1000;
     const static cv::Mat MEASUREMENT_NOISE_COV =
-        cv::Mat::eye(2, 2, CV_64F) * 50;
+        cv::Mat::eye(2, 2, CV_64F) * 0.1;
     const static cv::Mat ERROR_COV_POST = cv::Mat::eye(4, 4, CV_64F) * 0.1;
     const static cv::Mat STATE_POST =
         (KFMat(4, 1) << resolution.width / 2.0, resolution.height / 2.0, 0, 0);

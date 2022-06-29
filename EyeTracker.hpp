@@ -97,6 +97,10 @@ private:
         return CCStoICS(WCStoCCS(point));
     }
 
+    static inline cv::Point3f toPoint(cv::Mat m) {
+        return {(float) m.at<double>(0, 0), (float) m.at<double>(0, 1), (float) m.at<double>(0, 2)};
+    }
+
     [[nodiscard]] cv::Point2f undistort(cv::Point2f point);
 
     [[nodiscard]] cv::Vec3f project(const cv::Vec3f &point) const;
