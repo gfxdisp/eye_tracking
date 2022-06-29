@@ -9,6 +9,10 @@
 using KFMat = cv::Mat_<double>;
 
 namespace et {
+
+
+cv::Mat EyeTracker::visual_axis_rotation_matrix_{};
+
 EyeTracker::EyeTracker(ImageProvider *image_provider)
     : image_provider_(image_provider) {
     ray_point_minimizer_ = new RayPointMinimizer();
@@ -20,6 +24,7 @@ EyeTracker::EyeTracker(ImageProvider *image_provider)
     solver_->setInitStep(step);
 
     createProjectionMatrix();
+    createVisualAxis();
 }
 
 EyeTracker::~EyeTracker() {
@@ -412,10 +417,6 @@ void EyeTracker::createProjectionMatrix() {
 
     full_projection_matrix_ = projection_matrix * intrinsic_matrix;
     full_projection_matrix_ = full_projection_matrix_.inv();
-
-    float angles[]{Settings::parameters.user_params->alpha,
-                    Settings::parameters.user_params->beta, 0};
-    visual_axis_rotation_matrix_ = euler2rot(angles);
 }
 
 cv::Vec3f EyeTracker::ICStoEyePosition(const cv::Vec3f &point,
@@ -444,6 +445,12 @@ cv::Vec3f EyeTracker::ICStoEyePosition(const cv::Vec3f &point,
         }
     }
     return eye_position;
+}
+
+void EyeTracker::createVisualAxis() {
+    float angles[]{Settings::parameters.user_params->alpha,
+                   Settings::parameters.user_params->beta, 0};
+    visual_axis_rotation_matrix_ = euler2rot(angles);
 }
 
 } // namespace et

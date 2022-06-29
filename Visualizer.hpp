@@ -32,8 +32,20 @@ private:
     static constexpr int GLINT_THRESHOLD_MAX{255};
     static int glint_threshold_tracker_;
 
+    static constexpr std::string_view ALPHA_NAME{"Alpha angle"};
+    static constexpr int ALPHA_MAX{100};
+    static constexpr int ALPHA_MIN{-100};
+    static int alpha_tracker_;
+
+    static constexpr std::string_view BETA_NAME{"Beta angle"};
+    static constexpr int BETA_MAX{100};
+    static constexpr int BETA_MIN{-100};
+    static int beta_tracker_;
+
     static void onPupilThresholdUpdate(int, void *);
     static void onGlintThresholdUpdate(int, void *);
+    static void onAlphaUpdate(int, void *);
+    static void onBetaUpdate(int, void *);
 
     cv::Mat image_{};
     FeatureDetector *feature_detector_{};

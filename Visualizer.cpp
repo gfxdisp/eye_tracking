@@ -11,6 +11,8 @@ namespace et {
 
 int Visualizer::pupil_threshold_tracker_{};
 int Visualizer::glint_threshold_tracker_{};
+int Visualizer::alpha_tracker_{};
+int Visualizer::beta_tracker_{};
 
 Visualizer::Visualizer(FeatureDetector *feature_detector,
                        EyeTracker *eye_tracker)
@@ -31,6 +33,22 @@ Visualizer::Visualizer(FeatureDetector *feature_detector,
     cv::createTrackbar(GLINT_THRESHOLD_NAME.begin(), SLIDER_WINDOW_NAME.begin(),
                        &glint_threshold_tracker_, GLINT_THRESHOLD_MAX,
                        Visualizer::onGlintThresholdUpdate);
+
+    alpha_tracker_ = (int)round(10 * (double)user_params->alpha * 180 / CV_PI);
+    cv::createTrackbar(ALPHA_NAME.begin(), SLIDER_WINDOW_NAME.begin(),
+                       &alpha_tracker_, ALPHA_MAX - ALPHA_MIN,
+                       Visualizer::onAlphaUpdate);
+    cv::setTrackbarMin(ALPHA_NAME.begin(), SLIDER_WINDOW_NAME.begin(), ALPHA_MIN);
+    cv::setTrackbarMax(ALPHA_NAME.begin(), SLIDER_WINDOW_NAME.begin(), ALPHA_MAX);
+    cv::setTrackbarPos(ALPHA_NAME.begin(), SLIDER_WINDOW_NAME.begin(), alpha_tracker_);
+
+    beta_tracker_ = (int)round(10 * (double)user_params->beta * 180 / CV_PI);
+    cv::createTrackbar(BETA_NAME.begin(), SLIDER_WINDOW_NAME.begin(),
+                       &beta_tracker_, BETA_MAX - BETA_MIN,
+                       Visualizer::onBetaUpdate);
+    cv::setTrackbarMin(BETA_NAME.begin(), SLIDER_WINDOW_NAME.begin(), BETA_MIN);
+    cv::setTrackbarMax(BETA_NAME.begin(), SLIDER_WINDOW_NAME.begin(), BETA_MAX);
+    cv::setTrackbarPos(BETA_NAME.begin(), SLIDER_WINDOW_NAME.begin(), beta_tracker_);
 }
 
 void Visualizer::drawUi(const cv::Mat& image) {
@@ -94,5 +112,15 @@ void Visualizer::onGlintThresholdUpdate(int, void *) {
 
 float Visualizer::getAvgFramerate() {
     return total_framerate_ / total_frames_;
+}
+
+void Visualizer::onAlphaUpdate(int, void *) {
+    Settings::parameters.user_params->alpha = (double)alpha_tracker_ / 10.0f * CV_PI / 180.0f;
+    EyeTracker::createVisualAxis();
+}
+
+void Visualizer::onBetaUpdate(int, void *) {
+    Settings::parameters.user_params->beta = (double)beta_tracker_ / 10.0f * CV_PI / 180.0f;
+    EyeTracker::createVisualAxis();
 }
 }// namespace et

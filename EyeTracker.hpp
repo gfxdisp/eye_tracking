@@ -64,6 +64,7 @@ public:
                                      double refraction_index);
 
     bool isSetupUpdated();
+    static void createVisualAxis();
 
 private:
     bool setup_updated_{false};
@@ -84,7 +85,7 @@ private:
     std::vector<cv::Point2f> glint_pix_positions_{};
 
     cv::Mat full_projection_matrix_{};
-    cv::Mat visual_axis_rotation_matrix_{};
+    static cv::Mat visual_axis_rotation_matrix_;
 
     [[nodiscard]] inline cv::Vec3f project(const cv::Vec2f &point) const {
         return project(ICStoWCS(point));
@@ -129,7 +130,7 @@ private:
 
     void createProjectionMatrix();
 
-    cv::Mat euler2rot(float *euler_angles);
+    static cv::Mat euler2rot(float *euler_angles);
 };
 
 }// namespace et
