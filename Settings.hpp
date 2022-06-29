@@ -42,6 +42,8 @@ struct FeaturesParams {
     float glint_right_vert_distance[2]{};
     float max_hor_glint_pupil_distance{};
     float max_vert_glint_pupil_distance{};
+    float alpha{};
+    float beta{};
 };
 
 struct Parameters {
@@ -55,6 +57,7 @@ struct Parameters {
 class Settings {
 public:
     explicit Settings(std::string file_path);
+    void saveSettings(std::string file_path);
     static Parameters parameters;
 };
 }// namespace et

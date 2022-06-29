@@ -189,6 +189,7 @@ int main(int argc, char *argv[]) {
     image_provider->close();
     socket_server.closeSocket();
     cv::destroyAllWindows();
+    settings.saveSettings("settings.json");
 
     return EXIT_SUCCESS;
 }

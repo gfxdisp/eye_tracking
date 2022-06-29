@@ -24,7 +24,7 @@ private:
     FeatureDetector *feature_detector_{};
 
     cv::Vec3d eye_position_{};
-    cv::Vec3d gaze_direction_{};
+    cv::Vec3f gaze_direction_{};
 
     EyeData eye_data_{};
 

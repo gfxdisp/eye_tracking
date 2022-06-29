@@ -42,7 +42,7 @@ public:
                          float pupil_radius);
     void getCorneaCurvaturePosition(cv::Vec3d &eye_centre);
 
-    void getGazeDirection(cv::Vec3d &gaze_direction);
+    void getGazeDirection(cv::Vec3f &gaze_direction);
 
     void getPupilDiameter(float &pupil_diameter);
 
@@ -84,6 +84,7 @@ private:
     std::vector<cv::Point2f> glint_pix_positions_{};
 
     cv::Mat full_projection_matrix_{};
+    cv::Mat visual_axis_rotation_matrix_{};
 
     [[nodiscard]] inline cv::Vec3f project(const cv::Vec2f &point) const {
         return project(ICStoWCS(point));
@@ -128,7 +129,7 @@ private:
 
     void createProjectionMatrix();
 
-    cv::Mat euler2rot(double *euler_angles);
+    cv::Mat euler2rot(float *euler_angles);
 };
 
 }// namespace et

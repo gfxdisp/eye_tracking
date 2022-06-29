@@ -116,7 +116,7 @@ void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &eye_centre) {
     mtx_eye_position_.unlock();
 }
 
-void EyeTracker::getGazeDirection(cv::Vec3d &gaze_direction) {
+void EyeTracker::getGazeDirection(cv::Vec3f &gaze_direction) {
     cv::Vec3f inv_optical_axis{};
     mtx_eye_position_.lock();
     if (eye_position_) {
@@ -127,8 +127,15 @@ void EyeTracker::getGazeDirection(cv::Vec3d &gaze_direction) {
     }
     mtx_eye_position_.unlock();
     cv::normalize(inv_optical_axis, inv_optical_axis);
-    cv::Mat visual_axis{inv_optical_axis.t()};
-    gaze_direction = visual_axis.reshape(3).at<cv::Vec3d>();
+    cv::Vec4f homo_inv_optical_axis{};
+    for (int i = 0; i < 3; i++)
+        homo_inv_optical_axis(i) = inv_optical_axis(i);
+    homo_inv_optical_axis(3) = 1.0f;
+    cv::Mat visual_axis{visual_axis_rotation_matrix_ * homo_inv_optical_axis};
+    cv::Vec4f homo_gaze_direction{};
+    homo_gaze_direction = visual_axis.reshape(4).at<cv::Vec4f>();
+    for (int i = 0; i < 3; i++)
+        gaze_direction(i) = -homo_gaze_direction(i) / homo_gaze_direction(3);
 }
 
 void EyeTracker::getPupilDiameter(float &pupil_diameter) {
@@ -304,22 +311,22 @@ bool EyeTracker::isSetupUpdated() {
     return setup_updated_;
 }
 
-cv::Mat EyeTracker::euler2rot(double *euler_angles) {
-    cv::Mat rotationMatrix(3, 3, CV_64F);
+cv::Mat EyeTracker::euler2rot(float *euler_angles) {
+    cv::Mat rotationMatrix(4, 4, CV_32F);
 
-    double x = euler_angles[0];
-    double y = euler_angles[1];
-    double z = euler_angles[2];
+    float x = euler_angles[0];
+    float y = euler_angles[1];
+    float z = euler_angles[2];
 
     // Assuming the angles are in radians.
-    double ch = cos(z);
-    double sh = sin(z);
-    double ca = cos(y);
-    double sa = sin(y);
-    double cb = cos(x);
-    double sb = sin(x);
+    float ch = cosf(z);
+    float sh = sinf(z);
+    float ca = cosf(y);
+    float sa = sinf(y);
+    float cb = cosf(x);
+    float sb = sinf(x);
 
-    double m00, m01, m02, m10, m11, m12, m20, m21, m22;
+    float m00, m01, m02, m10, m11, m12, m20, m21, m22;
 
     m00 = ch * ca;
     m01 = sh * sb - ch * sa * cb;
@@ -331,15 +338,20 @@ cv::Mat EyeTracker::euler2rot(double *euler_angles) {
     m21 = sh * sa * cb + ch * sb;
     m22 = -sh * sa * sb + ch * cb;
 
-    rotationMatrix.at<double>(0, 0) = m00;
-    rotationMatrix.at<double>(0, 1) = m01;
-    rotationMatrix.at<double>(0, 2) = m02;
-    rotationMatrix.at<double>(1, 0) = m10;
-    rotationMatrix.at<double>(1, 1) = m11;
-    rotationMatrix.at<double>(1, 2) = m12;
-    rotationMatrix.at<double>(2, 0) = m20;
-    rotationMatrix.at<double>(2, 1) = m21;
-    rotationMatrix.at<double>(2, 2) = m22;
+    rotationMatrix.at<float>(0, 0) = m00;
+    rotationMatrix.at<float>(0, 1) = m01;
+    rotationMatrix.at<float>(0, 2) = m02;
+    rotationMatrix.at<float>(1, 0) = m10;
+    rotationMatrix.at<float>(1, 1) = m11;
+    rotationMatrix.at<float>(1, 2) = m12;
+    rotationMatrix.at<float>(2, 0) = m20;
+    rotationMatrix.at<float>(2, 1) = m21;
+    rotationMatrix.at<float>(2, 2) = m22;
+    for (int i = 0; i < 3; i++) {
+        rotationMatrix.at<float>(3, i) = 0.0f;
+        rotationMatrix.at<float>(i, 3) = 0.0f;
+    }
+    rotationMatrix.at<float>(3, 3) = 1.0f;
 
     return rotationMatrix;
 }
@@ -400,6 +412,10 @@ void EyeTracker::createProjectionMatrix() {
 
     full_projection_matrix_ = projection_matrix * intrinsic_matrix;
     full_projection_matrix_ = full_projection_matrix_.inv();
+
+    float angles[]{Settings::parameters.user_params->alpha,
+                    Settings::parameters.user_params->beta, 0};
+    visual_axis_rotation_matrix_ = euler2rot(angles);
 }
 
 cv::Vec3f EyeTracker::ICStoEyePosition(const cv::Vec3f &point,
