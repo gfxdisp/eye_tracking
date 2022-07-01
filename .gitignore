@@ -181,6 +181,7 @@ output/**
 build_options.hpp
 Makefile
 eye_tracker
+hdrmfs_eye_tracker
 
 .idea/*
 videos/*
