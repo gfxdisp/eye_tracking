@@ -35,20 +35,22 @@ std::string getCurrentTimeText() {
 }
 
 int main(int argc, char *argv[]) {
-    et::Settings settings("settings.json");
 //    setenv("DISPLAY", "10.248.97.227:0", true);
-    assert(argc >= 2 && argc <= 4);
+    assert(argc >= 3 && argc <= 6);
+
+    std::string settings_path(argv[1]);
+    et::Settings settings(settings_path);
 
     int user_idx{};
 
-    std::string input_type{argv[1]};
+    std::string input_type{argv[2]};
     et::ImageProvider *image_provider;
     if (input_type == "ids") {
         image_provider = new et::IdsCamera();
-        user_idx = 2;
-    } else if (input_type == "file") {
-        std::string input_file{argv[2]};
         user_idx = 3;
+    } else if (input_type == "file") {
+        std::string input_file{argv[3]};
+        user_idx = 4;
         image_provider = new et::InputVideo(input_file);
     } else {
         return EXIT_FAILURE;
@@ -189,7 +191,7 @@ int main(int argc, char *argv[]) {
     image_provider->close();
     socket_server.closeSocket();
     cv::destroyAllWindows();
-    settings.saveSettings("settings.json");
+    settings.saveSettings(settings_path);
 
     return EXIT_SUCCESS;
 }
