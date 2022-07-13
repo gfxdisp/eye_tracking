@@ -84,16 +84,16 @@ private:
     cv::Ptr<cv::cuda::Filter> glints_dilate_filter_{};
     cv::Ptr<cv::cuda::Filter> glints_erode_filter_{};
     cv::Ptr<cv::cuda::Filter> glints_close_filter_{};
-    int glints_dilate_size_{0};
-    int glints_erode_size_{0};
+    int glints_dilate_size_{3};
+    int glints_erode_size_{3};
     int glints_close_size_{0};
 
     cv::Ptr<cv::cuda::Filter> pupil_dilate_filter_{};
     cv::Ptr<cv::cuda::Filter> pupil_erode_filter_{};
     cv::Ptr<cv::cuda::Filter> pupil_close_filter_{};
-    int pupil_dilate_size_{11};
-    int pupil_erode_size_{0};
-    int pupil_close_size_{15};
+    int pupil_dilate_size_{3};
+    int pupil_erode_size_{3};
+    int pupil_close_size_{7};
 
     static bool isLeftNeighbour(GlintCandidate &reference, GlintCandidate &compared);
     static bool isRightNeighbour(GlintCandidate &reference, GlintCandidate &compared);

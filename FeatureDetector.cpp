@@ -323,6 +323,16 @@ bool FeatureDetector::findGlints() {
         return false;
     }
 
+    if (!selected_glints_[0].found && !selected_glints_[3].found) {
+        selected_glints_[0] = selected_glints_[1];
+        selected_glints_[1] = selected_glints_[2];
+        selected_glints_[3] = selected_glints_[4];
+        selected_glints_[4] = selected_glints_[5];
+        selected_glints_[2].found = false;
+        selected_glints_[5].found = false;
+        approximatePositions();
+    }
+
     cv::Point2f glints_centre{};
     cv::Point2f new_glints_centre{};
 
