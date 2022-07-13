@@ -35,7 +35,7 @@ std::string getCurrentTimeText() {
 }
 
 int main(int argc, char *argv[]) {
-//    setenv("DISPLAY", "10.248.97.227:0", true);
+    setenv("DISPLAY", "10.248.101.97:0", true);
     assert(argc >= 3 && argc <= 6);
 
     std::string settings_path(argv[1]);
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         et::Settings::parameters.camera_params.exposure);
 
     et::FeatureDetector feature_detector{};
-    feature_detector.initializeKalmanFilters(
+    feature_detector.initialize(
         et::Settings::parameters.camera_params.region_of_interest,
         et::Settings::parameters.camera_params.framerate);
 
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        int key_pressed = cv::waitKey(slow_mode ? 30 : 1) & 0xFF;
+        int key_pressed = cv::waitKey(slow_mode ? 120 : 1) & 0xFF;
         switch (key_pressed) {
         case 27: // Esc
             socket_server.finished = true;

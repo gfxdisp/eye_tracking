@@ -12,18 +12,32 @@
 #include <vector>
 
 namespace et {
+
+enum GlintType {
+    UpperLeft = 0,
+    UpperCentre,
+    UpperRight,
+    BottomLeft,
+    BottomCentre,
+    BottomRight,
+    Unknown
+};
+
 struct GlintCandidate {
-    cv::Point2f location;
-    float rating;
-    int neighbour_count;
-    GlintCandidate *right_neighbour;
-    GlintCandidate *bottom_neighbour;
-    bool found;
+    cv::Point2f location{};
+    float rating{};
+    int neighbour_count{};
+    GlintCandidate *left_neighbour{};
+    GlintCandidate *right_neighbour{};
+    GlintCandidate *bottom_neighbour{};
+    GlintCandidate *upper_neighbour{};
+    GlintType glint_type{};
+    bool found{};
 };
 
 class FeatureDetector {
 public:
-    void initializeKalmanFilters(const cv::Size2i &resolution, float framerate);
+    void initialize(const cv::Size2i &resolution, float framerate);
 
     bool findImageFeatures(const cv::Mat &image);
 
@@ -52,6 +66,7 @@ private:
                                              float framerate);
 
     void findBestGlintPair(std::vector<GlintCandidate> &glint_candidates);
+    void determineGlintTypes(std::vector<GlintCandidate> &glint_candidates);
 
     std::mutex mtx_features_{};
 
@@ -66,8 +81,30 @@ private:
     cv::cuda::GpuMat pupil_thresholded_image_{};
     cv::cuda::GpuMat glints_thresholded_image_{};
 
+    cv::Ptr<cv::cuda::Filter> glints_dilate_filter_{};
+    cv::Ptr<cv::cuda::Filter> glints_erode_filter_{};
+    cv::Ptr<cv::cuda::Filter> glints_close_filter_{};
+    int glints_dilate_size_{0};
+    int glints_erode_size_{0};
+    int glints_close_size_{0};
+
+    cv::Ptr<cv::cuda::Filter> pupil_dilate_filter_{};
+    cv::Ptr<cv::cuda::Filter> pupil_erode_filter_{};
+    cv::Ptr<cv::cuda::Filter> pupil_close_filter_{};
+    int pupil_dilate_size_{11};
+    int pupil_erode_size_{0};
+    int pupil_close_size_{15};
+
+    static bool isLeftNeighbour(GlintCandidate &reference, GlintCandidate &compared);
+    static bool isRightNeighbour(GlintCandidate &reference, GlintCandidate &compared);
+    static bool isUpperNeighbour(GlintCandidate &reference, GlintCandidate &compared);
+    static bool isBottomNeighbour(GlintCandidate &reference, GlintCandidate &compared);
+    void approximatePositions();
+
     std::vector<std::vector<cv::Point>> contours_{};
     std::vector<cv::Vec4i> hierarchy_{}; // Unused output
+
+    GlintCandidate selected_glints_[6]{};
 
     bool rotated_video_{false};
 
