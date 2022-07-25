@@ -135,7 +135,7 @@ void EyeTracker::getGazeDirection(cv::Vec3f &gaze_direction) {
     mtx_eye_position_.lock();
     if (eye_position_) {
         inv_optical_axis =
-            *eye_position_.eye_centre - *eye_position_.cornea_curvature;
+            *eye_position_.cornea_curvature - *eye_position_.pupil;
     } else {
         inv_optical_axis = cv::Vec3f(1.0, 0.0, 0.0);
     }
