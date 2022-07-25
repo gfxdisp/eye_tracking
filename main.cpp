@@ -36,7 +36,7 @@ std::string getCurrentTimeText() {
 }
 
 int main(int argc, char *argv[]) {
-    setenv("DISPLAY", "10.248.101.97:0", true);
+    //setenv("DISPLAY", "10.248.101.97:0", true);
     assert(argc >= 3 && argc <= 6);
 
     std::string settings_path(argv[1]);

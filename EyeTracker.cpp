@@ -71,6 +71,8 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
     cv::Vec3d avg_bnorm{};
     int counter{0};
     for (int i = 0; i < v1v2s.size(); i++) {
+        if (i == 1 || i == 4)
+            continue;
         for (int j = i + 1; j < v1v2s.size(); j++) {
             cv::Vec3d bnorm{v1v2s[i].cross(v1v2s[j])};
             cv::normalize(bnorm, bnorm);
@@ -136,6 +138,8 @@ void EyeTracker::getGazeDirection(cv::Vec3f &gaze_direction) {
     if (eye_position_) {
         inv_optical_axis =
             *eye_position_.cornea_curvature - *eye_position_.pupil;
+        inv_optical_axis(0) -= 0.7f;
+        inv_optical_axis(1) -= 0.2f;
     } else {
         inv_optical_axis = cv::Vec3f(1.0, 0.0, 0.0);
     }
