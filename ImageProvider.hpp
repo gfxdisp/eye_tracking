@@ -6,9 +6,9 @@
 namespace et {
 class ImageProvider {
 public:
-    virtual void initialize() = 0;
+    virtual void initialize();
     virtual cv::Mat grabImage() = 0;
-    virtual void close() = 0;
+    virtual void close();
     virtual void setExposure(double exposure);
     virtual void setGamma(float gamma);
     virtual void setFramerate(double framerate);

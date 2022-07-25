@@ -2,6 +2,7 @@
 #include "FeatureDetector.hpp"
 #include "IdsCamera.hpp"
 #include "ImageProvider.hpp"
+#include "InputImages.hpp"
 #include "InputVideo.hpp"
 #include "Settings.hpp"
 #include "SocketServer.hpp"
@@ -35,7 +36,7 @@ std::string getCurrentTimeText() {
 }
 
 int main(int argc, char *argv[]) {
-//    setenv("DISPLAY", "10.248.101.97:0", true);
+    setenv("DISPLAY", "10.248.101.97:0", true);
     assert(argc >= 3 && argc <= 6);
 
     std::string settings_path(argv[1]);
@@ -52,6 +53,10 @@ int main(int argc, char *argv[]) {
         std::string input_file{argv[3]};
         user_idx = 4;
         image_provider = new et::InputVideo(input_file);
+    } else if (input_type == "folder"){
+        std::string input_folder{argv[3]};
+        user_idx = 4;
+        image_provider = new et::InputImages(input_folder);
     } else {
         return EXIT_FAILURE;
     }

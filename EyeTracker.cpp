@@ -5,6 +5,7 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
+#include <fstream>
 
 using KFMat = cv::Mat_<double>;
 
@@ -36,6 +37,14 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
                                  std::vector<cv::Point2f> &glint_pix_positions,
                                  float pupil_radius) {
     std::optional<cv::Vec3f> cornea_curvature{}, pupil{}, eye_centre{};
+
+//    std::ofstream output{"output.txt", std::ios_base::app};
+//    output << pupil_pix_position.x << ", " << pupil_pix_position.y;
+//    for (auto & glint_pix_position : glint_pix_positions) {
+//        output << ", " << glint_pix_position.x << ", " << glint_pix_position.y;
+//    }
+//    output << ", 245.935319 171.827663 847.168401\n";
+//    output.close();
 
     pupil_pix_position_ = pupil_pix_position;
     glint_pix_positions_ = glint_pix_positions;

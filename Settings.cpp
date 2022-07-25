@@ -203,7 +203,7 @@ Settings::Settings(std::string file_path) {
 void Settings::saveSettings(std::string file_path) {
     std::ofstream file(file_path);
     json j{parameters};
-    file << j[0];
+    file << j[0].dump(4);
     file.close();
 }
 } // namespace et
