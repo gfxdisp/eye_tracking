@@ -159,8 +159,8 @@ bool FeatureDetector::findPupil() {
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
-        if (distance > max_distance)
-            continue;
+//        if (distance > max_distance)
+//            continue;
 
         const float contour_area = static_cast<float>(cv::contourArea(contour));
         //        if (contour_area <= 0)
@@ -211,8 +211,8 @@ bool FeatureDetector::findGlints() {
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
-        if (distance > max_distance)
-            continue;
+//        if (distance > max_distance)
+//            continue;
 
         if (!isInEllipse(centre, pupil_location_)) {
             continue;

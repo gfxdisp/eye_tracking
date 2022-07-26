@@ -62,7 +62,63 @@
                 -5.0,
                 5.0
             ],
-            "glint_threshold": 117,
+            "glint_threshold": 164,
+            "max_glint_radius": 20.0,
+            "max_hor_glint_pupil_distance": 400.0,
+            "max_pupil_radius": 90.0,
+            "max_vert_glint_pupil_distance": 200.0,
+            "min_glint_radius": 0.0,
+            "min_pupil_radius": 10.0,
+            "pupil_threshold": 57
+        },
+        "joe": {
+            "alpha": -0.0872664600610733,
+            "beta": 0.026200000196695328,
+            "glint_bottom_hor_distance": [
+                -5.0,
+                5.0
+            ],
+            "glint_bottom_vert_distance": [
+                35.0,
+                45.0
+            ],
+            "glint_right_hor_distance": [
+                10.0,
+                20.0
+            ],
+            "glint_right_vert_distance": [
+                -5.0,
+                5.0
+            ],
+            "glint_threshold": 164,
+            "max_glint_radius": 20.0,
+            "max_hor_glint_pupil_distance": 400.0,
+            "max_pupil_radius": 90.0,
+            "max_vert_glint_pupil_distance": 200.0,
+            "min_glint_radius": 0.0,
+            "min_pupil_radius": 10.0,
+            "pupil_threshold": 16
+        },
+        "mw861": {
+            "alpha": -0.0872664600610733,
+            "beta": 0.026200000196695328,
+            "glint_bottom_hor_distance": [
+                -5.0,
+                5.0
+            ],
+            "glint_bottom_vert_distance": [
+                35.0,
+                45.0
+            ],
+            "glint_right_hor_distance": [
+                10.0,
+                20.0
+            ],
+            "glint_right_vert_distance": [
+                -5.0,
+                5.0
+            ],
+            "glint_threshold": 175,
             "max_glint_radius": 20.0,
             "max_hor_glint_pupil_distance": 400.0,
             "max_pupil_radius": 90.0,
