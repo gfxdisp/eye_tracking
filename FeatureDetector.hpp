@@ -43,6 +43,8 @@ public:
 
     cv::Point2f getPupil();
 
+    void getPupilGlintVector(cv::Vec2f &pupil_glint_vector);
+
     void getPupil(cv::Point2f &pupil);
 
     [[nodiscard]] int getPupilRadius() const;

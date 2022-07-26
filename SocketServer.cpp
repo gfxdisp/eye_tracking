@@ -95,12 +95,13 @@ void SocketServer::openSocket() {
                 uint32_t sizes[]{
                     static_cast<uint32_t>(sizeof(eye_data_.pupil_pix_position)),
                     static_cast<uint32_t>(sizeof(glint_count)),
-                    static_cast<uint32_t>(sizeof(eye_data_.glint_pix_positions[0]) 
+                    static_cast<uint32_t>(
+                        sizeof(eye_data_.glint_pix_positions[0])
                         * eye_data_.glint_pix_positions.size()),
                     static_cast<uint32_t>(sizeof(eye_data_.cornea_curvature)),
                     static_cast<uint32_t>(sizeof(eye_data_.pupil)),
                     static_cast<uint32_t>(sizeof(eye_data_.eye_centre)),
-                    };
+                };
                 for (int i = 0; i < sizeof(variables) / sizeof(variables[0]);
                      i++) {
                     sent = 0;
@@ -114,6 +115,19 @@ void SocketServer::openSocket() {
                         }
                         sent += new_bytes;
                     }
+                }
+            } else if (buffer[0] == 3) {
+                feature_detector_->getPupilGlintVector(pupil_glint_vector_);
+                uint32_t sent{0};
+                uint32_t size_to_send{sizeof(pupil_glint_vector_)};
+                while (sent < size_to_send) {
+                    ssize_t new_bytes{send(socket_handle_,
+                                           (char *) &pupil_glint_vector_ + sent,
+                                           size_to_send - sent, 0)};
+                    if (new_bytes < 0) {
+                        break;
+                    }
+                    sent += new_bytes;
                 }
             } else if (buffer[0] == 4) {
                 eye_tracker_->getPupilDiameter(pupil_diameter_);
@@ -165,4 +179,4 @@ void SocketServer::openSocket() {
 void SocketServer::closeSocket() {
     close(server_handle_);
 }
-}// namespace et
+} // namespace et

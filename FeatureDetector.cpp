@@ -532,4 +532,10 @@ void FeatureDetector::approximatePositions() {
         }
     }
 }
+
+void FeatureDetector::getPupilGlintVector(cv::Vec2f &pupil_glint_vector) {
+    mtx_features_.lock();
+    pupil_glint_vector = pupil_location_ - glint_locations_[0];
+    mtx_features_.unlock();
+}
 } // namespace et

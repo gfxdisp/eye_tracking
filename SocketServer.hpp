@@ -30,6 +30,7 @@ private:
 
     float pupil_diameter_{};
     cv::Point2f pupil_location_{};
+    cv::Vec2f pupil_glint_vector_{};
     std::vector<cv::Point2f> glint_locations_{};
 
     sockaddr_in address_{};
