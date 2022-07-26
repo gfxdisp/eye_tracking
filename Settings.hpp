@@ -19,6 +19,7 @@ struct CameraParams {
     float gamma{};
     cv::Mat intrinsic_matrix{};
     float distortion_coefficients[5]{};
+    cv::Vec3f gaze_shift{};
 };
 
 struct EyeParams {

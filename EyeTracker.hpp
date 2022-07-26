@@ -72,8 +72,10 @@ private:
     float pupil_diameter_{};
 
     ImageProvider *image_provider_{};
-    cv::KalmanFilter kalman_{};
+    cv::KalmanFilter kalman_eye_{};
+    cv::KalmanFilter kalman_gaze_{};
     EyePosition eye_position_{};
+    cv::Vec3f inv_optical_axis_{};
     std::mutex mtx_eye_position_{};
     std::mutex mtx_setup_to_change_{};
 

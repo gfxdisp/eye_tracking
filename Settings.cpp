@@ -39,6 +39,8 @@ void from_json(const json &j, CameraParams &camera_params) {
     for (int i = 0; i < 5; i++) {
         camera_params.distortion_coefficients[i] = static_cast<float>(ddata[i]);
     }
+    j.at("gaze_shift").get_to(ddata);
+    camera_params.gaze_shift = cv::Vec3f(ddata[0], ddata[1], ddata[2]);
 }
 
 void to_json(json &j, const CameraParams &camera_params) {
@@ -62,6 +64,9 @@ void to_json(json &j, const CameraParams &camera_params) {
     for (int i = 0; i < 5; i++) {
         j["distortion_coefficients"][i] =
             camera_params.distortion_coefficients[i];
+    }
+    for (int i = 0; i < 3 ;i++) {
+        j["gaze_shift"][i] = camera_params.gaze_shift(i);
     }
 }
 

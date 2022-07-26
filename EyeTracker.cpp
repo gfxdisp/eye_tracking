@@ -99,10 +99,10 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
     double k = x.at<double>(0, 0);
     cornea_curvature = avg_bnorm * k;
 
-    kalman_.correct((KFMat(3, 1) << (*cornea_curvature)(0),
+    kalman_eye_.correct((KFMat(3, 1) << (*cornea_curvature)(0),
                      (*cornea_curvature)(1), (*cornea_curvature)(2)));
 
-    cornea_curvature = toPoint(kalman_.predict());
+    cornea_curvature = toPoint(kalman_eye_.predict());
 
     pupil = ICStoEyePosition(pupil_position, *cornea_curvature);
     cv::Vec3f pupil_top =
@@ -122,6 +122,13 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
         pupil_proj(2) = 0.0f;
         pupil_top_proj(2) = 0.0f;
         pupil_diameter_ = 2 * cv::norm(pupil_proj - pupil_top_proj);
+        cv::Vec3f inv_optical_axis{};
+        inv_optical_axis = *eye_position_.cornea_curvature - *eye_position_.pupil;
+        inv_optical_axis -= Settings::parameters.camera_params.gaze_shift;
+        kalman_gaze_.correct((KFMat(3, 1) << inv_optical_axis(0),
+             inv_optical_axis(1), inv_optical_axis(2)));
+        inv_optical_axis = toPoint(kalman_gaze_.predict());
+        cv::normalize(inv_optical_axis, inv_optical_axis_);
     }
     mtx_eye_position_.unlock();
 }
@@ -133,21 +140,11 @@ void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &eye_centre) {
 }
 
 void EyeTracker::getGazeDirection(cv::Vec3f &gaze_direction) {
-    cv::Vec3f inv_optical_axis{};
-    mtx_eye_position_.lock();
-    if (eye_position_) {
-        inv_optical_axis =
-            *eye_position_.cornea_curvature - *eye_position_.pupil;
-        inv_optical_axis(0) -= 0.7f;
-        inv_optical_axis(1) -= 0.2f;
-    } else {
-        inv_optical_axis = cv::Vec3f(1.0, 0.0, 0.0);
-    }
-    mtx_eye_position_.unlock();
-    cv::normalize(inv_optical_axis, inv_optical_axis);
     cv::Vec4f homo_inv_optical_axis{};
+    mtx_eye_position_.lock();
     for (int i = 0; i < 3; i++)
-        homo_inv_optical_axis(i) = inv_optical_axis(i);
+        homo_inv_optical_axis(i) = inv_optical_axis_(i);
+    mtx_eye_position_.unlock();
     homo_inv_optical_axis(3) = 1.0f;
     cv::Mat visual_axis{visual_axis_rotation_matrix_ * homo_inv_optical_axis};
     cv::Vec4f homo_gaze_direction{};
@@ -197,7 +194,8 @@ cv::Point2f EyeTracker::getEyeCentrePixelPosition() {
 }
 
 void EyeTracker::initializeKalmanFilter(float framerate) {
-    kalman_ = makeKalmanFilter(framerate);
+    kalman_eye_ = makeKalmanFilter(framerate);
+    kalman_gaze_ = makeKalmanFilter(framerate);
 }
 
 cv::Vec3f EyeTracker::project(const cv::Vec3f &point) const {
