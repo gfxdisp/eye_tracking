@@ -231,7 +231,7 @@ bool FeatureDetector::findGlints() {
         glint_candidates.push_back(glint_candidate);
     }
 
-    if (glint_candidates.size() < Settings::parameters.leds_positions.size()) {
+    if (glint_candidates.empty()) {
         return false;
     }
     size_t led_count{Settings::parameters.leds_positions.size()};
