@@ -64,6 +64,9 @@ void Visualizer::drawUi(const cv::Mat& image) {
     cv::circle(image_, eye_tracker_->getEyeCentrePixelPosition(), 2,
                cv::Scalar(0x00, 0xFF, 0x00), 5);
 
+    cv::ellipse(image_, feature_detector_->getEllipse(),
+                cv::Scalar(0x00, 0x00, 0xFF), 2);
+
     cv::putText(image_, fps_text_.str(), cv::Point2i(100, 100),
                 cv::FONT_HERSHEY_SIMPLEX, 3, cv::Scalar(0x00, 0x00, 0xFF), 3);
 }

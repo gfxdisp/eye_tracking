@@ -98,19 +98,38 @@ int main(int argc, char *argv[]) {
     VisualizationType visualization_type = VisualizationType::STANDARD;
 
     cv::VideoWriter video_output{};
-    cv::Point2f pupil{};
-    cv::Point2f *glints{};
 
     bool slow_mode{false};
+    bool saving_log{true};
 
+    if (saving_log) {
+        std::ofstream file{};
+        file.open("log.txt");
+        file << "frame_num,pupil_x,pupil_y,ellipse_x,ellipse_y,ellipse_width,ellipse_height,ellipse_angle\n";
+        file.close();
+    }
+
+    int frame_counter{0};
     while (!socket_server.finished) {
         cv::Mat image{image_provider->grabImage()};
         if (image.empty()) {
             break;
         }
-        bool features_found{feature_detector.findImageFeatures(image)};
+        bool features_found{feature_detector.findPupilAndEllipse(image)};
+//        bool features_found{feature_detector.findImageFeatures(image)};
         et::EyePosition eye_position{};
-        if (features_found) {
+        if (saving_log && features_found) {
+            std::ofstream file{};
+            file.open("log.txt", std::ios::app);
+            cv::Point2f pupil = feature_detector.getPupil();
+            cv::RotatedRect ellipse = feature_detector.getEllipse();
+            file << frame_counter << "," << pupil.x << "," << pupil.y << ",";
+            file << ellipse.center.x << "," << ellipse.center.y << ",";
+            file << ellipse.size.width << "," << ellipse.size.height << ",";
+            file << ellipse.angle << "\n";
+            file.close();
+        }
+        else if (features_found) {
             eye_tracker.calculateJoined(feature_detector.getPupil(),
                                         *feature_detector.getGlints(),
                                         feature_detector.getPupilRadius());
@@ -181,6 +200,7 @@ int main(int argc, char *argv[]) {
         default:
             break;
         }
+        frame_counter++;
     }
     socket_server.finished = true;
 

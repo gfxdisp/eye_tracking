@@ -182,6 +182,7 @@ bool FeatureDetector::findPupil() {
     mtx_features_.lock();
     pupil_location_ = toPoint(pupil_kalman_.predict());
     pupil_radius_ = best_radius;
+    pupil_location_ = best_centre; //Only for testing
     mtx_features_.unlock();
     return true;
 }
@@ -538,4 +539,74 @@ void FeatureDetector::getPupilGlintVector(cv::Vec2f &pupil_glint_vector) {
     pupil_glint_vector = pupil_location_ - glint_locations_[0];
     mtx_features_.unlock();
 }
+
+bool FeatureDetector::findPupilAndEllipse(const cv::Mat &image) {
+    gpu_image_.upload(image);
+    cv::cuda::threshold(gpu_image_, pupil_thresholded_image_,
+                        Settings::parameters.user_params->pupil_threshold, 255,
+                        cv::THRESH_BINARY_INV);
+    if (pupil_erode_filter_) {
+        pupil_erode_filter_->apply(pupil_thresholded_image_,
+                                   pupil_thresholded_image_);
+    }
+    if (pupil_dilate_filter_) {
+        pupil_dilate_filter_->apply(pupil_thresholded_image_,
+                                    pupil_thresholded_image_);
+    }
+    if (pupil_close_filter_) {
+        pupil_close_filter_->apply(pupil_thresholded_image_,
+                                   pupil_thresholded_image_);
+    }
+
+    cv::cuda::threshold(gpu_image_, glints_thresholded_image_,
+                        Settings::parameters.user_params->glint_threshold, 255,
+                        cv::THRESH_BINARY);
+
+    if (glints_erode_filter_) {
+        glints_erode_filter_->apply(glints_thresholded_image_,
+                                    glints_thresholded_image_);
+    }
+    if (glints_dilate_filter_) {
+        glints_dilate_filter_->apply(glints_thresholded_image_,
+                                     glints_thresholded_image_);
+    }
+    if (glints_close_filter_) {
+        glints_close_filter_->apply(glints_thresholded_image_,
+                                    glints_thresholded_image_);
+    }
+
+
+    return findPupil() & findEllipse();
+}
+
+bool FeatureDetector::findEllipse() {
+    glints_thresholded_image_.download(cpu_image_);
+
+    cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL,
+                     cv::CHAIN_APPROX_SIMPLE);
+
+    std::vector<cv::Point2f> glints{};
+    glints.reserve(contours_.size());
+
+    for (const std::vector<cv::Point> &contour : contours_) {
+        cv::Point2f centre;
+        float radius;
+        cv::minEnclosingCircle(contour, centre, radius);
+        if (radius > Settings::parameters.user_params->max_glint_radius
+            || radius < Settings::parameters.user_params->min_glint_radius)
+            continue;
+
+        if (!isInEllipse(centre, pupil_location_)) {
+            continue;
+        }
+        glints.push_back(centre);
+    }
+    glint_ellipse_ = cv::fitEllipse(glints);
+    return true;
+}
+
+cv::RotatedRect FeatureDetector::getEllipse() {
+    return glint_ellipse_;
+}
+
 } // namespace et

@@ -18,6 +18,11 @@
         "exposure": 6.0,
         "framerate": 170.0,
         "gamma": 2.200000047683716,
+        "gaze_shift": [
+            0.0,
+            0.0,
+            0.0
+        ],
         "intrinsic_matrix_opencv": [
             5867.91845703125,
             0.0,
@@ -52,7 +57,7 @@
             ],
             "glint_bottom_vert_distance": [
                 35.0,
-                45.0
+                55.0
             ],
             "glint_right_hor_distance": [
                 10.0,
@@ -71,16 +76,16 @@
             "min_pupil_radius": 10.0,
             "pupil_threshold": 57
         },
-        "joe": {
+        "mw841": {
             "alpha": -0.0872664600610733,
-            "beta": 0.026200000196695328,
+            "beta": 0.02617993950843811,
             "glint_bottom_hor_distance": [
                 -5.0,
                 5.0
             ],
             "glint_bottom_vert_distance": [
                 35.0,
-                45.0
+                55.0
             ],
             "glint_right_hor_distance": [
                 10.0,
@@ -90,25 +95,25 @@
                 -5.0,
                 5.0
             ],
-            "glint_threshold": 164,
+            "glint_threshold": 240,
             "max_glint_radius": 20.0,
             "max_hor_glint_pupil_distance": 400.0,
             "max_pupil_radius": 90.0,
             "max_vert_glint_pupil_distance": 200.0,
             "min_glint_radius": 0.0,
             "min_pupil_radius": 10.0,
-            "pupil_threshold": 16
+            "pupil_threshold": 65
         },
         "mw861": {
             "alpha": -0.0872664600610733,
-            "beta": 0.026200000196695328,
+            "beta": 0.02617993950843811,
             "glint_bottom_hor_distance": [
                 -5.0,
                 5.0
             ],
             "glint_bottom_vert_distance": [
                 35.0,
-                45.0
+                55.0
             ],
             "glint_right_hor_distance": [
                 10.0,

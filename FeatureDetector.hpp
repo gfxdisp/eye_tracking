@@ -41,6 +41,8 @@ public:
 
     bool findImageFeatures(const cv::Mat &image);
 
+    bool findPupilAndEllipse(const cv::Mat &image);
+
     cv::Point2f getPupil();
 
     void getPupilGlintVector(cv::Vec2f &pupil_glint_vector);
@@ -53,6 +55,8 @@ public:
 
     std::vector<cv::Point2f> *getGlints();
 
+    cv::RotatedRect getEllipse();
+
     void getGlints(std::vector<cv::Point2f> &glint_locations);
 
     cv::Mat getThresholdedPupilImage();
@@ -63,6 +67,8 @@ private:
     bool findPupil();
 
     bool findGlints();
+
+    bool findEllipse();
 
     static cv::KalmanFilter makeKalmanFilter(const cv::Size2i &resolution,
                                              float framerate);
@@ -77,6 +83,7 @@ private:
     cv::KalmanFilter pupil_kalman_{};
     cv::KalmanFilter leds_kalman_{};
     std::vector<cv::Point2f> glint_locations_{};
+    cv::RotatedRect glint_ellipse_{};
 
     cv::Mat cpu_image_{};
     cv::cuda::GpuMat gpu_image_{};
