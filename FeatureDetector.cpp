@@ -402,18 +402,34 @@ void FeatureDetector::findBestGlintPair(
             if (&first == &second) {
                 continue;
             }
+            double distance{cv::norm(first.location - second.location)};
+
             if (isBottomNeighbour(first, second)) {
-                if (!first.bottom_neighbour
-                    || first.bottom_neighbour->rating < second.rating) {
+                if (!first.bottom_neighbour) {
                     first.bottom_neighbour = &second;
                     second.upper_neighbour = &first;
                 }
+                else {
+                    double old_distance{cv::norm(first.location - first.bottom_neighbour->location)};
+                    if (distance < old_distance) {
+                        first.bottom_neighbour->upper_neighbour = nullptr;
+                        first.bottom_neighbour = &second;
+                        second.upper_neighbour = &first;
+                    }
+                }
             }
             if (isRightNeighbour(first, second)) {
-                if (!first.right_neighbour
-                    || first.right_neighbour->rating < second.rating) {
+                if (!first.right_neighbour) {
                     first.right_neighbour = &second;
                     second.left_neighbour = &first;
+                }
+                else {
+                    double old_distance{cv::norm(first.location - first.right_neighbour->location)};
+                    if (distance < old_distance) {
+                        first.right_neighbour->left_neighbour = nullptr;
+                        first.right_neighbour = &second;
+                        second.left_neighbour = &first;
+                    }
                 }
             }
         }
@@ -589,17 +605,12 @@ bool FeatureDetector::findEllipse() {
     glints.reserve(contours_.size());
 
     for (const std::vector<cv::Point> &contour : contours_) {
-        cv::Point2f centre;
-        float radius;
-        cv::minEnclosingCircle(contour, centre, radius);
-        if (radius > Settings::parameters.user_params->max_glint_radius
-            || radius < Settings::parameters.user_params->min_glint_radius)
-            continue;
-
-        if (!isInEllipse(centre, pupil_location_)) {
-            continue;
+        for (const cv::Point &point : contour) {
+            glints.push_back(point);
         }
-        glints.push_back(centre);
+    }
+    if (glints.size() < 5) {
+        return false;
     }
     glint_ellipse_ = cv::fitEllipse(glints);
     return true;

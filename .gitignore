@@ -186,4 +186,5 @@ hdrmfs_eye_tracker
 .idea/*
 videos/*
 images/*
+renders*/*
 cmake-build-*/*

@@ -100,12 +100,12 @@ int main(int argc, char *argv[]) {
     cv::VideoWriter video_output{};
 
     bool slow_mode{false};
-    bool saving_log{true};
+    bool saving_log{false};
+    bool ellipse_fitting{false};
 
     if (saving_log) {
         std::ofstream file{};
         file.open("log.txt");
-        file << "frame_num,pupil_x,pupil_y,ellipse_x,ellipse_y,ellipse_width,ellipse_height,ellipse_angle\n";
         file.close();
     }
 
@@ -115,18 +115,30 @@ int main(int argc, char *argv[]) {
         if (image.empty()) {
             break;
         }
-        bool features_found{feature_detector.findPupilAndEllipse(image)};
-//        bool features_found{feature_detector.findImageFeatures(image)};
+        bool features_found{};
+        if (ellipse_fitting) {
+            features_found = feature_detector.findPupilAndEllipse(image);
+        } else {
+            features_found = feature_detector.findImageFeatures(image);
+        }
         et::EyePosition eye_position{};
         if (saving_log && features_found) {
             std::ofstream file{};
             file.open("log.txt", std::ios::app);
             cv::Point2f pupil = feature_detector.getPupil();
-            cv::RotatedRect ellipse = feature_detector.getEllipse();
-            file << frame_counter << "," << pupil.x << "," << pupil.y << ",";
-            file << ellipse.center.x << "," << ellipse.center.y << ",";
-            file << ellipse.size.width << "," << ellipse.size.height << ",";
-            file << ellipse.angle << "\n";
+            file << frame_counter << "," << pupil.x << "," << pupil.y;
+            if (ellipse_fitting) {
+                cv::RotatedRect ellipse = feature_detector.getEllipse();
+                file << "," << ellipse.center.x << "," << ellipse.center.y << ",";
+                file << ellipse.size.width << "," << ellipse.size.height << ",";
+                file << ellipse.angle;
+            } else {
+                std::vector<cv::Point2f>* glints = feature_detector.getGlints();
+                for (int i = 0; i < glints->size(); i++) {
+                    file << "," << (*glints)[i].x << "," << (*glints)[i].y;
+                }
+            }
+            file << "\n";
             file.close();
         }
         else if (features_found) {
