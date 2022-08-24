@@ -51,6 +51,10 @@ public:
 
     void getPupil(cv::Point2f &pupil);
 
+    void getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector);
+
+    void getPupilFiltered(cv::Point2f &pupil);
+
     [[nodiscard]] int getPupilRadius() const;
 
     void getPupilRadius(int &pupil_radius);
@@ -65,6 +69,9 @@ public:
 
     cv::Mat getThresholdedGlintsImage();
 
+    void setGazeBufferSize(uint8_t value);
+    void updateGazeBuffer();
+
 private:
 
 
@@ -77,11 +84,22 @@ private:
     std::mutex mtx_features_{};
 
     int pupil_radius_{0};
-    cv::Point2f pupil_location_{};
     cv::KalmanFilter pupil_kalman_{};
     cv::KalmanFilter leds_kalman_{};
-    std::vector<cv::Point2f> glint_locations_{};
     cv::RotatedRect glint_ellipse_{};
+
+    cv::Point2f pupil_location_{};
+    std::vector<cv::Point2f> glint_locations_{};
+
+    int buffer_size_{8};
+    int buffer_idx_{0};
+    int buffer_summed_count_{0};
+    std::vector<cv::Point2f> pupil_location_buffer_{};
+    std::vector<cv::Point2f> glint_location_buffer_{};
+    cv::Point2f pupil_location_summed_{};
+    cv::Point2f glint_location_summed_{};
+    cv::Point2f pupil_location_filtered_{};
+    cv::Point2f glint_location_filtered_{};
 
     cv::Mat cpu_image_{};
     cv::cuda::GpuMat gpu_image_{};

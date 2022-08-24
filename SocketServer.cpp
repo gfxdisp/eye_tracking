@@ -64,7 +64,6 @@ void SocketServer::openSocket() {
             if (valread != 1) {
                 break;
             }
-
             if (buffer[0] == 0) {
                 finished = true;
             } else if (buffer[0] == 1) {
@@ -155,8 +154,40 @@ void SocketServer::openSocket() {
                     }
                     sent += new_bytes;
                 }
+
+            } else if (buffer[0] == 6) {
+                uint8_t moving_average_size{};
+                read(socket_handle_, &moving_average_size, 1);
+                feature_detector_->setGazeBufferSize(moving_average_size);
+            } else if (buffer[0] == 7) {
+                feature_detector_->getPupilGlintVectorFiltered(
+                    pupil_glint_vector_);
+                uint32_t sent{0};
+                uint32_t size_to_send{sizeof(pupil_glint_vector_)};
+                while (sent < size_to_send) {
+                    ssize_t new_bytes{send(socket_handle_,
+                                           (char *) &pupil_glint_vector_ + sent,
+                                           size_to_send - sent, 0)};
+                    if (new_bytes < 0) {
+                        break;
+                    }
+                    sent += new_bytes;
+                }
             } else if (buffer[0] == 8) {
                 feature_detector_->getPupil(pupil_location_);
+                uint32_t sent{0};
+                uint32_t size_to_send{sizeof(pupil_location_)};
+                while (sent < size_to_send) {
+                    ssize_t new_bytes{send(socket_handle_,
+                                           (char *) &pupil_location_ + sent,
+                                           size_to_send - sent, 0)};
+                    if (new_bytes < 0) {
+                        break;
+                    }
+                    sent += new_bytes;
+                }
+            } else if (buffer[0] == 9) {
+                feature_detector_->getPupilFiltered(pupil_location_);
                 uint32_t sent{0};
                 uint32_t size_to_send{sizeof(pupil_location_)};
                 while (sent < size_to_send) {

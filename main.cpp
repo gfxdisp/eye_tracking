@@ -127,6 +127,7 @@ int main(int argc, char *argv[]) {
                 features_found &= feature_detector.findGlints(glint_image);
             }
         }
+        feature_detector.updateGazeBuffer();
         et::EyePosition eye_position{};
         if (saving_log && features_found) {
             std::ofstream file{};

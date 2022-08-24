@@ -74,6 +74,12 @@ void FeatureDetector::getPupil(cv::Point2f &pupil) {
     mtx_features_.unlock();
 }
 
+void FeatureDetector::getPupilFiltered(cv::Point2f &pupil) {
+    mtx_features_.lock();
+    pupil = pupil_location_filtered_;
+    mtx_features_.unlock();
+}
+
 int FeatureDetector::getPupilRadius() const {
     return pupil_radius_;
 }
@@ -137,8 +143,8 @@ bool FeatureDetector::findPupil(const cv::Mat &image) {
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
-//        if (distance > max_distance)
-//            continue;
+        //        if (distance > max_distance)
+        //            continue;
 
         const float contour_area = static_cast<float>(cv::contourArea(contour));
         //        if (contour_area <= 0)
@@ -208,8 +214,8 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
-//        if (distance > max_distance)
-//            continue;
+        //        if (distance > max_distance)
+        //            continue;
 
         if (!isInEllipse(centre, pupil_location_)) {
             continue;
@@ -404,9 +410,9 @@ void FeatureDetector::findBestGlintPair(
                 if (!first.bottom_neighbour) {
                     first.bottom_neighbour = &second;
                     second.upper_neighbour = &first;
-                }
-                else {
-                    double old_distance{cv::norm(first.location - first.bottom_neighbour->location)};
+                } else {
+                    double old_distance{cv::norm(
+                        first.location - first.bottom_neighbour->location)};
                     if (distance < old_distance) {
                         first.bottom_neighbour->upper_neighbour = nullptr;
                         first.bottom_neighbour = &second;
@@ -418,9 +424,9 @@ void FeatureDetector::findBestGlintPair(
                 if (!first.right_neighbour) {
                     first.right_neighbour = &second;
                     second.left_neighbour = &first;
-                }
-                else {
-                    double old_distance{cv::norm(first.location - first.right_neighbour->location)};
+                } else {
+                    double old_distance{cv::norm(
+                        first.location - first.right_neighbour->location)};
                     if (distance < old_distance) {
                         first.right_neighbour->left_neighbour = nullptr;
                         first.right_neighbour = &second;
@@ -552,6 +558,12 @@ void FeatureDetector::getPupilGlintVector(cv::Vec2f &pupil_glint_vector) {
     mtx_features_.unlock();
 }
 
+void FeatureDetector::getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector) {
+    mtx_features_.lock();
+    pupil_glint_vector = pupil_location_filtered_ - glint_location_filtered_;
+    mtx_features_.unlock();
+}
+
 bool FeatureDetector::findEllipse(const cv::Mat &image) {
     gpu_image_.upload(image);
     cv::cuda::threshold(gpu_image_, glints_thresholded_image_,
@@ -594,4 +606,41 @@ cv::RotatedRect FeatureDetector::getEllipse() {
     return glint_ellipse_;
 }
 
+void FeatureDetector::setGazeBufferSize(uint8_t value) {
+    buffer_size_ = value;
+}
+
+void FeatureDetector::updateGazeBuffer() {
+    if (pupil_location_buffer_.size() != buffer_size_
+        || glint_location_buffer_.size() != buffer_size_) {
+        pupil_location_buffer_.resize(buffer_size_);
+        glint_location_buffer_.resize(buffer_size_);
+        buffer_idx_ = 0;
+        buffer_summed_count_ = 0;
+        pupil_location_summed_.x = 0.0f;
+        pupil_location_summed_.y = 0.0f;
+        glint_location_summed_.x = 0.0f;
+        glint_location_summed_.y = 0.0f;
+    }
+
+    if (buffer_summed_count_ == buffer_size_) {
+        pupil_location_summed_ -= pupil_location_buffer_[buffer_idx_];
+        glint_location_summed_ -= glint_location_buffer_[buffer_idx_];
+    } else {
+        buffer_summed_count_++;
+    }
+
+    pupil_location_buffer_[buffer_idx_] = pupil_location_;
+    glint_location_buffer_[buffer_idx_] = glint_locations_[0];
+    pupil_location_summed_ += pupil_location_buffer_[buffer_idx_];
+    glint_location_summed_ += glint_location_buffer_[buffer_idx_];
+
+    buffer_idx_ = (buffer_idx_ + 1) % buffer_size_;
+
+    mtx_features_.lock();
+    pupil_location_filtered_ = pupil_location_summed_ / buffer_summed_count_;
+    glint_location_filtered_ = glint_location_summed_ / buffer_summed_count_;
+    mtx_features_.unlock();
+    std::cout << pupil_location_filtered_ << std::endl;
+}
 } // namespace et
