@@ -77,7 +77,12 @@ void IdsCamera::initializeImage() {
 
     image_.create(area_of_interest.s32Height, area_of_interest.s32Width,
                   CV_16UC1);
-    for (auto &i : image_queue_) {
+    for (auto &i : pupil_image_queue_) {
+        i.create(area_of_interest.s32Height, area_of_interest.s32Width,
+                 CV_16UC1);
+    }
+
+    for (auto &i : glint_image_queue_) {
         i.create(area_of_interest.s32Height, area_of_interest.s32Width,
                  CV_16UC1);
     }
@@ -89,19 +94,32 @@ void IdsCamera::imageGatheringThread() {
     while (thread_running_) {
         new_image_index = (new_image_index + 1) % IMAGE_IN_QUEUE_COUNT;
 
+        setExposure(et::Settings::parameters.camera_params.pupil_exposure);
         result = is_FreezeVideo(camera_handle_, IS_WAIT);
         assert(result == IS_SUCCESS);
-
         result = is_CopyImageMem(camera_handle_, image_handle_, image_id_,
-                                 (char *) image_queue_[new_image_index].data);
+                                 (char *) pupil_image_queue_[new_image_index].data);
+        assert(result == IS_SUCCESS);
+
+        setExposure(et::Settings::parameters.camera_params.glint_exposure);
+        result = is_FreezeVideo(camera_handle_, IS_WAIT);
+        assert(result == IS_SUCCESS);
+        result = is_CopyImageMem(camera_handle_, image_handle_, image_id_,
+                                 (char *) glint_image_queue_[new_image_index].data);
         assert(result == IS_SUCCESS);
 
         image_index_ = new_image_index;
     }
 }
 
-cv::Mat IdsCamera::grabImage() {
-    image_ = image_queue_[image_index_];
+cv::Mat IdsCamera::grabPupilImage() {
+    image_ = pupil_image_queue_[image_index_];
+    image_.convertTo(image_, CV_8UC1, 1.0 / 256.0);
+    return image_;
+}
+
+cv::Mat IdsCamera::grabGlintImage() {
+    image_ = glint_image_queue_[image_index_];
     image_.convertTo(image_, CV_8UC1, 1.0 / 256.0);
     return image_;
 }

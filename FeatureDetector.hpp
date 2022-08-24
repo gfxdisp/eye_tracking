@@ -39,9 +39,11 @@ class FeatureDetector {
 public:
     void initialize(const cv::Size2i &resolution, float framerate);
 
-    bool findImageFeatures(const cv::Mat &image);
+    bool findPupil(const cv::Mat &image);
 
-    bool findPupilAndEllipse(const cv::Mat &image);
+    bool findGlints(const cv::Mat &image);
+
+    bool findEllipse(const cv::Mat &image);
 
     cv::Point2f getPupil();
 
@@ -64,11 +66,7 @@ public:
     cv::Mat getThresholdedGlintsImage();
 
 private:
-    bool findPupil();
 
-    bool findGlints();
-
-    bool findEllipse();
 
     static cv::KalmanFilter makeKalmanFilter(const cv::Size2i &resolution,
                                              float framerate);

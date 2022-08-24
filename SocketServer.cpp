@@ -179,4 +179,8 @@ void SocketServer::openSocket() {
 void SocketServer::closeSocket() {
     close(server_handle_);
 }
+
+bool SocketServer::isClientConnected() {
+    return socket_handle_ > -1 && !finished;
+}
 } // namespace et

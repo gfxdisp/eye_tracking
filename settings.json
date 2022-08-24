@@ -15,7 +15,6 @@
             0.0,
             0.0
         ],
-        "exposure": 6.0,
         "framerate": 170.0,
         "gamma": 2.200000047683716,
         "gaze_shift": [
@@ -23,6 +22,7 @@
             0.0,
             0.0
         ],
+        "glint_exposure": 6.0,
         "intrinsic_matrix_opencv": [
             5867.91845703125,
             0.0,
@@ -35,6 +35,7 @@
             1.0
         ],
         "name": "UI314xCP-M",
+        "pupil_exposure": 1.0,
         "region_of_interest": [
             560,
             400

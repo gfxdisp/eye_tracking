@@ -20,7 +20,8 @@
 
 enum class VisualizationType {
     DISABLED,
-    STANDARD,
+    PUPIL,
+    GLINTS,
     THRESHOLD_PUPIL,
     THRESHOLD_GLINTS
 };
@@ -52,8 +53,11 @@ int main(int argc, char *argv[]) {
     } else if (input_type == "file") {
         std::string input_file{argv[3]};
         user_idx = 4;
+
+        std::cout << input_file + "_pupil.mp4" << " " << input_file + "_glint.mp4" << std::endl;
         image_provider = new et::InputVideo(input_file);
-    } else if (input_type == "folder"){
+//        image_provider = new et::InputVideo(input_file + "_pupil.mp4", input_file + "_glint.mp4");
+    } else if (input_type == "folder") {
         std::string input_folder{argv[3]};
         user_idx = 4;
         image_provider = new et::InputImages(input_folder);
@@ -78,8 +82,6 @@ int main(int argc, char *argv[]) {
     image_provider->setGamma(et::Settings::parameters.camera_params.gamma);
     image_provider->setFramerate(
         et::Settings::parameters.camera_params.framerate);
-    image_provider->setExposure(
-        et::Settings::parameters.camera_params.exposure);
 
     et::FeatureDetector feature_detector{};
     feature_detector.initialize(
@@ -95,9 +97,10 @@ int main(int argc, char *argv[]) {
     std::thread t{&et::SocketServer::openSocket, &socket_server};
 
     et::Visualizer visualizer(&feature_detector, &eye_tracker);
-    VisualizationType visualization_type = VisualizationType::STANDARD;
+    VisualizationType visualization_type = VisualizationType::PUPIL;
 
-    cv::VideoWriter video_output{};
+    cv::VideoWriter pupil_video_output{};
+    cv::VideoWriter glint_video_output{};
 
     bool slow_mode{false};
     bool saving_log{false};
@@ -111,15 +114,18 @@ int main(int argc, char *argv[]) {
 
     int frame_counter{0};
     while (!socket_server.finished) {
-        cv::Mat image{image_provider->grabImage()};
-        if (image.empty()) {
+        cv::Mat pupil_image{image_provider->grabPupilImage()};
+        cv::Mat glint_image{image_provider->grabGlintImage()};
+        if (pupil_image.empty() || glint_image.empty()) {
             break;
         }
-        bool features_found{};
-        if (ellipse_fitting) {
-            features_found = feature_detector.findPupilAndEllipse(image);
-        } else {
-            features_found = feature_detector.findImageFeatures(image);
+        bool features_found{feature_detector.findPupil(pupil_image)};
+        if (features_found) {
+            if (ellipse_fitting) {
+                features_found &= feature_detector.findEllipse(glint_image);
+            } else {
+                features_found &= feature_detector.findGlints(glint_image);
+            }
         }
         et::EyePosition eye_position{};
         if (saving_log && features_found) {
@@ -129,19 +135,19 @@ int main(int argc, char *argv[]) {
             file << frame_counter << "," << pupil.x << "," << pupil.y;
             if (ellipse_fitting) {
                 cv::RotatedRect ellipse = feature_detector.getEllipse();
-                file << "," << ellipse.center.x << "," << ellipse.center.y << ",";
+                file << "," << ellipse.center.x << "," << ellipse.center.y
+                     << ",";
                 file << ellipse.size.width << "," << ellipse.size.height << ",";
                 file << ellipse.angle;
             } else {
-                std::vector<cv::Point2f>* glints = feature_detector.getGlints();
+                std::vector<cv::Point2f> *glints = feature_detector.getGlints();
                 for (int i = 0; i < glints->size(); i++) {
                     file << "," << (*glints)[i].x << "," << (*glints)[i].y;
                 }
             }
             file << "\n";
             file.close();
-        }
-        else if (features_found) {
+        } else if (features_found) {
             eye_tracker.calculateJoined(feature_detector.getPupil(),
                                         *feature_detector.getGlints(),
                                         feature_detector.getPupilRadius());
@@ -150,8 +156,12 @@ int main(int argc, char *argv[]) {
         visualizer.calculateFramerate();
 
         switch (visualization_type) {
-        case VisualizationType::STANDARD:
-            visualizer.drawUi(image);
+        case VisualizationType::PUPIL:
+            visualizer.drawUi(pupil_image);
+            visualizer.show();
+            break;
+        case VisualizationType::GLINTS:
+            visualizer.drawUi(glint_image);
             visualizer.show();
             break;
         case VisualizationType::THRESHOLD_PUPIL:
@@ -167,47 +177,68 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        if (video_output.isOpened()) {
+        if (pupil_video_output.isOpened()) {
             if (input_type == "file") {
-                video_output.write(visualizer.getUiImage());
+                pupil_video_output.write(visualizer.getUiImage());
             } else {
-                video_output.write(image);
+                pupil_video_output.write(pupil_image);
             }
+        }
+
+        if (glint_video_output.isOpened() && input_type != "file") {
+            glint_video_output.write(glint_image);
         }
 
         int key_pressed = cv::waitKey(slow_mode ? 120 : 1) & 0xFF;
         switch (key_pressed) {
         case 27: // Esc
-            socket_server.finished = true;
+            if (!socket_server.isClientConnected()) {
+                socket_server.finished = true;
+            }
             break;
-        case 'w': {
-            std::string filename{"videos/" + getCurrentTimeText() + ".mp4"};
+        case 'v': {
+            std::string filename{"videos/" + getCurrentTimeText()
+                                 + "_pupil.mp4"};
             std::clog << "Saving video to " << filename << "\n";
-            video_output.open(
+            pupil_video_output.open(
                 filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
                 et::Settings::parameters.camera_params.region_of_interest,
                 false);
+            if (input_type != "file") {
+                filename = "videos/" + getCurrentTimeText() + "_glint.mp4";
+                std::clog << "Saving video to " << filename << "\n";
+                glint_video_output.open(
+                    filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+                    et::Settings::parameters.camera_params.region_of_interest,
+                    false);
+            }
             break;
         }
         case 's':
             slow_mode = !slow_mode;
             break;
         case 'p': {
-            std::string filename{"images/" + getCurrentTimeText() + ".png"};
-            imwrite(filename.c_str(), image);
+            std::string filename{"images/" + getCurrentTimeText()
+                                 + "_pupil.png"};
+            imwrite(filename.c_str(), pupil_image);
+            filename = "images/" + getCurrentTimeText() + "_glint.png";
+            imwrite(filename.c_str(), glint_image);
             break;
         }
         case 'q':
             visualization_type = VisualizationType::DISABLED;
             break;
+        case 'w':
+            visualization_type = VisualizationType::PUPIL;
+            break;
         case 'e':
-            visualization_type = VisualizationType::STANDARD;
+            visualization_type = VisualizationType::GLINTS;
             break;
         case 'r':
-            visualization_type = VisualizationType::THRESHOLD_GLINTS;
+            visualization_type = VisualizationType::THRESHOLD_PUPIL;
             break;
         case 't':
-            visualization_type = VisualizationType::THRESHOLD_PUPIL;
+            visualization_type = VisualizationType::THRESHOLD_GLINTS;
             break;
         default:
             break;
@@ -219,8 +250,12 @@ int main(int argc, char *argv[]) {
     std::cout << "Average framerate: " << visualizer.getAvgFramerate()
               << " fps\n";
 
-    if (video_output.isOpened()) {
-        video_output.release();
+    if (pupil_video_output.isOpened()) {
+        pupil_video_output.release();
+    }
+
+    if (glint_video_output.isOpened()) {
+        glint_video_output.release();
     }
 
     t.join();

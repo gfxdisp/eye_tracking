@@ -64,44 +64,6 @@ void FeatureDetector::initialize(const cv::Size2i &resolution,
     }
 }
 
-bool FeatureDetector::findImageFeatures(const cv::Mat &image) {
-    gpu_image_.upload(image);
-    cv::cuda::threshold(gpu_image_, pupil_thresholded_image_,
-                        Settings::parameters.user_params->pupil_threshold, 255,
-                        cv::THRESH_BINARY_INV);
-    if (pupil_erode_filter_) {
-        pupil_erode_filter_->apply(pupil_thresholded_image_,
-                                   pupil_thresholded_image_);
-    }
-    if (pupil_dilate_filter_) {
-        pupil_dilate_filter_->apply(pupil_thresholded_image_,
-                                    pupil_thresholded_image_);
-    }
-    if (pupil_close_filter_) {
-        pupil_close_filter_->apply(pupil_thresholded_image_,
-                                   pupil_thresholded_image_);
-    }
-
-    cv::cuda::threshold(gpu_image_, glints_thresholded_image_,
-                        Settings::parameters.user_params->glint_threshold, 255,
-                        cv::THRESH_BINARY);
-
-    if (glints_erode_filter_) {
-        glints_erode_filter_->apply(glints_thresholded_image_,
-                                    glints_thresholded_image_);
-    }
-    if (glints_dilate_filter_) {
-        glints_dilate_filter_->apply(glints_thresholded_image_,
-                                     glints_thresholded_image_);
-    }
-    if (glints_close_filter_) {
-        glints_close_filter_->apply(glints_thresholded_image_,
-                                    glints_thresholded_image_);
-    }
-
-    return findPupil() & findGlints();
-}
-
 cv::Point2f FeatureDetector::getPupil() {
     return pupil_location_;
 }
@@ -132,7 +94,23 @@ void FeatureDetector::getGlints(std::vector<cv::Point2f> &glint_locations) {
     mtx_features_.unlock();
 }
 
-bool FeatureDetector::findPupil() {
+bool FeatureDetector::findPupil(const cv::Mat &image) {
+    gpu_image_.upload(image);
+    cv::cuda::threshold(gpu_image_, pupil_thresholded_image_,
+                        Settings::parameters.user_params->pupil_threshold, 255,
+                        cv::THRESH_BINARY_INV);
+    if (pupil_erode_filter_) {
+        pupil_erode_filter_->apply(pupil_thresholded_image_,
+                                   pupil_thresholded_image_);
+    }
+    if (pupil_dilate_filter_) {
+        pupil_dilate_filter_->apply(pupil_thresholded_image_,
+                                    pupil_thresholded_image_);
+    }
+    if (pupil_close_filter_) {
+        pupil_close_filter_->apply(pupil_thresholded_image_,
+                                   pupil_thresholded_image_);
+    }
     pupil_thresholded_image_.download(cpu_image_);
 
     cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL,
@@ -187,8 +165,26 @@ bool FeatureDetector::findPupil() {
     return true;
 }
 
-bool FeatureDetector::findGlints() {
+bool FeatureDetector::findGlints(const cv::Mat &image) {
+    gpu_image_.upload(image);
+    cv::cuda::threshold(gpu_image_, glints_thresholded_image_,
+                        Settings::parameters.user_params->glint_threshold, 255,
+                        cv::THRESH_BINARY);
+
+    if (glints_erode_filter_) {
+        glints_erode_filter_->apply(glints_thresholded_image_,
+                                    glints_thresholded_image_);
+    }
+    if (glints_dilate_filter_) {
+        glints_dilate_filter_->apply(glints_thresholded_image_,
+                                     glints_thresholded_image_);
+    }
+    if (glints_close_filter_) {
+        glints_close_filter_->apply(glints_thresholded_image_,
+                                    glints_thresholded_image_);
+    }
     glints_thresholded_image_.download(cpu_image_);
+
     float best_rating{0};
 
     cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL,
@@ -556,24 +552,8 @@ void FeatureDetector::getPupilGlintVector(cv::Vec2f &pupil_glint_vector) {
     mtx_features_.unlock();
 }
 
-bool FeatureDetector::findPupilAndEllipse(const cv::Mat &image) {
+bool FeatureDetector::findEllipse(const cv::Mat &image) {
     gpu_image_.upload(image);
-    cv::cuda::threshold(gpu_image_, pupil_thresholded_image_,
-                        Settings::parameters.user_params->pupil_threshold, 255,
-                        cv::THRESH_BINARY_INV);
-    if (pupil_erode_filter_) {
-        pupil_erode_filter_->apply(pupil_thresholded_image_,
-                                   pupil_thresholded_image_);
-    }
-    if (pupil_dilate_filter_) {
-        pupil_dilate_filter_->apply(pupil_thresholded_image_,
-                                    pupil_thresholded_image_);
-    }
-    if (pupil_close_filter_) {
-        pupil_close_filter_->apply(pupil_thresholded_image_,
-                                   pupil_thresholded_image_);
-    }
-
     cv::cuda::threshold(gpu_image_, glints_thresholded_image_,
                         Settings::parameters.user_params->glint_threshold, 255,
                         cv::THRESH_BINARY);
@@ -590,12 +570,6 @@ bool FeatureDetector::findPupilAndEllipse(const cv::Mat &image) {
         glints_close_filter_->apply(glints_thresholded_image_,
                                     glints_thresholded_image_);
     }
-
-
-    return findPupil() & findEllipse();
-}
-
-bool FeatureDetector::findEllipse() {
     glints_thresholded_image_.download(cpu_image_);
 
     cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL,

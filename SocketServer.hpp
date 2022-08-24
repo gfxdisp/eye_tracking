@@ -17,6 +17,8 @@ public:
     void openSocket();
     void closeSocket();
 
+    bool isClientConnected();
+
     bool finished{false};
 
 private:

@@ -17,7 +17,8 @@ namespace et {
 class IdsCamera : public ImageProvider {
 public:
     void initialize() override;
-    cv::Mat grabImage() override;
+    cv::Mat grabPupilImage() override;
+    cv::Mat grabGlintImage() override;
     void close() override;
     void setExposure(double exposure) override;
     void setGamma(float gamma) override;
@@ -30,7 +31,8 @@ private:
 
     static constexpr int IMAGE_IN_QUEUE_COUNT = 10;
 
-    cv::Mat image_queue_[IMAGE_IN_QUEUE_COUNT]{};
+    cv::Mat pupil_image_queue_[IMAGE_IN_QUEUE_COUNT]{};
+    cv::Mat glint_image_queue_[IMAGE_IN_QUEUE_COUNT]{};
     int image_index_{-1};
 
     bool thread_running_{true};
