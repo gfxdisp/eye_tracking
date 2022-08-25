@@ -18,6 +18,7 @@ public:
     void printFramerateInterval();
     cv::Mat getUiImage();
     float getAvgFramerate();
+    bool isWindowOpen();
 
 private:
     static constexpr int FRAMES_FOR_FPS_MEASUREMENT{8};

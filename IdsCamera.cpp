@@ -95,6 +95,8 @@ void IdsCamera::imageGatheringThread() {
         new_image_index = (new_image_index + 1) % IMAGE_IN_QUEUE_COUNT;
 
         setExposure(et::Settings::parameters.camera_params.pupil_exposure);
+        // Discarding previous image which could have potentially started being captured before exposure change.
+        result = is_FreezeVideo(camera_handle_, IS_WAIT);
         result = is_FreezeVideo(camera_handle_, IS_WAIT);
         assert(result == IS_SUCCESS);
         result = is_CopyImageMem(camera_handle_, image_handle_, image_id_,
@@ -102,6 +104,8 @@ void IdsCamera::imageGatheringThread() {
         assert(result == IS_SUCCESS);
 
         setExposure(et::Settings::parameters.camera_params.glint_exposure);
+        // Discarding previous image which could have potentially started being captured before exposure change.
+        result = is_FreezeVideo(camera_handle_, IS_WAIT);
         result = is_FreezeVideo(camera_handle_, IS_WAIT);
         assert(result == IS_SUCCESS);
         result = is_CopyImageMem(camera_handle_, image_handle_, image_id_,
@@ -142,6 +146,7 @@ void IdsCamera::setExposure(double exposure) {
 
     result = is_Exposure(camera_handle_, IS_EXPOSURE_CMD_SET_EXPOSURE,
                          (void *) &exposure, sizeof(exposure));
+
     assert(result == IS_SUCCESS);
 }
 

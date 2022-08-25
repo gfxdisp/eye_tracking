@@ -244,6 +244,11 @@ int main(int argc, char *argv[]) {
         default:
             break;
         }
+
+        if (!visualizer.isWindowOpen()) {
+        	socket_server.finished = true;
+        }
+
         frame_counter++;
     }
     socket_server.finished = true;

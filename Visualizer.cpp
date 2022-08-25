@@ -75,6 +75,10 @@ void Visualizer::show() {
     cv::imshow(WINDOW_NAME.begin(), image_);
 }
 
+bool Visualizer::isWindowOpen() {
+	return cv::getWindowProperty(WINDOW_NAME.begin(), 0) >= 0;
+}
+
 void Visualizer::calculateFramerate() {
     if (++frame_index_ == FRAMES_FOR_FPS_MEASUREMENT) {
         const std::chrono::duration<float> frame_time =

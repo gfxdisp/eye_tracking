@@ -641,6 +641,5 @@ void FeatureDetector::updateGazeBuffer() {
     pupil_location_filtered_ = pupil_location_summed_ / buffer_summed_count_;
     glint_location_filtered_ = glint_location_summed_ / buffer_summed_count_;
     mtx_features_.unlock();
-    std::cout << pupil_location_filtered_ << std::endl;
 }
 } // namespace et

@@ -91,7 +91,7 @@ private:
     cv::Point2f pupil_location_{};
     std::vector<cv::Point2f> glint_locations_{};
 
-    int buffer_size_{8};
+    int buffer_size_{16};
     int buffer_idx_{0};
     int buffer_summed_count_{0};
     std::vector<cv::Point2f> pupil_location_buffer_{};
