@@ -14,7 +14,7 @@ InputVideo::InputVideo(std::string input_pupil_video_path,
       input_glint_video_path_(std::move(glint_pupil_video_path)) {
 }
 
-void InputVideo::initialize() {
+void InputVideo::initialize(bool separate_exposures) {
     assert(input_pupil_video_path_.length() > 0);
     assert(input_glint_video_path_.length() > 0);
 

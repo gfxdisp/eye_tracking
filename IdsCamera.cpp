@@ -3,13 +3,19 @@
 
 #include <cassert>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 namespace et {
 
-void IdsCamera::initialize() {
+void IdsCamera::initialize(bool separate_exposures) {
     initializeCamera();
     initializeImage();
-    image_gatherer_ = std::thread{&IdsCamera::imageGatheringThread, this};
+    if (separate_exposures) {
+        image_gatherer_ = std::thread{&IdsCamera::imageGatheringTwoExposuresThread, this};
+    } else {
+        image_gatherer_ = std::thread{&IdsCamera::imageGatheringOneExposureThread, this};
+    }
 }
 
 void IdsCamera::initializeCamera() {
@@ -88,15 +94,13 @@ void IdsCamera::initializeImage() {
     }
 }
 
-void IdsCamera::imageGatheringThread() {
+void IdsCamera::imageGatheringTwoExposuresThread() {
     int result;
     int new_image_index{image_index_};
     while (thread_running_) {
         new_image_index = (new_image_index + 1) % IMAGE_IN_QUEUE_COUNT;
 
         setExposure(et::Settings::parameters.camera_params.pupil_exposure);
-        // Discarding previous image which could have potentially started being captured before exposure change.
-        result = is_FreezeVideo(camera_handle_, IS_WAIT);
         result = is_FreezeVideo(camera_handle_, IS_WAIT);
         assert(result == IS_SUCCESS);
         result = is_CopyImageMem(camera_handle_, image_handle_, image_id_,
@@ -104,14 +108,28 @@ void IdsCamera::imageGatheringThread() {
         assert(result == IS_SUCCESS);
 
         setExposure(et::Settings::parameters.camera_params.glint_exposure);
-        // Discarding previous image which could have potentially started being captured before exposure change.
-        result = is_FreezeVideo(camera_handle_, IS_WAIT);
         result = is_FreezeVideo(camera_handle_, IS_WAIT);
         assert(result == IS_SUCCESS);
         result = is_CopyImageMem(camera_handle_, image_handle_, image_id_,
                                  (char *) glint_image_queue_[new_image_index].data);
         assert(result == IS_SUCCESS);
 
+        image_index_ = new_image_index;
+    }
+}
+
+void IdsCamera::imageGatheringOneExposureThread() {
+    int result;
+    int new_image_index{image_index_};
+    setExposure(et::Settings::parameters.camera_params.pupil_exposure);
+    while (thread_running_) {
+        new_image_index = (new_image_index + 1) % IMAGE_IN_QUEUE_COUNT;
+        result = is_FreezeVideo(camera_handle_, IS_WAIT);
+        assert(result == IS_SUCCESS);
+        result = is_CopyImageMem(camera_handle_, image_handle_, image_id_,
+                                 (char *) pupil_image_queue_[new_image_index].data);
+        assert(result == IS_SUCCESS);
+        glint_image_queue_[new_image_index] = pupil_image_queue_[new_image_index];
         image_index_ = new_image_index;
     }
 }
@@ -146,6 +164,7 @@ void IdsCamera::setExposure(double exposure) {
 
     result = is_Exposure(camera_handle_, IS_EXPOSURE_CMD_SET_EXPOSURE,
                          (void *) &exposure, sizeof(exposure));
+    std::this_thread::sleep_for(std::chrono::microseconds((int)(0.5f / framerate_ * 1e6)));
 
     assert(result == IS_SUCCESS);
 }
@@ -162,7 +181,10 @@ void IdsCamera::setGamma(float gamma) {
 void IdsCamera::setFramerate(double framerate) {
     int result;
 
-    result = is_SetFrameRate(camera_handle_, framerate, &framerate);
+    result = is_SetFrameRate(camera_handle_, framerate, &framerate_);
     assert(result == IS_SUCCESS);
+    if (framerate_ != framerate) {
+        std::cout << "Requested " << framerate << " FPS, set to " << framerate_ << " FPS.\n";
+    }
 }
 }// namespace et

@@ -2,7 +2,7 @@
 
 namespace et {
 
-void ImageProvider::initialize() {
+void ImageProvider::initialize(bool separate_exposures) {
 }
 
 void ImageProvider::close() {

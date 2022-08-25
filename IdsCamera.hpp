@@ -16,7 +16,7 @@
 namespace et {
 class IdsCamera : public ImageProvider {
 public:
-    void initialize() override;
+    void initialize(bool separate_exposures) override;
     cv::Mat grabPupilImage() override;
     cv::Mat grabGlintImage() override;
     void close() override;
@@ -27,7 +27,8 @@ public:
 private:
     void initializeCamera();
     void initializeImage();
-    void imageGatheringThread();
+    void imageGatheringTwoExposuresThread();
+    void imageGatheringOneExposureThread();
 
     static constexpr int IMAGE_IN_QUEUE_COUNT = 10;
 
@@ -45,6 +46,7 @@ private:
     SENSORINFO sensor_info_{};
     char *image_handle_{};
     int image_id_{};
+    double framerate_{100};
 
     cv::Mat temp_image_{};
 };

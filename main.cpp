@@ -54,9 +54,9 @@ int main(int argc, char *argv[]) {
         std::string input_file{argv[3]};
         user_idx = 4;
 
-        std::cout << input_file + "_pupil.mp4" << " " << input_file + "_glint.mp4" << std::endl;
-        image_provider = new et::InputVideo(input_file);
-//        image_provider = new et::InputVideo(input_file + "_pupil.mp4", input_file + "_glint.mp4");
+        // std::cout << input_file + "_pupil.mp4" << " " << input_file + "_glint.mp4" << std::endl;
+        // image_provider = new et::InputVideo(input_file);
+       image_provider = new et::InputVideo(input_file + "_pupil.mp4", input_file + "_glint.mp4");
     } else if (input_type == "folder") {
         std::string input_folder{argv[3]};
         user_idx = 4;
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
             &et::Settings::parameters.features_params["default"];
     }
 
-    image_provider->initialize();
+    image_provider->initialize(false);
     image_provider->setGamma(et::Settings::parameters.camera_params.gamma);
     image_provider->setFramerate(
         et::Settings::parameters.camera_params.framerate);
