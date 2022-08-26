@@ -57,8 +57,6 @@ public:
 
     [[nodiscard]] int getPupilRadius() const;
 
-    void getPupilRadius(int &pupil_radius);
-
     std::vector<cv::Point2f> *getGlints();
 
     cv::RotatedRect getEllipse();
@@ -110,16 +108,10 @@ private:
     cv::Ptr<cv::cuda::Filter> glints_dilate_filter_{};
     cv::Ptr<cv::cuda::Filter> glints_erode_filter_{};
     cv::Ptr<cv::cuda::Filter> glints_close_filter_{};
-    int glints_dilate_size_{3};
-    int glints_erode_size_{3};
-    int glints_close_size_{0};
 
     cv::Ptr<cv::cuda::Filter> pupil_dilate_filter_{};
     cv::Ptr<cv::cuda::Filter> pupil_erode_filter_{};
     cv::Ptr<cv::cuda::Filter> pupil_close_filter_{};
-    int pupil_dilate_size_{0};
-    int pupil_erode_size_{0};
-    int pupil_close_size_{0};
 
     static bool isLeftNeighbour(GlintCandidate &reference, GlintCandidate &compared);
     static bool isRightNeighbour(GlintCandidate &reference, GlintCandidate &compared);
@@ -132,8 +124,6 @@ private:
 
     GlintCandidate selected_glints_[6]{};
 
-    bool rotated_video_{false};
-
     static inline cv::Point2f toPoint(cv::Mat m) {
         return {(float) m.at<double>(0, 0), (float) m.at<double>(0, 1)};
     }
@@ -145,9 +135,9 @@ private:
 
     static inline bool isInEllipse(cv::Point2f &point, cv::Point2f &centre) {
         float semi_major =
-            Settings::parameters.user_params->max_hor_glint_pupil_distance;
+            Settings::parameters.detection_params.max_hor_glint_pupil_distance;
         float semi_minor =
-            Settings::parameters.user_params->max_vert_glint_pupil_distance;
+            Settings::parameters.detection_params.max_vert_glint_pupil_distance;
         float major = ((point.x - centre.x) * (point.x - centre.x))
             / (semi_major * semi_major);
         float minor = ((point.y - centre.y) * (point.y - centre.y))

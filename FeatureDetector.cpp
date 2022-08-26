@@ -19,21 +19,21 @@ void FeatureDetector::initialize(const cv::Size2i &resolution,
     cv::Mat morphology_element{};
     int size{};
 
-    size = pupil_close_size_;
+    size = Settings::parameters.detection_params.pupil_close_size;
     if (size) {
         morphology_element =
             cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
         pupil_close_filter_ = cv::cuda::createMorphologyFilter(
             cv::MORPH_CLOSE, CV_8UC1, morphology_element);
     }
-    size = pupil_dilate_size_;
+    size = Settings::parameters.detection_params.pupil_dilate_size;
     if (size) {
         morphology_element =
             cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
         pupil_dilate_filter_ = cv::cuda::createMorphologyFilter(
             cv::MORPH_DILATE, CV_8UC1, morphology_element);
     }
-    size = pupil_erode_size_;
+    size = Settings::parameters.detection_params.pupil_erode_size;
     if (size) {
         morphology_element =
             cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
@@ -41,21 +41,21 @@ void FeatureDetector::initialize(const cv::Size2i &resolution,
             cv::MORPH_ERODE, CV_8UC1, morphology_element);
     }
 
-    size = glints_close_size_;
+    size = Settings::parameters.detection_params.glint_close_size;
     if (size) {
         morphology_element =
             cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
         glints_close_filter_ = cv::cuda::createMorphologyFilter(
             cv::MORPH_CLOSE, CV_8UC1, morphology_element);
     }
-    size = glints_dilate_size_;
+    size = Settings::parameters.detection_params.glint_dilate_size;
     if (size) {
         morphology_element =
             cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
         glints_dilate_filter_ = cv::cuda::createMorphologyFilter(
             cv::MORPH_DILATE, CV_8UC1, morphology_element);
     }
-    size = glints_erode_size_;
+    size = Settings::parameters.detection_params.glint_erode_size;
     if (size) {
         morphology_element =
             cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
@@ -82,12 +82,6 @@ void FeatureDetector::getPupilFiltered(cv::Point2f &pupil) {
 
 int FeatureDetector::getPupilRadius() const {
     return pupil_radius_;
-}
-
-void FeatureDetector::getPupilRadius(int &pupil_radius) {
-    mtx_features_.lock();
-    pupil_radius = pupil_radius_;
-    mtx_features_.unlock();
 }
 
 std::vector<cv::Point2f> *FeatureDetector::getGlints() {
@@ -137,9 +131,9 @@ bool FeatureDetector::findPupil(const cv::Mat &image) {
 
         cv::minEnclosingCircle(contour, centre, radius);
         if (static_cast<int>(radius)
-                < Settings::parameters.user_params->min_pupil_radius
+                < Settings::parameters.detection_params.min_pupil_radius
             or static_cast<int>(radius)
-                > Settings::parameters.user_params->max_pupil_radius)
+                > Settings::parameters.detection_params.max_pupil_radius)
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
@@ -209,8 +203,8 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
         cv::Point2f centre;
         float radius;
         cv::minEnclosingCircle(contour, centre, radius);
-        if (radius > Settings::parameters.user_params->max_glint_radius
-            || radius < Settings::parameters.user_params->min_glint_radius)
+        if (radius > Settings::parameters.detection_params.max_glint_radius
+            || radius < Settings::parameters.detection_params.min_glint_radius)
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
@@ -466,7 +460,7 @@ bool FeatureDetector::isLeftNeighbour(GlintCandidate &reference,
 bool FeatureDetector::isRightNeighbour(GlintCandidate &reference,
                                        GlintCandidate &compared) {
     cv::Point2f distance{compared.location - reference.location};
-    FeaturesParams *params{Settings::parameters.user_params};
+    DetectionParams *params{&Settings::parameters.detection_params};
 
     return (distance.y < params->glint_right_vert_distance[1]
             && distance.y > params->glint_right_vert_distance[0]
@@ -482,7 +476,7 @@ bool FeatureDetector::isUpperNeighbour(GlintCandidate &reference,
 bool FeatureDetector::isBottomNeighbour(GlintCandidate &reference,
                                         GlintCandidate &compared) {
     cv::Point2f distance{compared.location - reference.location};
-    FeaturesParams *params{Settings::parameters.user_params};
+    DetectionParams *params{&Settings::parameters.detection_params};
 
     return (distance.y < params->glint_bottom_vert_distance[1]
             && distance.y > params->glint_bottom_vert_distance[0]

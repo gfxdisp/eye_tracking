@@ -31,11 +31,9 @@ struct EyeParams {
     float pupil_eye_centre_distance{};
 };
 
-struct FeaturesParams {
+struct DetectionParams {
     float min_pupil_radius{};
     float max_pupil_radius{};
-    int pupil_threshold{};
-    int glint_threshold{};
     float min_glint_radius{};
     float max_glint_radius{};
     float glint_bottom_hor_distance[2]{};
@@ -44,6 +42,17 @@ struct FeaturesParams {
     float glint_right_vert_distance[2]{};
     float max_hor_glint_pupil_distance{};
     float max_vert_glint_pupil_distance{};
+    int glint_dilate_size{};
+    int glint_erode_size{};
+    int glint_close_size{};
+    int pupil_dilate_size{};
+    int pupil_erode_size{};
+    int pupil_close_size{};
+};
+
+struct FeaturesParams {
+    int pupil_threshold{};
+    int glint_threshold{};
     float alpha{};
     float beta{};
 };
@@ -52,6 +61,7 @@ struct Parameters {
     CameraParams camera_params{};
     std::vector<cv::Vec3f> leds_positions{};
     EyeParams eye_params{};
+    DetectionParams detection_params{};
     std::unordered_map<std::string, FeaturesParams> features_params{};
     FeaturesParams *user_params{};
 };
