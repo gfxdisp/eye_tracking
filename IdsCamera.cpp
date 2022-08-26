@@ -11,7 +11,8 @@ namespace et {
 void IdsCamera::initialize(bool separate_exposures) {
     initializeCamera();
     initializeImage();
-    if (separate_exposures) {
+    separate_exposures_ = separate_exposures;
+    if (separate_exposures_) {
         image_gatherer_ = std::thread{&IdsCamera::imageGatheringTwoExposuresThread, this};
     } else {
         image_gatherer_ = std::thread{&IdsCamera::imageGatheringOneExposureThread, this};
@@ -88,9 +89,11 @@ void IdsCamera::initializeImage() {
                  CV_16UC1);
     }
 
-    for (auto &i : glint_image_queue_) {
-        i.create(area_of_interest.s32Height, area_of_interest.s32Width,
-                 CV_16UC1);
+    if (separate_exposures_)  {
+        for (auto &i : glint_image_queue_) {
+            i.create(area_of_interest.s32Height, area_of_interest.s32Width,
+                     CV_16UC1);
+        }
     }
 }
 
@@ -129,7 +132,6 @@ void IdsCamera::imageGatheringOneExposureThread() {
         result = is_CopyImageMem(camera_handle_, image_handle_, image_id_,
                                  (char *) pupil_image_queue_[new_image_index].data);
         assert(result == IS_SUCCESS);
-        glint_image_queue_[new_image_index] = pupil_image_queue_[new_image_index];
         image_index_ = new_image_index;
     }
 }

@@ -254,65 +254,51 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
 
     cv::Point2f distance{};
     bool glint_found{false};
-    for (auto &glint : glint_candidates) {
-        if (glint.glint_type == GlintType::Unknown) {
-            continue;
-        }
-
-        if (glint_found) {
-            if (selected_glints_[glint.glint_type].found
-                && selected_glints_[glint.glint_type].rating > glint.rating) {
+    for (int i = 0; i < 2; i++) {
+        for (auto &glint : glint_candidates) {
+            // In the first iteration (i = 0) we check only for centre LEDs, as they are the most reliable
+            if (i == 0 && glint.glint_type != GlintType::UpperCentre && glint.glint_type != GlintType::BottomCentre) {
+                continue;
+            }
+            if (glint.glint_type == GlintType::Unknown) {
                 continue;
             }
 
-            if (glint.glint_type % 3 != 0
-                && !isLeftNeighbour(glint,
-                                    selected_glints_[glint.glint_type - 1])) {
-                continue;
-            }
-            if (glint.glint_type % 3 != 2
-                && !isRightNeighbour(glint,
-                                     selected_glints_[glint.glint_type + 1])) {
-                continue;
-            }
-            if (glint.glint_type / 3 == 0
-                && !isBottomNeighbour(glint,
-                                      selected_glints_[glint.glint_type + 3])) {
-                continue;
-            }
-            if (glint.glint_type / 3 == 1
-                && !isUpperNeighbour(glint,
-                                     selected_glints_[glint.glint_type - 3])) {
-                continue;
-            }
-        }
+            if (glint_found) {
+                if (selected_glints_[glint.glint_type].found
+                    && selected_glints_[glint.glint_type].rating
+                        >= glint.rating) {
+                    continue;
+                }
 
-        glint_found = true;
-        selected_glints_[glint.glint_type] = glint;
-        selected_glints_[glint.glint_type].found = true;
+                if (glint.glint_type % 3 != 0
+                    && !isLeftNeighbour(
+                        glint, selected_glints_[glint.glint_type - 1])) {
+                    continue;
+                }
+                if (glint.glint_type % 3 != 2
+                    && !isRightNeighbour(
+                        glint, selected_glints_[glint.glint_type + 1])) {
+                    continue;
+                }
+                if (glint.glint_type / 3 == 0
+                    && !isBottomNeighbour(
+                        glint, selected_glints_[glint.glint_type + 3])) {
+                    continue;
+                }
+                if (glint.glint_type / 3 == 1
+                    && !isUpperNeighbour(
+                        glint, selected_glints_[glint.glint_type - 3])) {
+                    continue;
+                }
+            }
 
-        if (glint.upper_neighbour
-            && !selected_glints_[glint.glint_type - 3].found) {
-            selected_glints_[glint.glint_type - 3] = *glint.upper_neighbour;
-            selected_glints_[glint.glint_type - 3].found = true;
+            glint_found = true;
+            selected_glints_[glint.glint_type] = glint;
+            selected_glints_[glint.glint_type].found = true;
+            identifyNeighbours(&glint);
+            approximatePositions();
         }
-        if (glint.bottom_neighbour
-            && !selected_glints_[glint.glint_type + 3].found) {
-            selected_glints_[glint.glint_type + 3] = *glint.bottom_neighbour;
-            selected_glints_[glint.glint_type + 3].found = true;
-        }
-        if (glint.right_neighbour
-            && !selected_glints_[glint.glint_type + 1].found) {
-            selected_glints_[glint.glint_type + 1] = *glint.right_neighbour;
-            selected_glints_[glint.glint_type + 1].found = true;
-        }
-        if (glint.left_neighbour
-            && !selected_glints_[glint.glint_type - 1].found) {
-            selected_glints_[glint.glint_type - 1] = *glint.left_neighbour;
-            selected_glints_[glint.glint_type - 1].found = true;
-        }
-
-        approximatePositions();
     }
 
     int found_glints{0};
@@ -641,5 +627,36 @@ void FeatureDetector::updateGazeBuffer() {
     pupil_location_filtered_ = pupil_location_summed_ / buffer_summed_count_;
     glint_location_filtered_ = glint_location_summed_ / buffer_summed_count_;
     mtx_features_.unlock();
+}
+
+void FeatureDetector::identifyNeighbours(GlintCandidate *glint_candidate) {
+    if (glint_candidate->upper_neighbour && glint_candidate->glint_type >= 3
+        && !selected_glints_[glint_candidate->glint_type - 3].found) {
+        selected_glints_[glint_candidate->glint_type - 3] = *glint_candidate->upper_neighbour;
+        selected_glints_[glint_candidate->glint_type - 3].found = true;
+        glint_candidate->upper_neighbour->glint_type = (GlintType)(glint_candidate->glint_type - 3);
+        identifyNeighbours(glint_candidate->upper_neighbour);
+    }
+    if (glint_candidate->bottom_neighbour && glint_candidate->glint_type < 3
+        && !selected_glints_[glint_candidate->glint_type + 3].found) {
+        selected_glints_[glint_candidate->glint_type + 3] = *glint_candidate->bottom_neighbour;
+        selected_glints_[glint_candidate->glint_type + 3].found = true;
+        glint_candidate->bottom_neighbour->glint_type = (GlintType)(glint_candidate->glint_type + 3);
+        identifyNeighbours(glint_candidate->bottom_neighbour);
+    }
+    if (glint_candidate->right_neighbour && glint_candidate->glint_type % 3 < 2
+        && !selected_glints_[glint_candidate->glint_type + 1].found) {
+        selected_glints_[glint_candidate->glint_type + 1] = *glint_candidate->right_neighbour;
+        selected_glints_[glint_candidate->glint_type + 1].found = true;
+        glint_candidate->right_neighbour->glint_type = (GlintType)(glint_candidate->glint_type + 1);
+        identifyNeighbours(glint_candidate->right_neighbour);
+    }
+    if (glint_candidate->left_neighbour && glint_candidate->glint_type % 3 > 0
+        && !selected_glints_[glint_candidate->glint_type - 1].found) {
+        selected_glints_[glint_candidate->glint_type - 1] = *glint_candidate->left_neighbour;
+        selected_glints_[glint_candidate->glint_type - 1].found = true;
+        glint_candidate->left_neighbour->glint_type = (GlintType)(glint_candidate->glint_type - 1);
+        identifyNeighbours(glint_candidate->left_neighbour);
+    }
 }
 } // namespace et

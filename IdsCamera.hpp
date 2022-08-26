@@ -38,6 +38,8 @@ private:
 
     bool thread_running_{true};
 
+    bool separate_exposures_{false};
+
     std::thread image_gatherer_{};
 
     int n_cameras_{};

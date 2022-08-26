@@ -19,5 +19,4 @@ cv::Mat InputImages::grabPupilImage() {
 cv::Mat InputImages::grabGlintImage() {
     return image_;
 }
-
 } // namespace et

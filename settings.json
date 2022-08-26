@@ -152,14 +152,14 @@
                 -5.0,
                 5.0
             ],
-            "glint_threshold": 175,
-            "max_glint_radius": 20.0,
+            "glint_threshold": 224,
+            "max_glint_radius": 6.0,
             "max_hor_glint_pupil_distance": 400.0,
             "max_pupil_radius": 90.0,
             "max_vert_glint_pupil_distance": 200.0,
             "min_glint_radius": 0.0,
             "min_pupil_radius": 10.0,
-            "pupil_threshold": 54
+            "pupil_threshold": 53
         }
     },
     "led_positions": [

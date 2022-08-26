@@ -37,13 +37,15 @@ std::string getCurrentTimeText() {
 }
 
 int main(int argc, char *argv[]) {
-    //setenv("DISPLAY", "10.248.101.97:0", true);
     assert(argc >= 3 && argc <= 6);
 
     std::string settings_path(argv[1]);
     et::Settings settings(settings_path);
 
     int user_idx{};
+    bool saving_log{false};
+    bool ellipse_fitting{false};
+    bool single_exposure{true};
 
     std::string input_type{argv[2]};
     et::ImageProvider *image_provider;
@@ -53,10 +55,12 @@ int main(int argc, char *argv[]) {
     } else if (input_type == "file") {
         std::string input_file{argv[3]};
         user_idx = 4;
-
-        // std::cout << input_file + "_pupil.mp4" << " " << input_file + "_glint.mp4" << std::endl;
-        // image_provider = new et::InputVideo(input_file);
-       image_provider = new et::InputVideo(input_file + "_pupil.mp4", input_file + "_glint.mp4");
+        if (single_exposure) {
+            image_provider = new et::InputVideo(input_file);
+        } else {
+            image_provider = new et::InputVideo(input_file + "_pupil.mp4",
+                                                input_file + "_glint.mp4");
+        }
     } else if (input_type == "folder") {
         std::string input_folder{argv[3]};
         user_idx = 4;
@@ -102,10 +106,6 @@ int main(int argc, char *argv[]) {
     cv::VideoWriter pupil_video_output{};
     cv::VideoWriter glint_video_output{};
 
-    bool slow_mode{false};
-    bool saving_log{false};
-    bool ellipse_fitting{false};
-
     if (saving_log) {
         std::ofstream file{};
         file.open("log.txt");
@@ -113,9 +113,10 @@ int main(int argc, char *argv[]) {
     }
 
     int frame_counter{0};
+    bool slow_mode{false};
     while (!socket_server.finished) {
         cv::Mat pupil_image{image_provider->grabPupilImage()};
-        cv::Mat glint_image{image_provider->grabGlintImage()};
+        cv::Mat glint_image{single_exposure ? pupil_image : image_provider->grabGlintImage()};
         if (pupil_image.empty() || glint_image.empty()) {
             break;
         }
@@ -246,7 +247,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (!visualizer.isWindowOpen()) {
-        	socket_server.finished = true;
+            socket_server.finished = true;
         }
 
         frame_counter++;

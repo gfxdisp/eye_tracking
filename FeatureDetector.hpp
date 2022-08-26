@@ -80,6 +80,7 @@ private:
 
     void findBestGlintPair(std::vector<GlintCandidate> &glint_candidates);
     void determineGlintTypes(std::vector<GlintCandidate> &glint_candidates);
+    void identifyNeighbours(GlintCandidate *glint_candidate);
 
     std::mutex mtx_features_{};
 
@@ -116,9 +117,9 @@ private:
     cv::Ptr<cv::cuda::Filter> pupil_dilate_filter_{};
     cv::Ptr<cv::cuda::Filter> pupil_erode_filter_{};
     cv::Ptr<cv::cuda::Filter> pupil_close_filter_{};
-    int pupil_dilate_size_{3};
-    int pupil_erode_size_{3};
-    int pupil_close_size_{7};
+    int pupil_dilate_size_{0};
+    int pupil_erode_size_{0};
+    int pupil_close_size_{0};
 
     static bool isLeftNeighbour(GlintCandidate &reference, GlintCandidate &compared);
     static bool isRightNeighbour(GlintCandidate &reference, GlintCandidate &compared);
