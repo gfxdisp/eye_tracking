@@ -4,12 +4,6 @@ set(CMAKE_CXX_STANDARD 20)
 file(GLOB SOURCES *.cpp)
 add_executable(hdrmfs_eye_tracker ${SOURCES})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-#set(CMAKE_BUILD_TYPE "Release")
-
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -pg")
-#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
-#set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pg")
-#set(CMAKE_BUILD_TYPE "Debug")
 
 if(NOT CMAKE_PREFIX_PATH)
     set(CMAKE_PREFIX_PATH /usr/local)
