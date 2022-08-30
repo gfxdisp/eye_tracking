@@ -4,7 +4,7 @@ Gaze and eye position tracking, originally designed for the HDR-MF-S display.
 
 ## Installing dependencies
 
-The application has been run tested on Ubuntu 20.04. Any other version might be incompatible.
+The application has been run and tested on Ubuntu 20.04. Any other version might be incompatible.
 
 ### [CUDA](https://developer.nvidia.com/cuda-toolkit)
 
@@ -54,7 +54,7 @@ settings.json file contains all the parameters used for eye-tracking and user pr
 - **R** - shows thresholded image used for pupil detection as a video output.
 - **T** - shows thresholded image used for glint detection as a video output.
 - **+/-** - increases/decreases the radius of a circle used as an area of interest for pupil and glint detection.
-- **Arrows** - moves a circle used as an area of interest for pupil and glint detection.
+- **Arrow keys** - moves a circle used as an area of interest for pupil and glint detection.
 
 ## Known issues/further work
 
