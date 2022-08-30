@@ -69,7 +69,12 @@
         "min_pupil_radius": 10.0,
         "pupil_close_size": 0,
         "pupil_dilate_size": 0,
-        "pupil_erode_size": 0
+        "pupil_erode_size": 0,
+        "pupil_search_centre": [
+            296.0,
+            118.0
+        ],
+        "pupil_search_radius": 287
     },
     "eye_params": {
         "cornea_curvature_radius": 7.800000190734863,

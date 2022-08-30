@@ -121,12 +121,10 @@ int main(int argc, char *argv[]) {
             break;
         }
         bool features_found{feature_detector.findPupil(pupil_image)};
-        if (features_found) {
-            if (ellipse_fitting) {
-                features_found &= feature_detector.findEllipse(glint_image);
-            } else {
-                features_found &= feature_detector.findGlints(glint_image);
-            }
+        if (ellipse_fitting) {
+            features_found &= feature_detector.findEllipse(glint_image);
+        } else {
+            features_found &= feature_detector.findGlints(glint_image);
         }
         feature_detector.updateGazeBuffer();
         et::EyePosition eye_position{};
@@ -191,7 +189,7 @@ int main(int argc, char *argv[]) {
             glint_video_output.write(glint_image);
         }
 
-        int key_pressed = cv::waitKey(slow_mode ? 120 : 1) & 0xFF;
+        int key_pressed = cv::waitKeyEx(slow_mode ? 120 : 1) & 0xFF;
         switch (key_pressed) {
         case 27: // Esc
             if (!socket_server.isClientConnected()) {
@@ -222,9 +220,9 @@ int main(int argc, char *argv[]) {
         case 'p': {
             std::string filename{"images/" + getCurrentTimeText()
                                  + "_pupil.png"};
-            imwrite(filename.c_str(), pupil_image);
+            imwrite(filename, pupil_image);
             filename = "images/" + getCurrentTimeText() + "_glint.png";
-            imwrite(filename.c_str(), glint_image);
+            imwrite(filename, glint_image);
             break;
         }
         case 'q':
@@ -241,6 +239,24 @@ int main(int argc, char *argv[]) {
             break;
         case 't':
             visualization_type = VisualizationType::THRESHOLD_GLINTS;
+            break;
+        case 171: // +
+            et::Settings::parameters.detection_params.pupil_search_radius++;
+            break;
+        case 173: // -
+            et::Settings::parameters.detection_params.pupil_search_radius--;
+            break;
+        case 81: // ←
+            et::Settings::parameters.detection_params.pupil_search_centre.x--;
+            break;
+        case 82: // ↑
+            et::Settings::parameters.detection_params.pupil_search_centre.y--;
+            break;
+        case 83: // →
+            et::Settings::parameters.detection_params.pupil_search_centre.x++;
+            break;
+        case 84: // ↓
+            et::Settings::parameters.detection_params.pupil_search_centre.y++;
             break;
         default:
             break;

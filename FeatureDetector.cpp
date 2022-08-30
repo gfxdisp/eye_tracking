@@ -119,30 +119,24 @@ bool FeatureDetector::findPupil(const cv::Mat &image) {
     float best_radius{};
     float best_rating{0};
 
-    static cv::Size2f image_size{pupil_thresholded_image_.size()};
-    static cv::Point2f image_centre{
-        cv::Point2f(image_size.width / 2, image_size.height / 2)};
-    static float max_distance{std::min(image_size.width, image_size.height)
-                              / 2.0f};
+    cv::Point2f image_centre{
+        Settings::parameters.detection_params.pupil_search_centre};
+    int max_distance{Settings::parameters.detection_params.pupil_search_radius};
 
     for (const std::vector<cv::Point> &contour : contours_) {
         cv::Point2f centre;
         float radius;
 
         cv::minEnclosingCircle(contour, centre, radius);
-        if (static_cast<int>(radius)
-                < Settings::parameters.detection_params.min_pupil_radius
-            or static_cast<int>(radius)
-                > Settings::parameters.detection_params.max_pupil_radius)
+        if (radius < Settings::parameters.detection_params.min_pupil_radius
+            or radius > Settings::parameters.detection_params.max_pupil_radius)
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
-        //        if (distance > max_distance)
-        //            continue;
+        if (distance > max_distance)
+            continue;
 
         const float contour_area = static_cast<float>(cv::contourArea(contour));
-        //        if (contour_area <= 0)
-        //            continue;
         const float circle_area = 3.1415926f * powf(radius, 2);
         float rating = contour_area / circle_area;
         if (rating >= best_rating) {
@@ -160,7 +154,7 @@ bool FeatureDetector::findPupil(const cv::Mat &image) {
     mtx_features_.lock();
     pupil_location_ = toPoint(pupil_kalman_.predict());
     pupil_radius_ = best_radius;
-    pupil_location_ = best_centre; //Only for testing
+    //    pupil_location_ = best_centre; //Only for testing
     mtx_features_.unlock();
     return true;
 }
@@ -185,16 +179,12 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
     }
     glints_thresholded_image_.download(cpu_image_);
 
-    float best_rating{0};
-
     cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL,
                      cv::CHAIN_APPROX_SIMPLE);
 
-    static cv::Size2f image_size{glints_thresholded_image_.size()};
-    static cv::Point2f image_centre{
-        cv::Point2f(image_size.width / 2, image_size.height / 2)};
-    static float max_distance{std::min(image_size.width, image_size.height)
-                              / 2.0f};
+    cv::Point2f image_centre{
+        Settings::parameters.detection_params.pupil_search_centre};
+    int max_distance{Settings::parameters.detection_params.pupil_search_radius};
 
     std::vector<GlintCandidate> glint_candidates{};
     glint_candidates.reserve(contours_.size());
@@ -208,8 +198,8 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
-        //        if (distance > max_distance)
-        //            continue;
+        if (distance > max_distance)
+            continue;
 
         if (!isInEllipse(centre, pupil_location_)) {
             continue;
@@ -232,9 +222,7 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
         return false;
     }
     size_t led_count{Settings::parameters.leds_positions.size()};
-    size_t leds_per_row{led_count / 2};
 
-    GlintCandidate *best_glint{};
     std::sort(glint_candidates.begin(), glint_candidates.end(),
               [](const GlintCandidate &a, const GlintCandidate &b) {
                   return a.rating > b.rating;
@@ -242,8 +230,8 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
     findBestGlintPair(glint_candidates);
     determineGlintTypes(glint_candidates);
 
-    for (int i = 0; i < 6; i++) {
-        selected_glints_[i].found = false;
+    for (auto & selected_glint : selected_glints_) {
+        selected_glint.found = false;
     }
 
     cv::Point2f distance{};
@@ -251,7 +239,8 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
     for (int i = 0; i < 2; i++) {
         for (auto &glint : glint_candidates) {
             // In the first iteration (i = 0) we check only for centre LEDs, as they are the most reliable
-            if (i == 0 && glint.glint_type != GlintType::UpperCentre && glint.glint_type != GlintType::BottomCentre) {
+            if (i == 0 && glint.glint_type != GlintType::UpperCentre
+                && glint.glint_type != GlintType::BottomCentre) {
                 continue;
             }
             if (glint.glint_type == GlintType::Unknown) {
@@ -296,8 +285,8 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
     }
 
     int found_glints{0};
-    for (int i = 0; i < 6; i++) {
-        if (selected_glints_[i].found) {
+    for (auto & selected_glint : selected_glints_) {
+        if (selected_glint.found) {
             found_glints++;
         }
     }
@@ -323,12 +312,12 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
         glints_centre += selected_glint.location;
     }
 
-    glints_centre.x /= 6;
-    glints_centre.y /= 6;
+    glints_centre.x /= led_count;
+    glints_centre.y /= led_count;
 
     leds_kalman_.correct((KFMat(2, 1) << glints_centre.x, glints_centre.y));
     new_glints_centre = toPoint(leds_kalman_.predict());
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < led_count; i++) {
         mtx_features_.lock();
         glint_locations_[i] =
             selected_glints_[i].location + (new_glints_centre - glints_centre);
@@ -538,7 +527,8 @@ void FeatureDetector::getPupilGlintVector(cv::Vec2f &pupil_glint_vector) {
     mtx_features_.unlock();
 }
 
-void FeatureDetector::getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector) {
+void FeatureDetector::getPupilGlintVectorFiltered(
+    cv::Vec2f &pupil_glint_vector) {
     mtx_features_.lock();
     pupil_glint_vector = pupil_location_filtered_ - glint_location_filtered_;
     mtx_features_.unlock();
@@ -626,30 +616,38 @@ void FeatureDetector::updateGazeBuffer() {
 void FeatureDetector::identifyNeighbours(GlintCandidate *glint_candidate) {
     if (glint_candidate->upper_neighbour && glint_candidate->glint_type >= 3
         && !selected_glints_[glint_candidate->glint_type - 3].found) {
-        selected_glints_[glint_candidate->glint_type - 3] = *glint_candidate->upper_neighbour;
+        selected_glints_[glint_candidate->glint_type - 3] =
+            *glint_candidate->upper_neighbour;
         selected_glints_[glint_candidate->glint_type - 3].found = true;
-        glint_candidate->upper_neighbour->glint_type = (GlintType)(glint_candidate->glint_type - 3);
+        glint_candidate->upper_neighbour->glint_type =
+            (GlintType) (glint_candidate->glint_type - 3);
         identifyNeighbours(glint_candidate->upper_neighbour);
     }
     if (glint_candidate->bottom_neighbour && glint_candidate->glint_type < 3
         && !selected_glints_[glint_candidate->glint_type + 3].found) {
-        selected_glints_[glint_candidate->glint_type + 3] = *glint_candidate->bottom_neighbour;
+        selected_glints_[glint_candidate->glint_type + 3] =
+            *glint_candidate->bottom_neighbour;
         selected_glints_[glint_candidate->glint_type + 3].found = true;
-        glint_candidate->bottom_neighbour->glint_type = (GlintType)(glint_candidate->glint_type + 3);
+        glint_candidate->bottom_neighbour->glint_type =
+            (GlintType) (glint_candidate->glint_type + 3);
         identifyNeighbours(glint_candidate->bottom_neighbour);
     }
     if (glint_candidate->right_neighbour && glint_candidate->glint_type % 3 < 2
         && !selected_glints_[glint_candidate->glint_type + 1].found) {
-        selected_glints_[glint_candidate->glint_type + 1] = *glint_candidate->right_neighbour;
+        selected_glints_[glint_candidate->glint_type + 1] =
+            *glint_candidate->right_neighbour;
         selected_glints_[glint_candidate->glint_type + 1].found = true;
-        glint_candidate->right_neighbour->glint_type = (GlintType)(glint_candidate->glint_type + 1);
+        glint_candidate->right_neighbour->glint_type =
+            (GlintType) (glint_candidate->glint_type + 1);
         identifyNeighbours(glint_candidate->right_neighbour);
     }
     if (glint_candidate->left_neighbour && glint_candidate->glint_type % 3 > 0
         && !selected_glints_[glint_candidate->glint_type - 1].found) {
-        selected_glints_[glint_candidate->glint_type - 1] = *glint_candidate->left_neighbour;
+        selected_glints_[glint_candidate->glint_type - 1] =
+            *glint_candidate->left_neighbour;
         selected_glints_[glint_candidate->glint_type - 1].found = true;
-        glint_candidate->left_neighbour->glint_type = (GlintType)(glint_candidate->glint_type - 1);
+        glint_candidate->left_neighbour->glint_type =
+            (GlintType) (glint_candidate->glint_type - 1);
         identifyNeighbours(glint_candidate->left_neighbour);
     }
 }

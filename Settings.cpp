@@ -106,6 +106,12 @@ void from_json(const json &j, DetectionParams &detection_params) {
     j.at("pupil_dilate_size").get_to(detection_params.pupil_dilate_size);
     j.at("pupil_erode_size").get_to(detection_params.pupil_erode_size);
     j.at("pupil_close_size").get_to(detection_params.pupil_close_size);
+
+    std::vector<float> data{};
+    j.at("pupil_search_centre").get_to(data);
+    detection_params.pupil_search_centre = {data[0], data[1]};
+
+    j.at("pupil_search_radius").get_to(detection_params.pupil_search_radius);
 }
 
 void to_json(json &j, const DetectionParams &detection_params) {
@@ -128,6 +134,8 @@ void to_json(json &j, const DetectionParams &detection_params) {
     j["pupil_dilate_size"] = detection_params.pupil_dilate_size;
     j["pupil_erode_size"] = detection_params.pupil_erode_size;
     j["pupil_close_size"] = detection_params.pupil_close_size;
+    j["pupil_search_centre"] = {detection_params.pupil_search_centre.x, detection_params.pupil_search_centre.y};
+    j["pupil_search_radius"] = detection_params.pupil_search_radius;
 }
 
 void from_json(

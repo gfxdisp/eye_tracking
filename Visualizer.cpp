@@ -62,6 +62,10 @@ void Visualizer::drawUi(const cv::Mat& image) {
                feature_detector_->getPupilRadius(),
                cv::Scalar(0xFF, 0x00, 0x00), 2);
 
+    cv::circle(image_, Settings::parameters.detection_params.pupil_search_centre,
+               Settings::parameters.detection_params.pupil_search_radius,
+               cv::Scalar(0xFF, 0xFF, 0x00), 2);
+
     cv::circle(image_, eye_tracker_->getEyeCentrePixelPosition(), 2,
                cv::Scalar(0x00, 0xFF, 0x00), 5);
 

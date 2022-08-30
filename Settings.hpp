@@ -48,6 +48,8 @@ struct DetectionParams {
     int pupil_dilate_size{};
     int pupil_erode_size{};
     int pupil_close_size{};
+    cv::Point2f pupil_search_centre{};
+    int pupil_search_radius{};
 };
 
 struct FeaturesParams {
