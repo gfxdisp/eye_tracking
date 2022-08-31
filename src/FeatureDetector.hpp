@@ -37,73 +37,72 @@ struct GlintCandidate {
 
 class FeatureDetector {
 public:
-    void initialize(const cv::Size2i &resolution, float framerate);
+    void initialize();
 
-    bool findPupil(const cv::Mat &image);
+    bool findPupil(const cv::Mat &image, int camera_id);
 
-    bool findGlints(const cv::Mat &image);
+    bool findGlints(const cv::Mat &image, int camera_id);
 
-    bool findEllipse(const cv::Mat &image);
+    bool findEllipse(const cv::Mat &image, int camera_id);
 
-    cv::Point2f getPupil();
+    cv::Point2f getPupil(int camera_id);
 
-    void getPupilGlintVector(cv::Vec2f &pupil_glint_vector);
+    void getPupilGlintVector(cv::Vec2f &pupil_glint_vector, int camera_id);
 
-    void getPupil(cv::Point2f &pupil);
+    void getPupil(cv::Point2f &pupil, int camera_id);
 
-    void getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector);
+    void getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector,
+                                     int camera_id);
 
-    void getPupilFiltered(cv::Point2f &pupil);
+    void getPupilFiltered(cv::Point2f &pupil, int camera_id);
 
-    [[nodiscard]] int getPupilRadius() const;
+    [[nodiscard]] int getPupilRadius(int camera_id) const;
 
-    std::vector<cv::Point2f> *getGlints();
+    std::vector<cv::Point2f> *getGlints(int camera_id);
 
-    cv::RotatedRect getEllipse();
+    cv::RotatedRect getEllipse(int camera_id);
 
-    void getGlints(std::vector<cv::Point2f> &glint_locations);
+    void getGlints(std::vector<cv::Point2f> &glint_locations, int camera_id);
 
-    cv::Mat getThresholdedPupilImage();
+    cv::Mat getThresholdedPupilImage(int camera_id);
 
-    cv::Mat getThresholdedGlintsImage();
+    cv::Mat getThresholdedGlintsImage(int camera_id);
 
     void setGazeBufferSize(uint8_t value);
     void updateGazeBuffer();
 
 private:
-
-
     static cv::KalmanFilter makeKalmanFilter(const cv::Size2i &resolution,
                                              float framerate);
 
     void findBestGlintPair(std::vector<GlintCandidate> &glint_candidates);
     void determineGlintTypes(std::vector<GlintCandidate> &glint_candidates);
-    void identifyNeighbours(GlintCandidate *glint_candidate);
+    void identifyNeighbours(GlintCandidate *glint_candidate, int camera_id);
 
     std::mutex mtx_features_{};
 
-    int pupil_radius_{0};
-    cv::KalmanFilter pupil_kalman_{};
-    cv::KalmanFilter leds_kalman_{};
-    cv::RotatedRect glint_ellipse_{};
+    int pupil_radius_[2]{0};
+    cv::KalmanFilter pupil_kalman_[2]{};
+    cv::KalmanFilter leds_kalman_[2]{};
+    cv::RotatedRect glint_ellipse_[2]{};
 
-    cv::Point2f pupil_location_{};
-    std::vector<cv::Point2f> glint_locations_{};
+    cv::Point2f pupil_location_[2]{};
+    std::vector<cv::Point2f> glint_locations_[2]{};
 
     int buffer_size_{16};
     int buffer_idx_{0};
     int buffer_summed_count_{0};
-    std::vector<cv::Point2f> pupil_location_buffer_{};
-    std::vector<cv::Point2f> glint_location_buffer_{};
-    cv::Point2f pupil_location_summed_{};
-    cv::Point2f glint_location_summed_{};
-    cv::Point2f pupil_location_filtered_{};
-    cv::Point2f glint_location_filtered_{};
+    std::vector<cv::Point2f> pupil_location_buffer_[2]{};
+    std::vector<cv::Point2f> glint_location_buffer_[2]{};
+    cv::Point2f pupil_location_summed_[2]{};
+    cv::Point2f glint_location_summed_[2]{};
+    cv::Point2f pupil_location_filtered_[2]{};
+    cv::Point2f glint_location_filtered_[2]{};
 
     cv::Mat cpu_image_{};
     cv::cuda::GpuMat gpu_image_{};
-    cv::cuda::GpuMat pupil_thresholded_image_{};
-    cv::cuda::GpuMat glints_thresholded_image_{};
+    cv::cuda::GpuMat pupil_thresholded_image_[2];
+    cv::cuda::GpuMat glints_thresholded_image_[2];
 
     cv::Ptr<cv::cuda::Filter> glints_dilate_filter_{};
     cv::Ptr<cv::cuda::Filter> glints_erode_filter_{};
@@ -113,16 +112,20 @@ private:
     cv::Ptr<cv::cuda::Filter> pupil_erode_filter_{};
     cv::Ptr<cv::cuda::Filter> pupil_close_filter_{};
 
-    static bool isLeftNeighbour(GlintCandidate &reference, GlintCandidate &compared);
-    static bool isRightNeighbour(GlintCandidate &reference, GlintCandidate &compared);
-    static bool isUpperNeighbour(GlintCandidate &reference, GlintCandidate &compared);
-    static bool isBottomNeighbour(GlintCandidate &reference, GlintCandidate &compared);
-    void approximatePositions();
+    static bool isLeftNeighbour(GlintCandidate &reference,
+                                GlintCandidate &compared);
+    static bool isRightNeighbour(GlintCandidate &reference,
+                                 GlintCandidate &compared);
+    static bool isUpperNeighbour(GlintCandidate &reference,
+                                 GlintCandidate &compared);
+    static bool isBottomNeighbour(GlintCandidate &reference,
+                                  GlintCandidate &compared);
+    void approximatePositions(int camera_id);
 
     std::vector<std::vector<cv::Point>> contours_{};
     std::vector<cv::Vec4i> hierarchy_{}; // Unused output
 
-    GlintCandidate selected_glints_[6]{};
+    GlintCandidate selected_glints_[2][6]{};
 
     static inline cv::Point2f toPoint(cv::Mat m) {
         return {(float) m.at<double>(0, 0), (float) m.at<double>(0, 1)};

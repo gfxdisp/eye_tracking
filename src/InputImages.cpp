@@ -5,7 +5,7 @@ InputImages::InputImages(std::string &images_folder_path) {
     cv::glob(images_folder_path + "/*.png", filenames_, false);
 }
 
-cv::Mat InputImages::grabPupilImage() {
+cv::Mat InputImages::grabPupilImage(int camera_id) {
     if (image_count_ >= filenames_.size()) {
         return {};
     }
@@ -16,7 +16,7 @@ cv::Mat InputImages::grabPupilImage() {
     return image_;
 }
 
-cv::Mat InputImages::grabGlintImage() {
+cv::Mat InputImages::grabGlintImage(int camera_id) {
     return image_;
 }
 } // namespace et

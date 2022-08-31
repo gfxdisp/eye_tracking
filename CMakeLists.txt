@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(hdrmfs_eye_tracker)
 set(CMAKE_CXX_STANDARD 20)
-file(GLOB SOURCES *.cpp)
+file(GLOB SOURCES src/*.cpp)
 add_executable(hdrmfs_eye_tracker ${SOURCES})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 

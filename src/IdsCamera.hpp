@@ -17,12 +17,12 @@ namespace et {
 class IdsCamera : public ImageProvider {
 public:
     void initialize(bool separate_exposures) override;
-    cv::Mat grabPupilImage() override;
-    cv::Mat grabGlintImage() override;
+    cv::Mat grabPupilImage(int camera_id) override;
+    cv::Mat grabGlintImage(int camera_id) override;
     void close() override;
-    void setExposure(double exposure) override;
-    void setGamma(float gamma) override;
-    void setFramerate(double framerate) override;
+    void setExposure(double exposure, int camera_id);
+    void setGamma(float gamma, int camera_id);
+    void setFramerate(double framerate, int camera_id);
 
 private:
     void initializeCamera();
@@ -32,25 +32,19 @@ private:
 
     static constexpr int IMAGE_IN_QUEUE_COUNT = 10;
 
-    cv::Mat pupil_image_queue_[IMAGE_IN_QUEUE_COUNT]{};
-    cv::Mat glint_image_queue_[IMAGE_IN_QUEUE_COUNT]{};
+    cv::Mat pupil_image_queues_[IMAGE_IN_QUEUE_COUNT][2]{};
+    cv::Mat glint_image_queues_[IMAGE_IN_QUEUE_COUNT][2]{};
     int image_index_{-1};
 
     bool thread_running_{true};
 
-    bool separate_exposures_{false};
-
     std::thread image_gatherer_{};
 
-    int n_cameras_{};
-    PUEYE_CAMERA_LIST camera_list_{};
-    uint32_t camera_handle_{};
-    SENSORINFO sensor_info_{};
-    char *image_handle_{};
-    int image_id_{};
+    int used_camera_count_{};
+    uint32_t camera_handles_[2]{};
+    char *image_handles_[2]{};
+    int image_ids_[2]{};
     double framerate_{100};
-
-    cv::Mat temp_image_{};
 };
 }// namespace et
 

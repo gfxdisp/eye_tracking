@@ -24,8 +24,6 @@ struct EyePosition {
 };
 
 struct EyeData {
-    cv::Point2f pupil_pix_position{};
-    std::vector<cv::Point2f> glint_pix_positions{};
     cv::Vec3f cornea_curvature{};
     cv::Vec3f pupil{};
     cv::Vec3f eye_centre{};
@@ -33,26 +31,26 @@ struct EyeData {
 
 class EyeTracker {
 public:
-    EyeTracker(ImageProvider *image_provider);
+    EyeTracker();
 
     virtual ~EyeTracker();
 
     void calculateJoined(cv::Point2f pupil_pix_position,
-                         std::vector<cv::Point2f> &glint_pix_positions,
-                         float pupil_radius);
-    void getCorneaCurvaturePosition(cv::Vec3d &eye_centre);
+                         std::vector<cv::Point2f> *glint_pix_positions,
+                         int pupil_radius, int camera_id);
+    void getCorneaCurvaturePosition(cv::Vec3d &eye_centre, int camera_id);
 
-    void getGazeDirection(cv::Vec3f &gaze_direction);
+    void getGazeDirection(cv::Vec3f &gaze_direction, int camera_id);
 
-    void getPupilDiameter(float &pupil_diameter);
+    void getPupilDiameter(float &pupil_diameter, int camera_id);
 
-    void getEyeData(EyeData &eye_data);
+    void getEyeData(EyeData &eye_data, int camera_id);
 
-    cv::Point2f getCorneaCurvaturePixelPosition();
+    cv::Point2f getCorneaCurvaturePixelPosition(int camera_id);
 
-    cv::Point2f getEyeCentrePixelPosition();
+    cv::Point2f getEyeCentrePixelPosition(int camera_id);
 
-    void initializeKalmanFilter(float framerate);
+    void initialize();
 
     static bool getRaySphereIntersection(const cv::Vec3f &ray_pos,
                                          const cv::Vec3d &ray_dir,
@@ -69,12 +67,11 @@ public:
 private:
     bool setup_updated_{false};
 
-    float pupil_diameter_{};
+    float pupil_diameter_[2]{};
 
-    ImageProvider *image_provider_{};
-    cv::KalmanFilter kalman_eye_{};
-    cv::KalmanFilter kalman_gaze_{};
-    EyePosition eye_position_{};
+    cv::KalmanFilter kalman_eye_[2]{};
+    cv::KalmanFilter kalman_gaze_[2]{};
+    EyePosition eye_position_[2]{};
     cv::Vec3f inv_optical_axis_{};
     std::mutex mtx_eye_position_{};
     std::mutex mtx_setup_to_change_{};
@@ -84,40 +81,40 @@ private:
     cv::Ptr<cv::DownhillSolver> solver_{};
 
     cv::Point2f pupil_pix_position_{};
-    std::vector<cv::Point2f> glint_pix_positions_{};
+    std::vector<cv::Point2f> *glint_pix_positions_{};
 
-    cv::Mat full_projection_matrix_{};
+    cv::Mat full_projection_matrices_[2]{};
     static cv::Mat visual_axis_rotation_matrix_;
 
-    [[nodiscard]] inline cv::Vec3f project(const cv::Vec2f &point) const {
-        return project(ICStoWCS(point));
+    [[nodiscard]] inline cv::Vec3f project(const cv::Vec2f &point, int camera_id) const {
+        return project(ICStoWCS(point, camera_id));
     }
 
-    [[nodiscard]] inline cv::Vec3f ICStoWCS(const cv::Vec2f &point) const {
-        return CCStoWCS(ICStoCCS(point));
+    [[nodiscard]] inline cv::Vec3f ICStoWCS(const cv::Vec2f &point, int camera_id) const {
+        return CCStoWCS(ICStoCCS(point, camera_id));
     }
 
-    [[nodiscard]] inline cv::Vec2f WCStoICS(const cv::Vec3f &point) const {
-        return CCStoICS(WCStoCCS(point));
+    [[nodiscard]] inline cv::Vec2f WCStoICS(const cv::Vec3f &point, int camera_id) const {
+        return CCStoICS(WCStoCCS(point), camera_id);
     }
 
     static inline cv::Point3f toPoint(cv::Mat m) {
         return {(float) m.at<double>(0, 0), (float) m.at<double>(0, 1), (float) m.at<double>(0, 2)};
     }
 
-    [[nodiscard]] cv::Point2f undistort(cv::Point2f point);
+    [[nodiscard]] cv::Point2f undistort(cv::Point2f point, int camera_id);
 
     [[nodiscard]] cv::Vec3f project(const cv::Vec3f &point) const;
 
-    [[nodiscard]] cv::Vec2f unproject(const cv::Vec3f &point) const;
+    [[nodiscard]] cv::Vec2f unproject(const cv::Vec3f &point, int camera_id) const;
 
-    [[nodiscard]] cv::Vec3f ICStoCCS(const cv::Point2f &point) const;
+    [[nodiscard]] cv::Vec3f ICStoCCS(const cv::Point2f &point, int camera_id) const;
 
     [[nodiscard]] cv::Vec3f CCStoWCS(const cv::Vec3f &point) const;
 
     [[nodiscard]] cv::Vec3f WCStoCCS(const cv::Vec3f &point) const;
 
-    [[nodiscard]] cv::Vec2f CCStoICS(cv::Vec3f point) const;
+    [[nodiscard]] cv::Vec2f CCStoICS(cv::Vec3f point, int camera_id) const;
 
     [[nodiscard]] cv::Vec3f
     ICStoEyePosition(const cv::Vec3f &point,
@@ -137,4 +134,4 @@ private:
 
 }// namespace et
 
-#endif
+#endif //EYE_TRACKER_H

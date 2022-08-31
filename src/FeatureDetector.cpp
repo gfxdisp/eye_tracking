@@ -10,11 +10,16 @@ using KFMat = cv::Mat_<double>;
 
 namespace et {
 
-void FeatureDetector::initialize(const cv::Size2i &resolution,
-                                 float framerate) {
-    pupil_kalman_ = makeKalmanFilter(resolution, framerate);
-    leds_kalman_ = makeKalmanFilter(resolution, framerate);
-    glint_locations_.resize(Settings::parameters.leds_positions.size());
+void FeatureDetector::initialize() {
+    for (int i = 0; i < 2; i++) {
+        pupil_kalman_[i] = makeKalmanFilter(
+            et::Settings::parameters.camera_params[i].region_of_interest,
+            et::Settings::parameters.camera_params[i].framerate);
+        leds_kalman_[i] = makeKalmanFilter(
+            et::Settings::parameters.camera_params[i].region_of_interest,
+            et::Settings::parameters.camera_params[i].framerate);
+        glint_locations_[i].resize(Settings::parameters.leds_positions[i].size());
+    }
 
     cv::Mat morphology_element{};
     int size{};
@@ -64,54 +69,56 @@ void FeatureDetector::initialize(const cv::Size2i &resolution,
     }
 }
 
-cv::Point2f FeatureDetector::getPupil() {
-    return pupil_location_;
+cv::Point2f FeatureDetector::getPupil(int camera_id) {
+    return pupil_location_[camera_id];
 }
 
-void FeatureDetector::getPupil(cv::Point2f &pupil) {
+void FeatureDetector::getPupil(cv::Point2f &pupil, int camera_id) {
     mtx_features_.lock();
-    pupil = pupil_location_;
+    pupil = pupil_location_[camera_id];
     mtx_features_.unlock();
 }
 
-void FeatureDetector::getPupilFiltered(cv::Point2f &pupil) {
+void FeatureDetector::getPupilFiltered(cv::Point2f &pupil, int camera_id) {
     mtx_features_.lock();
-    pupil = pupil_location_filtered_;
+    pupil = pupil_location_filtered_[camera_id];
     mtx_features_.unlock();
 }
 
-int FeatureDetector::getPupilRadius() const {
-    return pupil_radius_;
+int FeatureDetector::getPupilRadius(int camera_id) const {
+    return pupil_radius_[camera_id];
 }
 
-std::vector<cv::Point2f> *FeatureDetector::getGlints() {
-    return &glint_locations_;
+std::vector<cv::Point2f> *FeatureDetector::getGlints(int camera_id) {
+    return &glint_locations_[camera_id];
 }
 
-void FeatureDetector::getGlints(std::vector<cv::Point2f> &glint_locations) {
+void FeatureDetector::getGlints(std::vector<cv::Point2f> &glint_locations,
+                                int camera_id) {
     mtx_features_.lock();
-    glint_locations = glint_locations_;
+    glint_locations = glint_locations_[camera_id];
     mtx_features_.unlock();
 }
 
-bool FeatureDetector::findPupil(const cv::Mat &image) {
+bool FeatureDetector::findPupil(const cv::Mat &image, int camera_id) {
     gpu_image_.upload(image);
-    cv::cuda::threshold(gpu_image_, pupil_thresholded_image_,
-                        Settings::parameters.user_params->pupil_threshold, 255,
-                        cv::THRESH_BINARY_INV);
+    cv::cuda::threshold(
+        gpu_image_, pupil_thresholded_image_[camera_id],
+        Settings::parameters.user_params->pupil_threshold[camera_id], 255,
+        cv::THRESH_BINARY_INV);
     if (pupil_erode_filter_) {
-        pupil_erode_filter_->apply(pupil_thresholded_image_,
-                                   pupil_thresholded_image_);
+        pupil_erode_filter_->apply(pupil_thresholded_image_[camera_id],
+                                   pupil_thresholded_image_[camera_id]);
     }
     if (pupil_dilate_filter_) {
-        pupil_dilate_filter_->apply(pupil_thresholded_image_,
-                                    pupil_thresholded_image_);
+        pupil_dilate_filter_->apply(pupil_thresholded_image_[camera_id],
+                                    pupil_thresholded_image_[camera_id]);
     }
     if (pupil_close_filter_) {
-        pupil_close_filter_->apply(pupil_thresholded_image_,
-                                   pupil_thresholded_image_);
+        pupil_close_filter_->apply(pupil_thresholded_image_[camera_id],
+                                   pupil_thresholded_image_[camera_id]);
     }
-    pupil_thresholded_image_.download(cpu_image_);
+    pupil_thresholded_image_[camera_id].download(cpu_image_);
 
     cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL,
                      cv::CHAIN_APPROX_SIMPLE);
@@ -120,8 +127,9 @@ bool FeatureDetector::findPupil(const cv::Mat &image) {
     float best_rating{0};
 
     cv::Point2f image_centre{
-        Settings::parameters.detection_params.pupil_search_centre};
-    int max_distance{Settings::parameters.detection_params.pupil_search_radius};
+        Settings::parameters.detection_params.pupil_search_centre[camera_id]};
+    int max_distance{
+        Settings::parameters.detection_params.pupil_search_radius[camera_id]};
 
     for (const std::vector<cv::Point> &contour : contours_) {
         cv::Point2f centre;
@@ -150,41 +158,44 @@ bool FeatureDetector::findPupil(const cv::Mat &image) {
         return false;
     }
 
-    pupil_kalman_.correct((KFMat(2, 1) << best_centre.x, best_centre.y));
+    pupil_kalman_[camera_id].correct(
+        (KFMat(2, 1) << best_centre.x, best_centre.y));
     mtx_features_.lock();
-    pupil_location_ = toPoint(pupil_kalman_.predict());
-    pupil_radius_ = best_radius;
+    pupil_location_[camera_id] = toPoint(pupil_kalman_[camera_id].predict());
+    pupil_radius_[camera_id] = best_radius;
     //    pupil_location_ = best_centre; //Only for testing
     mtx_features_.unlock();
     return true;
 }
 
-bool FeatureDetector::findGlints(const cv::Mat &image) {
+bool FeatureDetector::findGlints(const cv::Mat &image, int camera_id) {
     gpu_image_.upload(image);
-    cv::cuda::threshold(gpu_image_, glints_thresholded_image_,
-                        Settings::parameters.user_params->glint_threshold, 255,
-                        cv::THRESH_BINARY);
+    cv::cuda::threshold(
+        gpu_image_, glints_thresholded_image_[camera_id],
+        Settings::parameters.user_params->glint_threshold[camera_id], 255,
+        cv::THRESH_BINARY);
 
     if (glints_erode_filter_) {
-        glints_erode_filter_->apply(glints_thresholded_image_,
-                                    glints_thresholded_image_);
+        glints_erode_filter_->apply(glints_thresholded_image_[camera_id],
+                                    glints_thresholded_image_[camera_id]);
     }
     if (glints_dilate_filter_) {
-        glints_dilate_filter_->apply(glints_thresholded_image_,
-                                     glints_thresholded_image_);
+        glints_dilate_filter_->apply(glints_thresholded_image_[camera_id],
+                                     glints_thresholded_image_[camera_id]);
     }
     if (glints_close_filter_) {
-        glints_close_filter_->apply(glints_thresholded_image_,
-                                    glints_thresholded_image_);
+        glints_close_filter_->apply(glints_thresholded_image_[camera_id],
+                                    glints_thresholded_image_[camera_id]);
     }
-    glints_thresholded_image_.download(cpu_image_);
+    glints_thresholded_image_[camera_id].download(cpu_image_);
 
     cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL,
                      cv::CHAIN_APPROX_SIMPLE);
 
     cv::Point2f image_centre{
-        Settings::parameters.detection_params.pupil_search_centre};
-    int max_distance{Settings::parameters.detection_params.pupil_search_radius};
+        Settings::parameters.detection_params.pupil_search_centre[camera_id]};
+    int max_distance{
+        Settings::parameters.detection_params.pupil_search_radius[camera_id]};
 
     std::vector<GlintCandidate> glint_candidates{};
     glint_candidates.reserve(contours_.size());
@@ -201,7 +212,7 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
         if (distance > max_distance)
             continue;
 
-        if (!isInEllipse(centre, pupil_location_)) {
+        if (!isInEllipse(centre, pupil_location_[camera_id])) {
             continue;
         }
 
@@ -221,7 +232,7 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
     if (glint_candidates.empty()) {
         return false;
     }
-    size_t led_count{Settings::parameters.leds_positions.size()};
+    size_t led_count{Settings::parameters.leds_positions[camera_id].size()};
 
     std::sort(glint_candidates.begin(), glint_candidates.end(),
               [](const GlintCandidate &a, const GlintCandidate &b) {
@@ -230,8 +241,8 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
     findBestGlintPair(glint_candidates);
     determineGlintTypes(glint_candidates);
 
-    for (auto & selected_glint : selected_glints_) {
-        selected_glint.found = false;
+    for (int i = 0; i < 6; i++) {
+        selected_glints_[camera_id][i].found = false;
     }
 
     cv::Point2f distance{};
@@ -248,45 +259,49 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
             }
 
             if (glint_found) {
-                if (selected_glints_[glint.glint_type].found
-                    && selected_glints_[glint.glint_type].rating
+                if (selected_glints_[camera_id][glint.glint_type].found
+                    && selected_glints_[camera_id][glint.glint_type].rating
                         >= glint.rating) {
                     continue;
                 }
 
                 if (glint.glint_type % 3 != 0
                     && !isLeftNeighbour(
-                        glint, selected_glints_[glint.glint_type - 1])) {
+                        glint,
+                        selected_glints_[camera_id][glint.glint_type - 1])) {
                     continue;
                 }
                 if (glint.glint_type % 3 != 2
                     && !isRightNeighbour(
-                        glint, selected_glints_[glint.glint_type + 1])) {
+                        glint,
+                        selected_glints_[camera_id][glint.glint_type + 1])) {
                     continue;
                 }
                 if (glint.glint_type / 3 == 0
                     && !isBottomNeighbour(
-                        glint, selected_glints_[glint.glint_type + 3])) {
+                        glint,
+                        selected_glints_[camera_id][glint.glint_type + 3])) {
                     continue;
                 }
                 if (glint.glint_type / 3 == 1
                     && !isUpperNeighbour(
-                        glint, selected_glints_[glint.glint_type - 3])) {
+                        glint,
+                        selected_glints_[camera_id][glint.glint_type - 3])) {
                     continue;
                 }
             }
 
             glint_found = true;
-            selected_glints_[glint.glint_type] = glint;
-            selected_glints_[glint.glint_type].found = true;
-            identifyNeighbours(&glint);
-            approximatePositions();
+            selected_glints_[camera_id][glint.glint_type] = glint;
+            selected_glints_[camera_id][glint.glint_type].found = true;
+            identifyNeighbours(&glint, camera_id);
+            approximatePositions(camera_id);
         }
     }
 
     int found_glints{0};
-    for (auto & selected_glint : selected_glints_) {
-        if (selected_glint.found) {
+    for (int i = 0; i < 6; i++) {
+        if (selected_glints_[camera_id][i].found) {
             found_glints++;
         }
     }
@@ -295,32 +310,34 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
         return false;
     }
 
-    if (!selected_glints_[0].found && !selected_glints_[3].found) {
-        selected_glints_[0] = selected_glints_[1];
-        selected_glints_[1] = selected_glints_[2];
-        selected_glints_[3] = selected_glints_[4];
-        selected_glints_[4] = selected_glints_[5];
-        selected_glints_[2].found = false;
-        selected_glints_[5].found = false;
-        approximatePositions();
+    if (!selected_glints_[camera_id][0].found
+        && !selected_glints_[camera_id][3].found) {
+        selected_glints_[camera_id][0] = selected_glints_[camera_id][1];
+        selected_glints_[camera_id][1] = selected_glints_[camera_id][2];
+        selected_glints_[camera_id][3] = selected_glints_[camera_id][4];
+        selected_glints_[camera_id][4] = selected_glints_[camera_id][5];
+        selected_glints_[camera_id][2].found = false;
+        selected_glints_[camera_id][5].found = false;
+        approximatePositions(camera_id);
     }
 
     cv::Point2f glints_centre{};
     cv::Point2f new_glints_centre{};
 
-    for (auto &selected_glint : selected_glints_) {
-        glints_centre += selected_glint.location;
+    for (int i = 0; i < 6; i++) {
+        glints_centre += selected_glints_[camera_id][i].location;
     }
 
     glints_centre.x /= led_count;
     glints_centre.y /= led_count;
 
-    leds_kalman_.correct((KFMat(2, 1) << glints_centre.x, glints_centre.y));
-    new_glints_centre = toPoint(leds_kalman_.predict());
+    leds_kalman_[camera_id].correct(
+        (KFMat(2, 1) << glints_centre.x, glints_centre.y));
+    new_glints_centre = toPoint(leds_kalman_[camera_id].predict());
     for (int i = 0; i < led_count; i++) {
         mtx_features_.lock();
-        glint_locations_[i] =
-            selected_glints_[i].location + (new_glints_centre - glints_centre);
+        glint_locations_[camera_id][i] = selected_glints_[camera_id][i].location
+            + (new_glints_centre - glints_centre);
         mtx_features_.unlock();
     }
 
@@ -354,15 +371,15 @@ cv::KalmanFilter FeatureDetector::makeKalmanFilter(const cv::Size2i &resolution,
     return KF;
 }
 
-cv::Mat FeatureDetector::getThresholdedPupilImage() {
+cv::Mat FeatureDetector::getThresholdedPupilImage(int camera_id) {
     cv::Mat image_{};
-    pupil_thresholded_image_.download(image_);
+    pupil_thresholded_image_[camera_id].download(image_);
     return image_;
 }
 
-cv::Mat FeatureDetector::getThresholdedGlintsImage() {
+cv::Mat FeatureDetector::getThresholdedGlintsImage(int camera_id) {
     cv::Mat image_{};
-    glints_thresholded_image_.download(image_);
+    glints_thresholded_image_[camera_id].download(image_);
     return image_;
 }
 
@@ -473,7 +490,7 @@ bool FeatureDetector::isBottomNeighbour(GlintCandidate &reference,
             && distance.x > params->glint_bottom_hor_distance[0]);
 }
 
-void FeatureDetector::approximatePositions() {
+void FeatureDetector::approximatePositions(int camera_id) {
     cv::Point2f mean_right_move{15, 0};
     cv::Point2f mean_down_move{0, 40};
     cv::Point2f total_right_move{0};
@@ -483,18 +500,20 @@ void FeatureDetector::approximatePositions() {
 
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
-            if (selected_glints_[i * 3 + j].found
-                && selected_glints_[i * 3 + j + 1].found) {
-                total_right_move += selected_glints_[i * 3 + j + 1].location
-                    - selected_glints_[i * 3 + j].location;
+            if (selected_glints_[camera_id][i * 3 + j].found
+                && selected_glints_[camera_id][i * 3 + j + 1].found) {
+                total_right_move +=
+                    selected_glints_[camera_id][i * 3 + j + 1].location
+                    - selected_glints_[camera_id][i * 3 + j].location;
                 total_right_found++;
             }
         }
     }
     for (int i = 0; i < 3; i++) {
-        if (selected_glints_[i].found && selected_glints_[i + 3].found) {
-            total_down_move +=
-                selected_glints_[i + 3].location - selected_glints_[i].location;
+        if (selected_glints_[camera_id][i].found
+            && selected_glints_[camera_id][i + 3].found) {
+            total_down_move += selected_glints_[camera_id][i + 3].location
+                - selected_glints_[camera_id][i].location;
             total_down_found++;
         }
     }
@@ -507,13 +526,14 @@ void FeatureDetector::approximatePositions() {
     }
 
     for (int i = 0; i < 6; i++) {
-        if (!selected_glints_[i].found) {
+        if (!selected_glints_[camera_id][i].found) {
             for (int j = 0; j < 6; j++) {
-                if (selected_glints_[j].found) {
-                    selected_glints_[i].location = selected_glints_[j].location
+                if (selected_glints_[camera_id][j].found) {
+                    selected_glints_[camera_id][i].location =
+                        selected_glints_[camera_id][j].location
                         - (j % 3 - i % 3) * mean_right_move
                         - (j / 3 - i / 3) * mean_down_move;
-                    selected_glints_[i].rating = 0;
+                    selected_glints_[camera_id][i].rating = 0;
                     break;
                 }
             }
@@ -521,38 +541,42 @@ void FeatureDetector::approximatePositions() {
     }
 }
 
-void FeatureDetector::getPupilGlintVector(cv::Vec2f &pupil_glint_vector) {
+void FeatureDetector::getPupilGlintVector(cv::Vec2f &pupil_glint_vector,
+                                          int camera_id) {
     mtx_features_.lock();
-    pupil_glint_vector = pupil_location_ - glint_locations_[0];
+    pupil_glint_vector =
+        pupil_location_[camera_id] - glint_locations_[camera_id][0];
     mtx_features_.unlock();
 }
 
-void FeatureDetector::getPupilGlintVectorFiltered(
-    cv::Vec2f &pupil_glint_vector) {
+void FeatureDetector::getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector,
+                                                  int camera_id) {
     mtx_features_.lock();
-    pupil_glint_vector = pupil_location_filtered_ - glint_location_filtered_;
+    pupil_glint_vector = pupil_location_filtered_[camera_id]
+        - glint_location_filtered_[camera_id];
     mtx_features_.unlock();
 }
 
-bool FeatureDetector::findEllipse(const cv::Mat &image) {
+bool FeatureDetector::findEllipse(const cv::Mat &image, int camera_id) {
     gpu_image_.upload(image);
-    cv::cuda::threshold(gpu_image_, glints_thresholded_image_,
-                        Settings::parameters.user_params->glint_threshold, 255,
-                        cv::THRESH_BINARY);
+    cv::cuda::threshold(
+        gpu_image_, glints_thresholded_image_[camera_id],
+        Settings::parameters.user_params->glint_threshold[camera_id], 255,
+        cv::THRESH_BINARY);
 
     if (glints_erode_filter_) {
-        glints_erode_filter_->apply(glints_thresholded_image_,
-                                    glints_thresholded_image_);
+        glints_erode_filter_->apply(glints_thresholded_image_[camera_id],
+                                    glints_thresholded_image_[camera_id]);
     }
     if (glints_dilate_filter_) {
-        glints_dilate_filter_->apply(glints_thresholded_image_,
-                                     glints_thresholded_image_);
+        glints_dilate_filter_->apply(glints_thresholded_image_[camera_id],
+                                     glints_thresholded_image_[camera_id]);
     }
     if (glints_close_filter_) {
-        glints_close_filter_->apply(glints_thresholded_image_,
-                                    glints_thresholded_image_);
+        glints_close_filter_->apply(glints_thresholded_image_[camera_id],
+                                    glints_thresholded_image_[camera_id]);
     }
-    glints_thresholded_image_.download(cpu_image_);
+    glints_thresholded_image_[camera_id].download(cpu_image_);
 
     cv::findContours(cpu_image_, contours_, hierarchy_, cv::RETR_EXTERNAL,
                      cv::CHAIN_APPROX_SIMPLE);
@@ -568,12 +592,12 @@ bool FeatureDetector::findEllipse(const cv::Mat &image) {
     if (glints.size() < 5) {
         return false;
     }
-    glint_ellipse_ = cv::fitEllipse(glints);
+    glint_ellipse_[camera_id] = cv::fitEllipse(glints);
     return true;
 }
 
-cv::RotatedRect FeatureDetector::getEllipse() {
-    return glint_ellipse_;
+cv::RotatedRect FeatureDetector::getEllipse(int camera_id) {
+    return glint_ellipse_[camera_id];
 }
 
 void FeatureDetector::setGazeBufferSize(uint8_t value) {
@@ -581,74 +605,89 @@ void FeatureDetector::setGazeBufferSize(uint8_t value) {
 }
 
 void FeatureDetector::updateGazeBuffer() {
-    if (pupil_location_buffer_.size() != buffer_size_
-        || glint_location_buffer_.size() != buffer_size_) {
-        pupil_location_buffer_.resize(buffer_size_);
-        glint_location_buffer_.resize(buffer_size_);
-        buffer_idx_ = 0;
-        buffer_summed_count_ = 0;
-        pupil_location_summed_.x = 0.0f;
-        pupil_location_summed_.y = 0.0f;
-        glint_location_summed_.x = 0.0f;
-        glint_location_summed_.y = 0.0f;
-    }
+    for (int i = 0; i < 2; i++) {
+        if (pupil_location_buffer_[i].size() != buffer_size_
+            || glint_location_buffer_[i].size() != buffer_size_) {
+            pupil_location_buffer_[i].resize(buffer_size_);
+            glint_location_buffer_[i].resize(buffer_size_);
+            buffer_idx_ = 0;
+            buffer_summed_count_ = 0;
+            pupil_location_summed_[i].x = 0.0f;
+            pupil_location_summed_[i].y = 0.0f;
+            glint_location_summed_[i].x = 0.0f;
+            glint_location_summed_[i].y = 0.0f;
+        }
 
-    if (buffer_summed_count_ == buffer_size_) {
-        pupil_location_summed_ -= pupil_location_buffer_[buffer_idx_];
-        glint_location_summed_ -= glint_location_buffer_[buffer_idx_];
-    } else {
-        buffer_summed_count_++;
-    }
+        pupil_location_buffer_[i][buffer_idx_] = pupil_location_[i];
+        glint_location_buffer_[i][buffer_idx_] = glint_locations_[i][0];
+        pupil_location_summed_[i] += pupil_location_buffer_[i][buffer_idx_];
+        glint_location_summed_[i] += glint_location_buffer_[i][buffer_idx_];
 
-    pupil_location_buffer_[buffer_idx_] = pupil_location_;
-    glint_location_buffer_[buffer_idx_] = glint_locations_[0];
-    pupil_location_summed_ += pupil_location_buffer_[buffer_idx_];
-    glint_location_summed_ += glint_location_buffer_[buffer_idx_];
+        if (buffer_summed_count_ == buffer_size_) {
+            pupil_location_summed_[i] -= pupil_location_buffer_[i][buffer_idx_];
+            glint_location_summed_[i] -= glint_location_buffer_[i][buffer_idx_];
+        }
+
+        if (buffer_summed_count_ < buffer_size_ && i == 0) {
+            buffer_summed_count_++;
+        }
+
+        mtx_features_.lock();
+        pupil_location_filtered_[i] =
+            pupil_location_summed_[i] / buffer_summed_count_;
+        glint_location_filtered_[i] =
+            glint_location_summed_[i] / buffer_summed_count_;
+        mtx_features_.unlock();
+    }
 
     buffer_idx_ = (buffer_idx_ + 1) % buffer_size_;
-
-    mtx_features_.lock();
-    pupil_location_filtered_ = pupil_location_summed_ / buffer_summed_count_;
-    glint_location_filtered_ = glint_location_summed_ / buffer_summed_count_;
-    mtx_features_.unlock();
 }
 
-void FeatureDetector::identifyNeighbours(GlintCandidate *glint_candidate) {
+void FeatureDetector::identifyNeighbours(GlintCandidate *glint_candidate,
+                                         int camera_id) {
     if (glint_candidate->upper_neighbour && glint_candidate->glint_type >= 3
-        && !selected_glints_[glint_candidate->glint_type - 3].found) {
-        selected_glints_[glint_candidate->glint_type - 3] =
+        && !selected_glints_[camera_id][glint_candidate->glint_type - 3]
+                .found) {
+        selected_glints_[camera_id][glint_candidate->glint_type - 3] =
             *glint_candidate->upper_neighbour;
-        selected_glints_[glint_candidate->glint_type - 3].found = true;
+        selected_glints_[camera_id][glint_candidate->glint_type - 3].found =
+            true;
         glint_candidate->upper_neighbour->glint_type =
             (GlintType) (glint_candidate->glint_type - 3);
-        identifyNeighbours(glint_candidate->upper_neighbour);
+        identifyNeighbours(glint_candidate->upper_neighbour, camera_id);
     }
     if (glint_candidate->bottom_neighbour && glint_candidate->glint_type < 3
-        && !selected_glints_[glint_candidate->glint_type + 3].found) {
-        selected_glints_[glint_candidate->glint_type + 3] =
+        && !selected_glints_[camera_id][glint_candidate->glint_type + 3]
+                .found) {
+        selected_glints_[camera_id][glint_candidate->glint_type + 3] =
             *glint_candidate->bottom_neighbour;
-        selected_glints_[glint_candidate->glint_type + 3].found = true;
+        selected_glints_[camera_id][glint_candidate->glint_type + 3].found =
+            true;
         glint_candidate->bottom_neighbour->glint_type =
             (GlintType) (glint_candidate->glint_type + 3);
-        identifyNeighbours(glint_candidate->bottom_neighbour);
+        identifyNeighbours(glint_candidate->bottom_neighbour, camera_id);
     }
     if (glint_candidate->right_neighbour && glint_candidate->glint_type % 3 < 2
-        && !selected_glints_[glint_candidate->glint_type + 1].found) {
-        selected_glints_[glint_candidate->glint_type + 1] =
+        && !selected_glints_[camera_id][glint_candidate->glint_type + 1]
+                .found) {
+        selected_glints_[camera_id][glint_candidate->glint_type + 1] =
             *glint_candidate->right_neighbour;
-        selected_glints_[glint_candidate->glint_type + 1].found = true;
+        selected_glints_[camera_id][glint_candidate->glint_type + 1].found =
+            true;
         glint_candidate->right_neighbour->glint_type =
             (GlintType) (glint_candidate->glint_type + 1);
-        identifyNeighbours(glint_candidate->right_neighbour);
+        identifyNeighbours(glint_candidate->right_neighbour, camera_id);
     }
     if (glint_candidate->left_neighbour && glint_candidate->glint_type % 3 > 0
-        && !selected_glints_[glint_candidate->glint_type - 1].found) {
-        selected_glints_[glint_candidate->glint_type - 1] =
+        && !selected_glints_[camera_id][glint_candidate->glint_type - 1]
+                .found) {
+        selected_glints_[camera_id][glint_candidate->glint_type - 1] =
             *glint_candidate->left_neighbour;
-        selected_glints_[glint_candidate->glint_type - 1].found = true;
+        selected_glints_[camera_id][glint_candidate->glint_type - 1].found =
+            true;
         glint_candidate->left_neighbour->glint_type =
             (GlintType) (glint_candidate->glint_type - 1);
-        identifyNeighbours(glint_candidate->left_neighbour);
+        identifyNeighbours(glint_candidate->left_neighbour, camera_id);
     }
 }
 } // namespace et

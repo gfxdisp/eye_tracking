@@ -11,8 +11,8 @@ namespace et {
 class InputImages : public ImageProvider {
 public:
     explicit InputImages(std::string &images_folder_path);
-    cv::Mat grabPupilImage() override;
-    cv::Mat grabGlintImage() override;
+    cv::Mat grabPupilImage(int camera_id) override;
+    cv::Mat grabGlintImage(int camera_id) override;
 
 private:
     std::vector<std::string> filenames_{};
