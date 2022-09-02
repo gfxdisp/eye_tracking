@@ -18,6 +18,7 @@ struct CameraParams {
     float pupil_exposure{};
     float glint_exposure{};
     float gamma{};
+    float pixel_clock{};
     cv::Mat intrinsic_matrix{};
     float distortion_coefficients[5]{};
     cv::Vec3f gaze_shift{};

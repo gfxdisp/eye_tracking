@@ -12,6 +12,7 @@ public:
     virtual cv::Mat grabGlintImage(int camera_id) = 0;
     virtual void close();
     virtual bool isSeparateExposures();
+    virtual std::vector<int> getCameraIds() = 0;
 
 protected:
     cv::Mat image_{};

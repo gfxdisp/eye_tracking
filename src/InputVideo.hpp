@@ -13,6 +13,7 @@ public:
     cv::Mat grabPupilImage(int camera_id) override;
     cv::Mat grabGlintImage(int camera_id) override;
     void close() override;
+    std::vector<int> getCameraIds() override;
 
 private:
     std::string input_pupil_video_path_[2]{};

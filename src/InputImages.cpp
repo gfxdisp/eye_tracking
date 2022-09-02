@@ -19,4 +19,9 @@ cv::Mat InputImages::grabPupilImage(int camera_id) {
 cv::Mat InputImages::grabGlintImage(int camera_id) {
     return image_;
 }
+
+std::vector<int> InputImages::getCameraIds() {
+    return {0};
+}
+
 } // namespace et

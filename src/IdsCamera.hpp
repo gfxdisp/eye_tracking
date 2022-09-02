@@ -23,10 +23,10 @@ public:
     void setExposure(double exposure, int camera_id);
     void setGamma(float gamma, int camera_id);
     void setFramerate(double framerate, int camera_id);
+    std::vector<int> getCameraIds() override;
 
 private:
     void initializeCamera();
-    void initializeImage();
     void imageGatheringTwoExposuresThread();
     void imageGatheringOneExposureThread();
 
@@ -45,6 +45,7 @@ private:
     char *image_handles_[2]{};
     int image_ids_[2]{};
     double framerate_{100};
+    std::vector<int> camera_ids_{};
 };
 }// namespace et
 

@@ -618,20 +618,22 @@ void FeatureDetector::updateGazeBuffer() {
             glint_location_summed_[i].y = 0.0f;
         }
 
-        pupil_location_buffer_[i][buffer_idx_] = pupil_location_[i];
-        glint_location_buffer_[i][buffer_idx_] = glint_locations_[i][0];
-        pupil_location_summed_[i] += pupil_location_buffer_[i][buffer_idx_];
-        glint_location_summed_[i] += glint_location_buffer_[i][buffer_idx_];
-
         if (buffer_summed_count_ == buffer_size_) {
             pupil_location_summed_[i] -= pupil_location_buffer_[i][buffer_idx_];
             glint_location_summed_[i] -= glint_location_buffer_[i][buffer_idx_];
         }
 
-        if (buffer_summed_count_ < buffer_size_ && i == 0) {
-            buffer_summed_count_++;
-        }
-
+        pupil_location_buffer_[i][buffer_idx_] = pupil_location_[i];
+        glint_location_buffer_[i][buffer_idx_] = glint_locations_[i][0];
+        pupil_location_summed_[i] += pupil_location_buffer_[i][buffer_idx_];
+        glint_location_summed_[i] += glint_location_buffer_[i][buffer_idx_];
+    }
+ 
+    if (buffer_summed_count_ != buffer_size_) {
+        buffer_summed_count_++;
+    }
+    
+    for (int i = 0; i < 2; i++) {
         mtx_features_.lock();
         pupil_location_filtered_[i] =
             pupil_location_summed_[i] / buffer_summed_count_;

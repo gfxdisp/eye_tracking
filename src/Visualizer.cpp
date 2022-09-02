@@ -111,13 +111,15 @@ void Visualizer::drawUi(const cv::Mat &image, int camera_id) {
 
 void Visualizer::show() {
     for (int i = 0; i < 2; i++) {
-        cv::imshow(WINDOW_NAME[i].begin(), image_[i]);
+        if (!image_[i].empty()) {
+            cv::imshow(WINDOW_NAME[i].begin(), image_[i]);
+        }
     }
 }
 
 bool Visualizer::isWindowOpen() {
-    for (auto i : WINDOW_NAME) {
-        if (cv::getWindowProperty(i.begin(), cv::WND_PROP_AUTOSIZE) < 0) {
+    for (int i = 0; i < 2; i++) {
+        if (!image_[i].empty() && cv::getWindowProperty(WINDOW_NAME[i].begin(), cv::WND_PROP_AUTOSIZE) < 0) {
             return false;
         }
     }

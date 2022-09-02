@@ -1,5 +1,6 @@
 #include "InputVideo.hpp"
 
+#include <iostream>
 #include <filesystem>
 #include <utility>
 
@@ -100,6 +101,10 @@ cv::Mat InputVideo::grabGlintImage(int camera_id) {
         cv::cvtColor(image_, image_, cv::COLOR_BGR2GRAY);
     }
     return image_;
+}
+
+std::vector<int> InputVideo::getCameraIds() {
+    return {0, 1};
 }
 
 void InputVideo::close() {
