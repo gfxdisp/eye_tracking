@@ -47,7 +47,7 @@ void IdsCamera::initializeCamera() {
     }
     assert(!camera_indices.empty());
     used_camera_count_ = static_cast<int>(camera_indices.size());
-
+    
     for (int i = 0; i < camera_ids_.size(); i++) {
         int camera_id = camera_ids_[i];
         camera_handles_[camera_id] =

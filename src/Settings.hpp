@@ -33,8 +33,8 @@ struct EyeParams {
 };
 
 struct DetectionParams {
-    float min_pupil_radius{};
-    float max_pupil_radius{};
+    float min_pupil_radius[2]{};
+    float max_pupil_radius[2]{};
     float min_glint_radius{};
     float max_glint_radius{};
     float glint_bottom_hor_distance[2]{};

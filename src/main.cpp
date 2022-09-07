@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
     et::Settings::parameters.user_params =
         &et::Settings::parameters.features_params[user];
 
-    image_provider->initialize(false);
+    image_provider->initialize(double_exposure);
 
     et::FeatureDetector feature_detector{};
     feature_detector.initialize();
@@ -146,6 +146,7 @@ int main(int argc, char *argv[]) {
             glint_image[i] = double_exposure ? image_provider->grabGlintImage(i)
                                              : pupil_image[i];
             if (pupil_image[i].empty() || glint_image[i].empty()) {
+                std::cout << "Empty image. Finishing.\n";
                 socket_server.finished = true;
                 break;
             }

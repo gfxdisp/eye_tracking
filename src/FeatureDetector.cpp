@@ -136,8 +136,8 @@ bool FeatureDetector::findPupil(const cv::Mat &image, int camera_id) {
         float radius;
 
         cv::minEnclosingCircle(contour, centre, radius);
-        if (radius < Settings::parameters.detection_params.min_pupil_radius
-            or radius > Settings::parameters.detection_params.max_pupil_radius)
+        if (radius < Settings::parameters.detection_params.min_pupil_radius[camera_id]
+            or radius > Settings::parameters.detection_params.max_pupil_radius[camera_id])
             continue;
 
         float distance = euclideanDistance(centre, image_centre);
