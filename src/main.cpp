@@ -114,7 +114,6 @@ int main(int argc, char *argv[]) {
     et::EyeTracker eye_tracker{};
     eye_tracker.initialize();
 
-
     std::vector<int> camera_ids = image_provider->getCameraIds();
 
     et::SocketServer socket_server{&eye_tracker, &feature_detector};
@@ -136,7 +135,6 @@ int main(int argc, char *argv[]) {
     int frame_counter{0};
     bool slow_mode{false};
 
-
     cv::Mat pupil_image[2], glint_image[2];
     while (!socket_server.finished) {
         for (int i : camera_ids) {
@@ -152,8 +150,8 @@ int main(int argc, char *argv[]) {
             }
             bool features_found{feature_detector.findPupil(pupil_image[i], i)};
             if (ellipse_fitting) {
-                features_found &=
-                    feature_detector.findEllipse(glint_image[i], i);
+                features_found &= feature_detector.findEllipse(
+                    glint_image[i], feature_detector.getPupil(i), i);
             } else {
                 features_found &=
                     feature_detector.findGlints(glint_image[i], i);
@@ -210,7 +208,11 @@ int main(int argc, char *argv[]) {
             }
 
             if (pupil_video_output[i].isOpened()) {
-                pupil_video_output[i].write(pupil_image[i]);
+                if (input_type == "file") {
+                    pupil_video_output[i].write(visualizer.getUiImage(i));
+                } else {
+                    pupil_video_output[i].write(pupil_image[i]);
+                }
             }
 
             if (glint_video_output[i].isOpened()) {
@@ -222,21 +224,18 @@ int main(int argc, char *argv[]) {
             visualizer.show();
         }
 
-        int key_pressed = cv::pollKey() & 0xFFFF;
-        switch (key_pressed) {
-        case 27: // Esc
-            if (!socket_server.isClientConnected()) {
-                socket_server.finished = true;
-            }
-            break;
-        case 'v': {
+        static bool first_it = false;
+//        static bool first_it = true;
+        if (first_it) {
+            first_it = false;
             for (int i : camera_ids) {
                 if (double_exposure) {
                     std::string filename{"videos/" + getCurrentTimeText() + "_"
-                                     + std::to_string(i) + "_pupil.mp4"};
+                                         + std::to_string(i) + "_pupil.mp4"};
                     std::clog << "Saving video to " << filename << "\n";
                     pupil_video_output[i].open(
-                        filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+                        filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                        30,
                         et::Settings::parameters.camera_params[i]
                             .region_of_interest,
                         false);
@@ -250,16 +249,56 @@ int main(int argc, char *argv[]) {
                         false);
                 } else {
                     std::string filename{"videos/" + getCurrentTimeText() + "_"
-                                     + std::to_string(i) + ".mp4"};
+                                         + std::to_string(i) + ".mp4"};
                     std::clog << "Saving video to " << filename << "\n";
                     pupil_video_output[i].open(
-                        filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+                        filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                        30,
                         et::Settings::parameters.camera_params[i]
                             .region_of_interest,
                         false);
                 }
+            }
+        }
 
-                
+        int key_pressed = cv::pollKey() & 0xFFFF;
+        switch (key_pressed) {
+        case 27: // Esc
+            if (!socket_server.isClientConnected()) {
+                socket_server.finished = true;
+            }
+            break;
+        case 'v': {
+            for (int i : camera_ids) {
+                if (double_exposure) {
+                    std::string filename{"videos/" + getCurrentTimeText() + "_"
+                                         + std::to_string(i) + "_pupil.mp4"};
+                    std::clog << "Saving video to " << filename << "\n";
+                    pupil_video_output[i].open(
+                        filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                        30,
+                        et::Settings::parameters.camera_params[i]
+                            .region_of_interest,
+                        false);
+                    filename = "videos/" + getCurrentTimeText() + "_glint.mp4";
+                    std::clog << "Saving video to " << filename << "\n";
+                    glint_video_output[i].open(
+                        filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                        30,
+                        et::Settings::parameters.camera_params[i]
+                            .region_of_interest,
+                        false);
+                } else {
+                    std::string filename{"videos/" + getCurrentTimeText() + "_"
+                                         + std::to_string(i) + ".mp4"};
+                    std::clog << "Saving video to " << filename << "\n";
+                    pupil_video_output[i].open(
+                        filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                        30,
+                        et::Settings::parameters.camera_params[i]
+                            .region_of_interest,
+                        false);
+                }
             }
             break;
         }
@@ -269,14 +308,14 @@ int main(int argc, char *argv[]) {
         case 'p': {
             for (int i : camera_ids) {
                 if (double_exposure) {
-                std::string filename{"images/" + getCurrentTimeText() + "_"
-                                     + std::to_string(i) + "_pupil.png"};
-                imwrite(filename, pupil_image[i]);
-                filename = "images/" + getCurrentTimeText() + "_glint.png";
-                imwrite(filename, glint_image[i]);
+                    std::string filename{"images/" + getCurrentTimeText() + "_"
+                                         + std::to_string(i) + "_pupil.png"};
+                    imwrite(filename, pupil_image[i]);
+                    filename = "images/" + getCurrentTimeText() + "_glint.png";
+                    imwrite(filename, glint_image[i]);
                 } else {
                     std::string filename{"images/" + getCurrentTimeText() + "_"
-                                     + std::to_string(i) + ".png"};
+                                         + std::to_string(i) + ".png"};
                     imwrite(filename, pupil_image[i]);
                 }
             }
@@ -304,16 +343,20 @@ int main(int argc, char *argv[]) {
             et::Settings::parameters.detection_params.pupil_search_radius[0]--;
             break;
         case 'g': // ← left
-            et::Settings::parameters.detection_params.pupil_search_centre[0].x--;
+            et::Settings::parameters.detection_params.pupil_search_centre[0]
+                .x--;
             break;
         case 'y': // ↑ left
-            et::Settings::parameters.detection_params.pupil_search_centre[0].y--;
+            et::Settings::parameters.detection_params.pupil_search_centre[0]
+                .y--;
             break;
         case 'j': // → left
-            et::Settings::parameters.detection_params.pupil_search_centre[0].x++;
+            et::Settings::parameters.detection_params.pupil_search_centre[0]
+                .x++;
             break;
         case 'h': // ↓ left
-            et::Settings::parameters.detection_params.pupil_search_centre[0].y++;
+            et::Settings::parameters.detection_params.pupil_search_centre[0]
+                .y++;
             break;
         case 65451: // + right
             et::Settings::parameters.detection_params.pupil_search_radius[1]++;
@@ -322,16 +365,20 @@ int main(int argc, char *argv[]) {
             et::Settings::parameters.detection_params.pupil_search_radius[1]--;
             break;
         case 65361: // ← right
-            et::Settings::parameters.detection_params.pupil_search_centre[1].x--;
+            et::Settings::parameters.detection_params.pupil_search_centre[1]
+                .x--;
             break;
         case 65362: // ↑ right
-            et::Settings::parameters.detection_params.pupil_search_centre[1].y--;
+            et::Settings::parameters.detection_params.pupil_search_centre[1]
+                .y--;
             break;
         case 65363: // → right
-            et::Settings::parameters.detection_params.pupil_search_centre[1].x++;
+            et::Settings::parameters.detection_params.pupil_search_centre[1]
+                .x++;
             break;
         case 65364: // ↓ right
-            et::Settings::parameters.detection_params.pupil_search_centre[1].y++;
+            et::Settings::parameters.detection_params.pupil_search_centre[1]
+                .y++;
             break;
         default:
             break;
@@ -358,14 +405,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    
     image_provider->close();
     socket_server.closeSocket();
     cv::destroyAllWindows();
     settings.saveSettings(settings_path);
 
     t.join();
-
 
     return EXIT_SUCCESS;
 }

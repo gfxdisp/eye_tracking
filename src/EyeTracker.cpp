@@ -7,7 +7,7 @@
 #include <iostream>
 #include <thread>
 
-using KFMat = cv::Mat_<double>;
+using KFMatD = cv::Mat_<double>;
 
 namespace et {
 
@@ -89,7 +89,7 @@ void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
     double k = x.at<double>(0, 0);
     cornea_curvature = avg_bnorm * k;
 
-    kalman_eye_[camera_id].correct((KFMat(3, 1) << (*cornea_curvature)(0),
+    kalman_eye_[camera_id].correct((KFMatD(3, 1) << (*cornea_curvature)(0),
                          (*cornea_curvature)(1), (*cornea_curvature)(2)));
 
     cornea_curvature = toPoint(kalman_eye_[camera_id].predict());
@@ -260,7 +260,7 @@ EyeTracker::lineSphereIntersections(const cv::Vec3d &sphere_centre, float radius
 cv::KalmanFilter EyeTracker::makeKalmanFilter(float framerate) {
     constexpr static double VELOCITY_DECAY = 1.0;
     const static cv::Mat TRANSITION_MATRIX =
-        (KFMat(6, 6) << 1, 0, 0, 1.0f / framerate, 0, 0, 0, 1, 0, 0,
+        (KFMatD(6, 6) << 1, 0, 0, 1.0f / framerate, 0, 0, 0, 1, 0, 0,
          1.0f / framerate, 0, 0, 0, 1, 0, 0, 1.0f / framerate, 0, 0, 0,
          VELOCITY_DECAY, 0, 0, 0, 0, 0, 0, VELOCITY_DECAY, 0, 0, 0, 0, 0, 0,
          VELOCITY_DECAY);

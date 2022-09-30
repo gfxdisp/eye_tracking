@@ -91,20 +91,20 @@ void Visualizer::drawUi(const cv::Mat &image, int camera_id) {
     }
     cv::circle(image_[camera_id], feature_detector_->getPupil(camera_id),
                feature_detector_->getPupilRadius(camera_id),
-               cv::Scalar(0xFF, 0x00, 0x00), 2);
-
-    cv::circle(image_[camera_id],
-               Settings::parameters.detection_params.pupil_search_centre[camera_id],
-               Settings::parameters.detection_params.pupil_search_radius[camera_id],
                cv::Scalar(0xFF, 0xFF, 0x00), 2);
+
+    cv::circle(
+        image_[camera_id],
+        Settings::parameters.detection_params.pupil_search_centre[camera_id],
+        Settings::parameters.detection_params.pupil_search_radius[camera_id],
+        cv::Scalar(0xFF, 0xFF, 0x00), 2);
 
     cv::circle(image_[camera_id],
                eye_tracker_->getEyeCentrePixelPosition(camera_id), 2,
                cv::Scalar(0x00, 0xFF, 0x00), 5);
 
     cv::ellipse(image_[camera_id], feature_detector_->getEllipse(camera_id),
-                cv::Scalar(0x00, 0x00, 0xFF), 2);
-
+                cv::Scalar(0xFF, 0xFF, 0x00), 2);
     cv::putText(image_[camera_id], fps_text_.str(), cv::Point2i(100, 100),
                 cv::FONT_HERSHEY_SIMPLEX, 3, cv::Scalar(0x00, 0x00, 0xFF), 3);
 }
@@ -119,7 +119,10 @@ void Visualizer::show() {
 
 bool Visualizer::isWindowOpen() {
     for (int i = 0; i < 2; i++) {
-        if (!image_[i].empty() && cv::getWindowProperty(WINDOW_NAME[i].begin(), cv::WND_PROP_AUTOSIZE) < 0) {
+        if (!image_[i].empty()
+            && cv::getWindowProperty(WINDOW_NAME[i].begin(),
+                                     cv::WND_PROP_AUTOSIZE)
+                < 0) {
             return false;
         }
     }

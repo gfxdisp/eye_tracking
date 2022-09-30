@@ -23,7 +23,7 @@
                 0.0,
                 0.0
             ],
-            "glint_exposure": 2.009999990463257,
+            "glint_exposure": 2.0999999046325684,
             "intrinsic_matrix_opencv": [
                 5867.91845703125,
                 0.0,
@@ -125,7 +125,7 @@
         "pupil_search_centre": {
             "left": [
                 443.0,
-                434.0
+                433.0
             ],
             "right": [
                 277.0,
@@ -149,11 +149,11 @@
             "alpha": -0.0872664600610733,
             "beta": 0.02617993950843811,
             "glint_threshold": {
-                "left": 244,
+                "left": 204,
                 "right": 213
             },
             "pupil_threshold": {
-                "left": 30,
+                "left": 18,
                 "right": 21
             }
         }

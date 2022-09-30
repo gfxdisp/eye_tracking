@@ -1,6 +1,7 @@
 #ifndef FEATURE_DETECTOR_H
 #define FEATURE_DETECTOR_H
 
+#include "BayesMinimizer.hpp"
 #include "Settings.hpp"
 
 #include <opencv2/core/cuda.hpp>
@@ -37,13 +38,15 @@ struct GlintCandidate {
 
 class FeatureDetector {
 public:
+    virtual ~FeatureDetector();
     void initialize();
 
     bool findPupil(const cv::Mat &image, int camera_id);
 
     bool findGlints(const cv::Mat &image, int camera_id);
 
-    bool findEllipse(const cv::Mat &image, int camera_id);
+    bool findEllipse(const cv::Mat &image, const cv::Point2f &pupil,
+                     int camera_id);
 
     cv::Point2f getPupil(int camera_id);
 
@@ -62,6 +65,7 @@ public:
 
     cv::RotatedRect getEllipse(int camera_id);
 
+
     void getGlints(std::vector<cv::Point2f> &glint_locations, int camera_id);
 
     cv::Mat getThresholdedPupilImage(int camera_id);
@@ -72,8 +76,15 @@ public:
     void updateGazeBuffer();
 
 private:
-    static cv::KalmanFilter makeKalmanFilter(const cv::Size2i &resolution,
-                                             float framerate);
+    static cv::KalmanFilter makePxKalmanFilter(const cv::Size2i &resolution,
+                                               float framerate);
+    static cv::KalmanFilter makeRadiusKalmanFilter(const float &min_radius,
+                                                   const float &max_radius,
+                                                   float framerate);
+
+    static cv::KalmanFilter
+    makeEllipseKalmanFilter(const cv::Size2i &resolution, const float &min_axis,
+                            const float &max_axis, float framerate);
 
     void findBestGlintPair(std::vector<GlintCandidate> &glint_candidates);
     void determineGlintTypes(std::vector<GlintCandidate> &glint_candidates);
@@ -84,10 +95,18 @@ private:
     int pupil_radius_[2]{0};
     cv::KalmanFilter pupil_kalman_[2]{};
     cv::KalmanFilter leds_kalman_[2]{};
-    cv::RotatedRect glint_ellipse_[2]{};
+    cv::KalmanFilter pupil_radius_kalman_[2]{};
+    cv::KalmanFilter glint_ellipse_kalman_[2]{};
 
+    cv::RotatedRect glint_ellipse_[2]{};
     cv::Point2f pupil_location_[2]{};
     std::vector<cv::Point2f> glint_locations_[2]{};
+
+    BayesMinimizer *bayes_minimizer_{};
+    cv::Ptr<cv::DownhillSolver::Function> bayes_minimizer_func_{};
+    cv::Ptr<cv::DownhillSolver> bayes_solver_{};
+    cv::Point2d ellipse_centre_[2]{};
+    double ellipse_radius_[2]{};
 
     int buffer_size_{16};
     int buffer_idx_{0};
@@ -131,7 +150,12 @@ private:
         return {(float) m.at<double>(0, 0), (float) m.at<double>(0, 1)};
     }
 
-    static inline float euclideanDistance(cv::Point2f &p, cv::Point2f &q) {
+    static inline float toValue(cv::Mat m) {
+        return (float) m.at<double>(0, 0);
+    }
+
+    static inline float euclideanDistance(const cv::Point2f &p,
+                                          const cv::Point2f &q) {
         cv::Point2f diff = p - q;
         return cv::sqrt(diff.x * diff.x + diff.y * diff.y);
     }
@@ -146,6 +170,19 @@ private:
         float minor = ((point.y - centre.y) * (point.y - centre.y))
             / (semi_minor * semi_minor);
         return major + minor <= 1;
+    }
+
+    static inline bool isInEllipse(cv::Point2f &point, cv::RotatedRect &ellipse,
+                                   float acceptable_error) {
+        float a = (point.x - ellipse.center.x) * std::cos(ellipse.angle);
+        float b = (point.y - ellipse.center.y) * std::sin(ellipse.angle);
+        float c = (point.x - ellipse.center.x) * std::sin(ellipse.angle);
+        float d = (point.y - ellipse.center.y) * std::cos(ellipse.angle);
+        float e =
+            ((a + b) * (a + b)) / (ellipse.size.width * ellipse.size.width);
+        float f =
+            ((c + d) * (c + d)) / (ellipse.size.height * ellipse.size.height);
+        return std::abs(e + f - 1.0f) < acceptable_error;
     }
 };
 } // namespace et
