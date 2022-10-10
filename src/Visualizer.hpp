@@ -1,6 +1,7 @@
 #ifndef VISUALIZER_H
 #define VISUALIZER_H
 
+#include "EyeEstimator.hpp"
 #include "EyeTracker.hpp"
 #include "FeatureDetector.hpp"
 
@@ -11,7 +12,7 @@
 namespace et {
 class Visualizer {
 public:
-    Visualizer(FeatureDetector *feature_detector, EyeTracker *eye_tracker);
+    explicit Visualizer(EyeTracker *eye_tracker);
     void drawUi(const cv::Mat& image, int camera_id);
     void show();
     void calculateFramerate();
@@ -53,7 +54,6 @@ private:
     static void onGlintRightExposureUpdate(int, void *);
 
     cv::Mat image_[2]{};
-    FeatureDetector *feature_detector_{};
     EyeTracker *eye_tracker_{};
     std::ostringstream fps_text_{};
     int frame_index_{};

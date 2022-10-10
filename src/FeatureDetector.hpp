@@ -2,6 +2,7 @@
 #define FEATURE_DETECTOR_H
 
 #include "BayesMinimizer.hpp"
+#include "PolynomialFit.hpp"
 #include "Settings.hpp"
 
 #include <opencv2/core/cuda.hpp>
@@ -39,38 +40,36 @@ struct GlintCandidate {
 class FeatureDetector {
 public:
     virtual ~FeatureDetector();
-    void initialize();
+    void initialize(int camera_id);
 
-    bool findPupil(const cv::Mat &image, int camera_id);
+    bool findPupil(const cv::Mat &image);
 
-    bool findGlints(const cv::Mat &image, int camera_id);
+    bool findGlints(const cv::Mat &image);
 
-    bool findEllipse(const cv::Mat &image, const cv::Point2f &pupil,
-                     int camera_id);
+    bool findEllipse(const cv::Mat &image, const cv::Point2f &pupil);
 
-    cv::Point2f getPupil(int camera_id);
+    cv::Point2f getPupil();
 
-    void getPupilGlintVector(cv::Vec2f &pupil_glint_vector, int camera_id);
+    void getPupilGlintVector(cv::Vec2f &pupil_glint_vector);
 
-    void getPupil(cv::Point2f &pupil, int camera_id);
+    void getPupil(cv::Point2f &pupil);
 
-    void getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector,
-                                     int camera_id);
+    void getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector);
 
-    void getPupilFiltered(cv::Point2f &pupil, int camera_id);
+    void getPupilFiltered(cv::Point2f &pupil);
 
-    [[nodiscard]] int getPupilRadius(int camera_id) const;
+    [[nodiscard]] int getPupilRadius() const;
 
-    std::vector<cv::Point2f> *getGlints(int camera_id);
+    std::vector<cv::Point2f> *getGlints();
 
-    cv::RotatedRect getEllipse(int camera_id);
+    cv::RotatedRect getEllipse();
 
 
-    void getGlints(std::vector<cv::Point2f> &glint_locations, int camera_id);
+    void getGlints(std::vector<cv::Point2f> &glint_locations);
 
-    cv::Mat getThresholdedPupilImage(int camera_id);
+    cv::Mat getThresholdedPupilImage();
 
-    cv::Mat getThresholdedGlintsImage(int camera_id);
+    cv::Mat getThresholdedGlintsImage();
 
     void setGazeBufferSize(uint8_t value);
     void updateGazeBuffer();
@@ -88,40 +87,50 @@ private:
 
     void findBestGlintPair(std::vector<GlintCandidate> &glint_candidates);
     void determineGlintTypes(std::vector<GlintCandidate> &glint_candidates);
-    void identifyNeighbours(GlintCandidate *glint_candidate, int camera_id);
+    void identifyNeighbours(GlintCandidate *glint_candidate);
 
     std::mutex mtx_features_{};
+    int pupil_radius_{0};
+    cv::KalmanFilter pupil_kalman_{};
+    cv::KalmanFilter leds_kalman_{};
+    cv::KalmanFilter pupil_radius_kalman_{};
+    cv::KalmanFilter glint_ellipse_kalman_{};
 
-    int pupil_radius_[2]{0};
-    cv::KalmanFilter pupil_kalman_[2]{};
-    cv::KalmanFilter leds_kalman_[2]{};
-    cv::KalmanFilter pupil_radius_kalman_[2]{};
-    cv::KalmanFilter glint_ellipse_kalman_[2]{};
-
-    cv::RotatedRect glint_ellipse_[2]{};
-    cv::Point2f pupil_location_[2]{};
-    std::vector<cv::Point2f> glint_locations_[2]{};
+    cv::RotatedRect glint_ellipse_{};
+    cv::Point2f pupil_location_{};
+    std::vector<cv::Point2f> glint_locations_{};
 
     BayesMinimizer *bayes_minimizer_{};
     cv::Ptr<cv::DownhillSolver::Function> bayes_minimizer_func_{};
     cv::Ptr<cv::DownhillSolver> bayes_solver_{};
-    cv::Point2d ellipse_centre_[2]{};
-    double ellipse_radius_[2]{};
+    cv::Point2d ellipse_centre_{};
+    double ellipse_radius_{};
+
+    cv::Size2i *region_if_interest_{};
+    int *pupil_threshold_{};
+    int *glint_threshold_{};
+    cv::Point2f *pupil_search_centre_{};
+    int *pupil_search_radius_{};
+    float *min_pupil_radius_{};
+    float *max_pupil_radius_{};
+
+    cv::Mat glints_template_;
+    cv::Ptr<cv::cuda::TemplateMatching> template_matcher_{};
+    cv::Mat template_crop_{};
 
     int buffer_size_{16};
     int buffer_idx_{0};
     int buffer_summed_count_{0};
-    std::vector<cv::Point2f> pupil_location_buffer_[2]{};
-    std::vector<cv::Point2f> glint_location_buffer_[2]{};
-    cv::Point2f pupil_location_summed_[2]{};
-    cv::Point2f glint_location_summed_[2]{};
-    cv::Point2f pupil_location_filtered_[2]{};
-    cv::Point2f glint_location_filtered_[2]{};
+    std::vector<cv::Point2f> pupil_location_buffer_{};
+    std::vector<cv::Point2f> glint_location_buffer_{};
+    cv::Point2f pupil_location_summed_{};
+    cv::Point2f glint_location_summed_{};
+    cv::Point2f pupil_location_filtered_{};
+    cv::Point2f glint_location_filtered_{};
 
-    cv::Mat cpu_image_{};
     cv::cuda::GpuMat gpu_image_{};
-    cv::cuda::GpuMat pupil_thresholded_image_[2];
-    cv::cuda::GpuMat glints_thresholded_image_[2];
+    cv::Mat pupil_thresholded_image_;
+    cv::Mat glints_thresholded_image_;
 
     cv::Ptr<cv::cuda::Filter> glints_dilate_filter_{};
     cv::Ptr<cv::cuda::Filter> glints_erode_filter_{};
@@ -139,12 +148,13 @@ private:
                                  GlintCandidate &compared);
     static bool isBottomNeighbour(GlintCandidate &reference,
                                   GlintCandidate &compared);
-    void approximatePositions(int camera_id);
+    void approximatePositions();
 
     std::vector<std::vector<cv::Point>> contours_{};
     std::vector<cv::Vec4i> hierarchy_{}; // Unused output
 
-    GlintCandidate selected_glints_[2][6]{};
+    int led_count_{};
+    GlintCandidate selected_glints_[6]{};
 
     static inline cv::Point2f toPoint(cv::Mat m) {
         return {(float) m.at<double>(0, 0), (float) m.at<double>(0, 1)};

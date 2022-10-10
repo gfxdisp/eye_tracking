@@ -1,6 +1,7 @@
 #ifndef EYE_TRACKER_SERVER_H
 #define EYE_TRACKER_SERVER_H
 
+#include "EyeEstimator.hpp"
 #include "EyeTracker.hpp"
 #include "FeatureDetector.hpp"
 
@@ -11,7 +12,7 @@
 namespace et {
 class SocketServer {
 public:
-    SocketServer(EyeTracker *tracker, FeatureDetector *feature_detector);
+    explicit SocketServer(EyeTracker *eye_tracker);
 
     void startServer();
     void openSocket();
@@ -23,7 +24,6 @@ public:
 
 private:
     EyeTracker *eye_tracker_{};
-    FeatureDetector *feature_detector_{};
 
     cv::Vec3d eye_position_{};
     cv::Vec3f gaze_direction_{};

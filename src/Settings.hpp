@@ -20,7 +20,7 @@ struct CameraParams {
     float gamma{};
     float pixel_clock{};
     cv::Mat intrinsic_matrix{};
-    float distortion_coefficients[5]{};
+    std::vector<float> distortion_coefficients{};
     cv::Vec3f gaze_shift{};
 };
 

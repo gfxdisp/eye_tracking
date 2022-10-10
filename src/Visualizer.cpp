@@ -14,9 +14,7 @@ int Visualizer::glint_threshold_tracker_[]{};
 int Visualizer::pupil_exposure_tracker_[]{};
 int Visualizer::glint_exposure_tracker_[]{};
 
-Visualizer::Visualizer(FeatureDetector *feature_detector,
-                       EyeTracker *eye_tracker)
-    : feature_detector_(feature_detector), eye_tracker_(eye_tracker) {
+Visualizer::Visualizer(EyeTracker *eye_tracker) : eye_tracker_(eye_tracker) {
     last_frame_time_ = std::chrono::steady_clock::now();
     fps_text_ << std::fixed << std::setprecision(2);
 
@@ -85,26 +83,30 @@ Visualizer::Visualizer(FeatureDetector *feature_detector,
 
 void Visualizer::drawUi(const cv::Mat &image, int camera_id) {
     cv::cvtColor(image, image_[camera_id], cv::COLOR_GRAY2BGR);
-    auto led_positions = feature_detector_->getGlints(camera_id);
+    auto led_positions = eye_tracker_->getGlints(camera_id);
     for (const auto &led : (*led_positions)) {
-        cv::circle(image_[camera_id], led, 5, cv::Scalar(0x00, 0x00, 0xFF), 2);
+        cv::circle(image_[camera_id], led, 5, cv::Scalar(0x00, 0x00, 0xFF), 1);
     }
-    cv::circle(image_[camera_id], feature_detector_->getPupil(camera_id),
-               feature_detector_->getPupilRadius(camera_id),
-               cv::Scalar(0xFF, 0xFF, 0x00), 2);
+    cv::circle(image_[camera_id], eye_tracker_->getPupil(camera_id),
+               eye_tracker_->getPupilRadius(camera_id),
+               cv::Scalar(0xFF, 0xFF, 0x00), 1);
 
     cv::circle(
         image_[camera_id],
         Settings::parameters.detection_params.pupil_search_centre[camera_id],
         Settings::parameters.detection_params.pupil_search_radius[camera_id],
-        cv::Scalar(0xFF, 0xFF, 0x00), 2);
+        cv::Scalar(0xFF, 0xFF, 0x00), 1);
 
     cv::circle(image_[camera_id],
                eye_tracker_->getEyeCentrePixelPosition(camera_id), 2,
-               cv::Scalar(0x00, 0xFF, 0x00), 5);
+               cv::Scalar(0x00, 0x80, 0x00), 5);
 
-    cv::ellipse(image_[camera_id], feature_detector_->getEllipse(camera_id),
-                cv::Scalar(0xFF, 0xFF, 0x00), 2);
+    cv::circle(image_[camera_id],
+               eye_tracker_->getCorneaCurvaturePixelPosition(camera_id), 2,
+               cv::Scalar(0x00, 0xFF, 0xFF), 5);
+
+    cv::ellipse(image_[camera_id], eye_tracker_->getEllipse(camera_id),
+                cv::Scalar(0xFF, 0xFF, 0x00), 1);
     cv::putText(image_[camera_id], fps_text_.str(), cv::Point2i(100, 100),
                 cv::FONT_HERSHEY_SIMPLEX, 3, cv::Scalar(0x00, 0x00, 0xFF), 3);
 }

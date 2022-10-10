@@ -1,6 +1,9 @@
 #ifndef IMAGE_PROVIDER_H
 #define IMAGE_PROVIDER_H
 
+#include "EyeEstimator.hpp"
+#include "FeatureDetector.hpp"
+
 #include <opencv2/opencv.hpp>
 
 namespace et {

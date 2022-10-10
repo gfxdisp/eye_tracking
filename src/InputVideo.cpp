@@ -81,7 +81,6 @@ void InputVideo::initialize(bool separate_exposures) {
 cv::Mat InputVideo::grabPupilImage(int camera_id) {
     bool successful{pupil_video_[camera_id].read(image_)};
     if (!successful) {
-//        return {};
         pupil_video_[camera_id].set(cv::CAP_PROP_POS_FRAMES, 0);
         successful = pupil_video_[camera_id].read(image_);
     }

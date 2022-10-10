@@ -8,9 +8,7 @@
 namespace et {
 class RayPointMinimizer : public cv::DownhillSolver::Function {
 public:
-    RayPointMinimizer();
-    [[nodiscard]] int getDims() const override;
-    double calc(const double *x) const override;
+    void initialize();
 
     void setParameters(const cv::Vec3f &np2c_dir, cv::Vec3f *screen_glint,
                        std::vector<cv::Vec3f> &lp);
@@ -24,6 +22,10 @@ private:
     std::vector<cv::Vec3f> screen_glint_{};
     std::vector<cv::Vec3f> lp_{};
     std::vector<cv::Vec3f> ray_dir_{};
+    bool initialized_{false};
+
+    [[nodiscard]] int getDims() const override;
+    double calc(const double *x) const override;
 };
 
 }// namespace et

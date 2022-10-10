@@ -1,471 +1,114 @@
 #include "EyeTracker.hpp"
-#include "RayPointMinimizer.hpp"
-#include "Settings.hpp"
-
-#include <chrono>
-#include <fstream>
-#include <iostream>
-#include <thread>
-
-using KFMatD = cv::Mat_<double>;
 
 namespace et {
-
-cv::Mat EyeTracker::visual_axis_rotation_matrix_{};
-
-EyeTracker::EyeTracker() {
-    ray_point_minimizer_ = new RayPointMinimizer();
-    minimizer_function_ =
-        cv::Ptr<cv::DownhillSolver::Function>{ray_point_minimizer_};
-    solver_ = cv::DownhillSolver::create();
-    solver_->setFunction(minimizer_function_);
-    cv::Mat step = (cv::Mat_<double>(1, 2) << 50, 50);
-    solver_->setInitStep(step);
-
-    createProjectionMatrix();
-    createVisualAxis();
+void EyeTracker::initialize(ImageProvider *image_provider) {
+    image_provider = image_provider_;
+    for (int i = 0; i < 2; i++) {
+        feature_detectors_[i].initialize(i);
+        eye_estimators_[i].initialize(i);
+    }
 }
 
-EyeTracker::~EyeTracker() {
-    solver_.release();
-    minimizer_function_.release();
+bool EyeTracker::findPupil(const cv::Mat &image, int camera_id) {
+    return feature_detectors_[camera_id].findPupil(image);
 }
 
-void EyeTracker::calculateJoined(cv::Point2f pupil_pix_position,
-                               std::vector<cv::Point2f> *glint_pix_positions,
-                               int pupil_radius, int camera_id) {
-    std::optional<cv::Vec3f> cornea_curvature{}, pupil{}, eye_centre{};
-
-    pupil_pix_position_ = pupil_pix_position;
-    glint_pix_positions_ = glint_pix_positions;
-
-    cv::Vec3f pupil_position{ICStoCCS(undistort(pupil_pix_position_, camera_id), camera_id)};
-
-    cv::Vec3f pupil_top_position = ICStoCCS(
-        undistort(pupil_pix_position_ + cv::Point2f(pupil_radius, 0.0f), camera_id), camera_id);
-
-    std::vector<cv::Vec3f> glint_positions{};
-
-    std::vector<cv::Vec3d> v1v2s{};
-    for (int i = 0; i < glint_pix_positions_->size(); i++) {
-        cv::Vec3f v1{Settings::parameters.leds_positions[camera_id][i]};
-        cv::normalize(v1, v1);
-        cv::Vec3f v2{ICStoCCS(undistort((*glint_pix_positions_)[i], camera_id), camera_id)};
-        glint_positions.push_back(v2);
-        cv::normalize(v2, v2);
-        cv::Vec3d v1v2{v1.cross(v2)};
-        cv::normalize(v1v2, v1v2);
-        v1v2s.push_back(v1v2);
-    }
-
-    cv::Vec3d avg_bnorm{};
-    int counter{0};
-    for (int i = 0; i < v1v2s.size(); i++) {
-        if (i == 1 || i == 4)
-            continue;
-        for (int j = i + 1; j < v1v2s.size(); j++) {
-            cv::Vec3d bnorm{v1v2s[i].cross(v1v2s[j])};
-            cv::normalize(bnorm, bnorm);
-            if (bnorm(2) < 0) {
-                bnorm = -bnorm;
-            }
-            avg_bnorm += bnorm;
-            counter++;
-        }
-    }
-
-    if (counter == 0) {
-        return;
-    }
-
-    for (int i = 0; i < 3; i++) {
-        avg_bnorm(i) = avg_bnorm(i) / counter;
-    }
-
-    ray_point_minimizer_->setParameters(avg_bnorm, glint_positions.data(),
-                                        Settings::parameters.leds_positions[camera_id]);
-    cv::Mat x = (cv::Mat_<double>(1, 2) << 400, 400);
-    solver_->minimize(x);
-    double k = x.at<double>(0, 0);
-    cornea_curvature = avg_bnorm * k;
-
-    kalman_eye_[camera_id].correct((KFMatD(3, 1) << (*cornea_curvature)(0),
-                         (*cornea_curvature)(1), (*cornea_curvature)(2)));
-
-    cornea_curvature = toPoint(kalman_eye_[camera_id].predict());
-
-    pupil = ICStoEyePosition(pupil_position, *cornea_curvature);
-    cv::Vec3f pupil_top =
-        ICStoEyePosition(pupil_top_position, *cornea_curvature);
-    if (*pupil != cv::Vec3f()) {
-        cv::Vec3f pupil_direction{*cornea_curvature - *pupil};
-        cv::normalize(pupil_direction, pupil_direction);
-        eye_centre = *pupil
-            + Settings::parameters.eye_params.pupil_eye_centre_distance
-                * pupil_direction;
-    }
-    mtx_eye_position_.lock();
-    eye_position_[camera_id] = {cornea_curvature, pupil, eye_centre};
-    if (*pupil != cv::Vec3f() && pupil_top != cv::Vec3f()) {
-        cv::Vec3f pupil_proj = *pupil;
-        cv::Vec3f pupil_top_proj = pupil_top;
-        pupil_proj(2) = 0.0f;
-        pupil_top_proj(2) = 0.0f;
-        pupil_diameter_[camera_id] = 2 * cv::norm(pupil_proj - pupil_top_proj);
-    }
-    mtx_eye_position_.unlock();
+bool EyeTracker::findGlints(const cv::Mat &image, int camera_id) {
+    return feature_detectors_[camera_id].findGlints(image);
 }
 
-void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &eye_centre, int camera_id) {
-    mtx_eye_position_.lock();
-    eye_centre = *eye_position_[camera_id].cornea_curvature;
-    mtx_eye_position_.unlock();
+bool EyeTracker::findEllipse(const cv::Mat &image, const cv::Point2f &pupil, int camera_id) {
+    return feature_detectors_[camera_id].findEllipse(image, pupil);
 }
 
-void EyeTracker::getGazeDirection(cv::Vec3f &gaze_direction, int camera_id) {
+cv::Point2f EyeTracker::getPupil(int camera_id) {
+    return feature_detectors_[camera_id].getPupil();
+}
 
-    cv::Vec4f homo_inv_optical_axis{};
-    mtx_eye_position_.lock();
-    inv_optical_axis_ = *eye_position_[camera_id].cornea_curvature - *eye_position_[camera_id].pupil;
-    inv_optical_axis_ -=
-        Settings::parameters.camera_params[camera_id].gaze_shift;
-    cv::normalize(inv_optical_axis_, inv_optical_axis_);
-    for (int i = 0; i < 3; i++)
-        homo_inv_optical_axis(i) = inv_optical_axis_(i);
-    mtx_eye_position_.unlock();
-    homo_inv_optical_axis(3) = 1.0f;
-    cv::Mat visual_axis{visual_axis_rotation_matrix_ * homo_inv_optical_axis};
-    cv::Vec4f homo_gaze_direction{};
-    homo_gaze_direction = visual_axis.reshape(4).at<cv::Vec4f>();
-    for (int i = 0; i < 3; i++)
-        gaze_direction(i) = -homo_gaze_direction(i) / homo_gaze_direction(3);
+void EyeTracker::getPupil(cv::Point2f &pupil, int camera_id) {
+    feature_detectors_[camera_id].getPupil(pupil);
+}
+
+void EyeTracker::getPupilFiltered(cv::Point2f &pupil, int camera_id) {
+    feature_detectors_[camera_id].getPupilFiltered(pupil);
+}
+
+int EyeTracker::getPupilRadius(int camera_id) {
+    return feature_detectors_[camera_id].getPupilRadius();
 }
 
 void EyeTracker::getPupilDiameter(float &pupil_diameter, int camera_id) {
-    mtx_eye_position_.lock();
-    pupil_diameter = pupil_diameter_[camera_id];
-    mtx_eye_position_.unlock();
+    eye_estimators_[camera_id].getPupilDiameter(pupil_diameter);
 }
 
-void EyeTracker::getEyeData(EyeData &eye_data, int camera_id) {
-    if (eye_position_[camera_id].cornea_curvature) {
-        eye_data.cornea_curvature = *eye_position_[camera_id].cornea_curvature;
-    } else {
-        eye_data.cornea_curvature = cv::Vec3f(0, 0, 0);
+void EyeTracker::getGazeDirection(cv::Vec3f &gaze_direction, int camera_id) {
+    eye_estimators_[camera_id].getGazeDirection(gaze_direction);
+}
+
+void EyeTracker::setGazeBufferSize(uint8_t value) {
+    for (auto & feature_detector : feature_detectors_) {
+        feature_detector.setGazeBufferSize(value);
     }
-    if (eye_position_[camera_id].pupil) {
-        eye_data.pupil = *eye_position_[camera_id].pupil;
-    } else {
-        eye_data.pupil = cv::Vec3f(0, 0, 0);
-    }
-    if (eye_position_[camera_id].eye_centre) {
-        eye_data.eye_centre = *eye_position_[camera_id].eye_centre;
-    } else {
-        eye_data.eye_centre = cv::Vec3f(0, 0, 0);
-    }
+}
+
+std::vector<cv::Point2f> *EyeTracker::getGlints(int camera_id) {
+    return feature_detectors_[camera_id].getGlints();
+}
+
+void EyeTracker::getPupilGlintVector(cv::Vec2f &pupil_glint_vector, int camera_id) {
+    feature_detectors_[camera_id].getPupilGlintVector(pupil_glint_vector);
+}
+
+void EyeTracker::getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector,
+                                             int camera_id) {
+    feature_detectors_[camera_id].getPupilGlintVectorFiltered(pupil_glint_vector);
+}
+
+
+cv::RotatedRect EyeTracker::getEllipse(int camera_id) {
+    return feature_detectors_[camera_id].getEllipse();
+}
+
+cv::Mat EyeTracker::getThresholdedPupilImage(int camera_id) {
+    return feature_detectors_[camera_id].getThresholdedPupilImage();
+}
+
+cv::Mat EyeTracker::getThresholdedGlintsImage(int camera_id) {
+    return feature_detectors_[camera_id].getThresholdedGlintsImage();
+}
+
+void EyeTracker::updateGazeBuffer(int camera_id) {
+    feature_detectors_[camera_id].updateGazeBuffer();
+}
+
+void EyeTracker::getEyeFromModel(cv::Point2f pupil_pix_position,
+                                 std::vector<cv::Point2f> *glint_pix_positions,
+                                 int pupil_radius, int camera_id) {
+    eye_estimators_[camera_id].getEyeFromModel(
+        pupil_pix_position, glint_pix_positions, pupil_radius);
+}
+
+void EyeTracker::getEyeFromPolynomial(cv::Point2f pupil_pix_position,
+                                      cv::RotatedRect ellipse, int camera_id) {
+    eye_estimators_[camera_id].getEyeFromPolynomial(pupil_pix_position,
+                                                    ellipse);
 }
 
 cv::Point2f EyeTracker::getCorneaCurvaturePixelPosition(int camera_id) {
-    if (eye_position_[camera_id]) {
-        return unproject(*eye_position_[camera_id].cornea_curvature, camera_id);
-    }
-    return {0.0, 0.0};
+    return eye_estimators_[camera_id].getCorneaCurvaturePixelPosition();
 }
 
-cv::Point2f
-EyeTracker::getEyeCentrePixelPosition(int camera_id) {
-    if (eye_position_[camera_id]) {
-        return unproject(*eye_position_[camera_id].eye_centre, camera_id);
-    }
-    return {0.0, 0.0};
+cv::Point2f EyeTracker::getEyeCentrePixelPosition(int camera_id) {
+    return eye_estimators_[camera_id].getEyeCentrePixelPosition();
 }
 
-void EyeTracker::initialize() {
-    for (int i = 0; i < 2; i++) {
-        kalman_eye_[i] = makeKalmanFilter(et::Settings::parameters.camera_params[i].framerate);
-        kalman_gaze_[i] = makeKalmanFilter(et::Settings::parameters.camera_params[i].framerate);
-    }
+void EyeTracker::getEyeCentrePosition(cv::Vec3d &eye_centre, int camera_id) {
+    eye_estimators_[camera_id].getEyeCentrePosition(eye_centre);
 }
 
-cv::Vec3f EyeTracker::project(const cv::Vec3f &point) const {
-    return point;
-}
-
-cv::Vec2f EyeTracker::unproject(const cv::Vec3f &point,
-                                int camera_id) const {
-    cv::Mat unprojected =
-        Settings::parameters.camera_params[camera_id].intrinsic_matrix.t()
-        * point;
-    cv::Size2i offset{
-        Settings::parameters.camera_params[camera_id].capture_offset};
-    float x = unprojected.at<float>(0);
-    float y = unprojected.at<float>(1);
-    float w = unprojected.at<float>(2);
-    return {x / w - offset.width, y / w - offset.height};
-}
-
-cv::Vec3f EyeTracker::ICStoCCS(const cv::Point2f &point, int camera_id) const {
-
-    cv::Vec4f expanded_point{point.x, point.y, 0, 1};
-    cv::Mat p{cv::Mat(expanded_point).t() * full_projection_matrices_[camera_id]};
-    float x = p.at<float>(0) / p.at<float>(3);
-    float y = p.at<float>(1) / p.at<float>(3);
-    float z = p.at<float>(2) / p.at<float>(3);
-
-    return {x, y, z};
-}
-
-cv::Vec3f EyeTracker::CCStoWCS(const cv::Vec3f &point) const {
-    return point;
-}
-
-cv::Vec3f EyeTracker::WCStoCCS(const cv::Vec3f &point) const {
-    return point;
-}
-
-cv::Vec2f EyeTracker::CCStoICS(cv::Vec3f point,
-                               int camera_id) const {
-    const double pixel_pitch = 0;
-    cv::Size2i resolution =
-        et::Settings::parameters.camera_params[camera_id].dimensions;
-    return static_cast<cv::Point2f>(resolution) / 2
-        + cv::Point2f(point(0), point(1)) / pixel_pitch;
-}
-
-std::vector<cv::Vec3d>
-EyeTracker::lineSphereIntersections(const cv::Vec3d &sphere_centre, float radius,
-                                  const cv::Vec3d &line_point,
-                                  const cv::Vec3d &line_direction) {
-    /* We are looking for points of the form line_point + k*line_direction, which are also radius away
-         * from sphere_centre. This can be expressed as a quadratic in k: ak² + bk + c = radius². */
-    const double a{cv::norm(line_direction, cv::NORM_L2SQR)};
-    const double b{2 * line_direction.dot(line_point - sphere_centre)};
-    const double c{cv::norm(line_point, cv::NORM_L2SQR)
-                   + cv::norm(sphere_centre, cv::NORM_L2SQR)
-                   - 2 * line_point.dot(sphere_centre)};
-    const double DISCRIMINANT{std::pow(b, 2)
-                              - 4 * a * (c - std::pow(radius, 2))};
-    if (std::abs(DISCRIMINANT) < 1e-6) {
-        return {line_point - line_direction * b / (2 * a)}; // One solution
-    } else if (DISCRIMINANT < 0) {
-        return {}; // No solutions
-    } else {       // Two solutions
-        const double sqrtDISCRIMINANT{std::sqrt(DISCRIMINANT)};
-        return {line_point + line_direction * (-b + sqrtDISCRIMINANT) / (2 * a),
-                line_point
-                    + line_direction * (-b - sqrtDISCRIMINANT) / (2 * a)};
-    }
-}
-
-cv::KalmanFilter EyeTracker::makeKalmanFilter(float framerate) {
-    constexpr static double VELOCITY_DECAY = 1.0;
-    const static cv::Mat TRANSITION_MATRIX =
-        (KFMatD(6, 6) << 1, 0, 0, 1.0f / framerate, 0, 0, 0, 1, 0, 0,
-         1.0f / framerate, 0, 0, 0, 1, 0, 0, 1.0f / framerate, 0, 0, 0,
-         VELOCITY_DECAY, 0, 0, 0, 0, 0, 0, VELOCITY_DECAY, 0, 0, 0, 0, 0, 0,
-         VELOCITY_DECAY);
-    const static cv::Mat MEASUREMENT_MATRIX = cv::Mat::eye(3, 6, CV_64F);
-    const static cv::Mat PROCESS_NOISE_COV = cv::Mat::eye(6, 6, CV_64F) * 1000;
-    const static cv::Mat MEASUREMENT_NOISE_COV =
-        cv::Mat::eye(3, 3, CV_64F) * 0.1;
-    const static cv::Mat ERROR_COV_POST = cv::Mat::eye(6, 6, CV_64F) * 1000;
-    const static cv::Mat STATE_POST = cv::Mat::zeros(6, 1, CV_64F);
-
-    cv::KalmanFilter KF(6, 3);
-    // clone() is needed as, otherwise, the matrices will be used by reference, and all the filters will be the same
-    KF.transitionMatrix = TRANSITION_MATRIX.clone();
-    KF.measurementMatrix = MEASUREMENT_MATRIX.clone();
-    KF.processNoiseCov = PROCESS_NOISE_COV.clone();
-    KF.measurementNoiseCov = MEASUREMENT_NOISE_COV.clone();
-    KF.errorCovPost = ERROR_COV_POST.clone();
-    KF.statePost = STATE_POST.clone();
-    KF.predict(); // Without this line, OpenCV complains about incorrect matrix dimensions
-    return KF;
-}
-
-bool EyeTracker::getRaySphereIntersection(const cv::Vec3f &ray_pos,
-                                        const cv::Vec3d &ray_dir,
-                                        const cv::Vec3f &sphere_pos,
-                                        double sphere_radius, double &t) {
-    double A{ray_dir.dot(ray_dir)};
-    cv::Vec3f v{ray_pos - sphere_pos};
-    double B{2 * v.dot(ray_dir)};
-    double C{v.dot(v) - sphere_radius * sphere_radius};
-    double delta{B * B - 4 * A * C};
-    if (delta > 0) {
-        double t1{(-B - std::sqrt(delta)) / (2 * A)};
-        double t2{(-B + std::sqrt(delta)) / (2 * A)};
-        if (t1 < 1e-5) {
-            t = t2;
-        } else if (t1 < 1e-5) {
-            t = t1;
-        } else {
-            t = std::min(t1, t2);
-        }
-    }
-    return (delta > 0);
-}
-
-cv::Vec3d EyeTracker::getRefractedRay(const cv::Vec3d &direction,
-                                    const cv::Vec3d &normal,
-                                    double refraction_index) {
-    double nr{1 / refraction_index};
-    double mcos{(-direction).dot(normal)};
-    double msin{nr * nr * (1 - mcos * mcos)};
-    cv::Vec3d t{nr * direction + (nr * mcos - std::sqrt(1 - msin)) * normal};
-    cv::normalize(t, t);
-    return t;
-}
-
-bool EyeTracker::isSetupUpdated() {
-    return setup_updated_;
-}
-
-cv::Mat EyeTracker::euler2rot(float *euler_angles) {
-    cv::Mat rotationMatrix(4, 4, CV_32F);
-
-    float x = euler_angles[0];
-    float y = euler_angles[1];
-    float z = euler_angles[2];
-
-    // Assuming the angles are in radians.
-    float ch = cosf(z);
-    float sh = sinf(z);
-    float ca = cosf(y);
-    float sa = sinf(y);
-    float cb = cosf(x);
-    float sb = sinf(x);
-
-    float m00, m01, m02, m10, m11, m12, m20, m21, m22;
-
-    m00 = ch * ca;
-    m01 = sh * sb - ch * sa * cb;
-    m02 = ch * sa * sb + sh * cb;
-    m10 = sa;
-    m11 = ca * cb;
-    m12 = -ca * sb;
-    m20 = -sh * ca;
-    m21 = sh * sa * cb + ch * sb;
-    m22 = -sh * sa * sb + ch * cb;
-
-    rotationMatrix.at<float>(0, 0) = m00;
-    rotationMatrix.at<float>(0, 1) = m01;
-    rotationMatrix.at<float>(0, 2) = m02;
-    rotationMatrix.at<float>(1, 0) = m10;
-    rotationMatrix.at<float>(1, 1) = m11;
-    rotationMatrix.at<float>(1, 2) = m12;
-    rotationMatrix.at<float>(2, 0) = m20;
-    rotationMatrix.at<float>(2, 1) = m21;
-    rotationMatrix.at<float>(2, 2) = m22;
-    for (int i = 0; i < 3; i++) {
-        rotationMatrix.at<float>(3, i) = 0.0f;
-        rotationMatrix.at<float>(i, 3) = 0.0f;
-    }
-    rotationMatrix.at<float>(3, 3) = 1.0f;
-
-    return rotationMatrix;
-}
-
-cv::Point2f EyeTracker::undistort(cv::Point2f point,
-                                  int camera_id) {
-    float fx{Settings::parameters.camera_params[camera_id]
-                 .intrinsic_matrix.at<float>(cv::Point(0, 0))};
-    float fy{Settings::parameters.camera_params[camera_id]
-                 .intrinsic_matrix.at<float>(cv::Point(1, 1))};
-    float cx{Settings::parameters.camera_params[camera_id]
-                 .intrinsic_matrix.at<float>(cv::Point(0, 2))};
-    float cy{Settings::parameters.camera_params[camera_id]
-                 .intrinsic_matrix.at<float>(cv::Point(1, 2))};
-    float k1{Settings::parameters.camera_params[camera_id]
-                 .distortion_coefficients[0]};
-    float k2{Settings::parameters.camera_params[camera_id]
-                 .distortion_coefficients[1]};
-    cv::Size2i offset{
-        Settings::parameters.camera_params[camera_id].capture_offset};
-    cv::Point2f new_point{};
-    float x{(float) (point.x + offset.width - cx) / fx};
-    float y{(float) (point.y + offset.height - cy) / fy};
-    float x0{x};
-    float y0{y};
-    for (int i = 0; i < 3; i++) {
-        float r2{x * x + y * y};
-        float k_inv{1 / (1 + k1 * r2 + k2 * r2 * r2)};
-        x = x0 * k_inv;
-        y = y0 * k_inv;
-    }
-    new_point.x = x * fx + cx;
-    new_point.y = y * fy + cy;
-    return new_point;
-}
-
-void EyeTracker::createProjectionMatrix() {
-    cv::Point3f normal{0, 0, 1};
-    cv::Point3f wf{0, 0, -1};
-    float view_data[4][4]{{1, 0, 0, 0},
-                          {0, 1, 0, 0},
-                          {normal.x, normal.y, normal.z, -normal.dot(wf)},
-                          {0, 0, 1, 0}};
-    cv::Mat projection_matrix{4, 4, CV_32FC1, view_data};
-    projection_matrix = projection_matrix.t();
-
-    float intr_mtx[9];
-    for (int camera_id = 0; camera_id < 2; camera_id++) {
-        CameraParams *camera_params =
-            &et::Settings::parameters.camera_params[camera_id];
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                intr_mtx[i * 3 + j] =
-                    camera_params->intrinsic_matrix.at<float>(
-                        cv::Point(i, j));
-            }
-        }
-
-        float intrinsic_data[4][4]{{intr_mtx[0], intr_mtx[3], intr_mtx[6], 0},
-                                   {intr_mtx[1], intr_mtx[4], intr_mtx[7], 0},
-                                   {0, 0, intr_mtx[8], 0},
-                                   {intr_mtx[2], intr_mtx[5], 0, 1}};
-
-        cv::Mat intrinsic_matrix{4, 4, CV_32FC1, intrinsic_data};
-
-        full_projection_matrices_[camera_id] =
-            projection_matrix * intrinsic_matrix;
-        full_projection_matrices_[camera_id] =
-            full_projection_matrices_[camera_id].inv();
-    }
-}
-
-cv::Vec3f EyeTracker::ICStoEyePosition(const cv::Vec3f &point,
-                                     const cv::Vec3f &cornea_centre) const {
-    cv::Vec3f eye_position{};
-    double t{};
-    cv::Vec3f pupil_dir{-point};
-    cv::normalize(pupil_dir, pupil_dir);
-    bool intersected{getRaySphereIntersection(
-        cv::Vec3f(0.0f), pupil_dir, cornea_centre,
-        Settings::parameters.eye_params.cornea_curvature_radius, t)};
-
-    if (intersected) {
-        cv::Vec3f pupil_on_cornea{t * pupil_dir};
-        cv::Vec3f nv{pupil_on_cornea - cornea_centre};
-        cv::normalize(nv, nv);
-        cv::Vec3d mdir{-point};
-        cv::normalize(mdir, mdir);
-        cv::Vec3f direction{getRefractedRay(
-            mdir, nv, Settings::parameters.eye_params.cornea_refraction_index)};
-        intersected = getRaySphereIntersection(
-            pupil_on_cornea, direction, cornea_centre,
-            Settings::parameters.eye_params.pupil_cornea_distance, t);
-        if (intersected) {
-            eye_position = pupil_on_cornea + t * direction;
-        }
-    }
-    return eye_position;
-}
-
-void EyeTracker::createVisualAxis() {
-    float angles[]{Settings::parameters.user_params->alpha,
-                   Settings::parameters.user_params->beta, 0};
-    visual_axis_rotation_matrix_ = euler2rot(angles);
+void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &cornea_centre,
+                                            int camera_id) {
+    eye_estimators_[camera_id].getCorneaCurvaturePosition(cornea_centre);
 }
 
 } // namespace et

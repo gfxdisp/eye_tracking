@@ -1,4 +1,4 @@
-#include "EyeTracker.hpp"
+#include "EyeEstimator.hpp"
 #include "FeatureDetector.hpp"
 #include "IdsCamera.hpp"
 #include "ImageProvider.hpp"
@@ -108,19 +108,15 @@ int main(int argc, char *argv[]) {
 
     image_provider->initialize(double_exposure);
 
-    et::FeatureDetector feature_detector{};
-    feature_detector.initialize();
-
-    et::EyeTracker eye_tracker{};
-    eye_tracker.initialize();
-
     std::vector<int> camera_ids = image_provider->getCameraIds();
+    et::EyeTracker eye_tracker{};
+    eye_tracker.initialize(image_provider);
 
-    et::SocketServer socket_server{&eye_tracker, &feature_detector};
+    et::SocketServer socket_server{&eye_tracker};
     socket_server.startServer();
     std::thread t{&et::SocketServer::openSocket, &socket_server};
 
-    et::Visualizer visualizer(&feature_detector, &eye_tracker);
+    et::Visualizer visualizer(&eye_tracker);
     VisualizationType visualization_type = VisualizationType::PUPIL;
 
     cv::VideoWriter pupil_video_output[2]{};
@@ -148,23 +144,23 @@ int main(int argc, char *argv[]) {
                 socket_server.finished = true;
                 break;
             }
-            bool features_found{feature_detector.findPupil(pupil_image[i], i)};
+            bool features_found{eye_tracker.findPupil(pupil_image[i], i)};
             if (ellipse_fitting) {
-                features_found &= feature_detector.findEllipse(
-                    glint_image[i], feature_detector.getPupil(i), i);
+                features_found &= eye_tracker.findEllipse(
+                    glint_image[i], eye_tracker.getPupil(i), i);
             } else {
                 features_found &=
-                    feature_detector.findGlints(glint_image[i], i);
+                    eye_tracker.findGlints(glint_image[i], i);
             }
             et::EyePosition eye_position{};
             if (saving_log && features_found) {
                 std::ofstream file{};
                 file.open("log.txt", std::ios::app);
-                cv::Point2f pupil = feature_detector.getPupil(i);
+                cv::Point2f pupil = eye_tracker.getPupil(i);
                 file << i << "," << frame_counter << "," << pupil.x << ","
                      << pupil.y;
                 if (ellipse_fitting) {
-                    cv::RotatedRect ellipse = feature_detector.getEllipse(i);
+                    cv::RotatedRect ellipse = eye_tracker.getEllipse(i);
                     file << "," << ellipse.center.x << "," << ellipse.center.y
                          << ",";
                     file << ellipse.size.width << "," << ellipse.size.height
@@ -172,7 +168,7 @@ int main(int argc, char *argv[]) {
                     file << ellipse.angle;
                 } else {
                     std::vector<cv::Point2f> *glints =
-                        feature_detector.getGlints(i);
+                        eye_tracker.getGlints(i);
                     for (int j = 0; j < glints->size(); j++) {
                         file << "," << (*glints)[j].x << "," << (*glints)[j].y;
                     }
@@ -180,9 +176,14 @@ int main(int argc, char *argv[]) {
                 file << "\n";
                 file.close();
             } else if (features_found) {
-                eye_tracker.calculateJoined(
-                    feature_detector.getPupil(i), feature_detector.getGlints(i),
-                    feature_detector.getPupilRadius(i), i);
+                if (ellipse_fitting) {
+                    eye_tracker.getEyeFromPolynomial(
+                        eye_tracker.getPupil(i), eye_tracker.getEllipse(i), i);
+                } else {
+                    eye_tracker.getEyeFromModel(
+                        eye_tracker.getPupil(i), eye_tracker.getGlints(i),
+                        eye_tracker.getPupilRadius(i), i);
+                }
             }
 
             visualizer.calculateFramerate();
@@ -195,11 +196,11 @@ int main(int argc, char *argv[]) {
                 visualizer.drawUi(glint_image[i], i);
                 break;
             case VisualizationType::THRESHOLD_PUPIL:
-                visualizer.drawUi(feature_detector.getThresholdedPupilImage(i),
+                visualizer.drawUi(eye_tracker.getThresholdedPupilImage(i),
                                   i);
                 break;
             case VisualizationType::THRESHOLD_GLINTS:
-                visualizer.drawUi(feature_detector.getThresholdedGlintsImage(i),
+                visualizer.drawUi(eye_tracker.getThresholdedGlintsImage(i),
                                   i);
                 break;
             case VisualizationType::DISABLED:
@@ -218,8 +219,8 @@ int main(int argc, char *argv[]) {
             if (glint_video_output[i].isOpened()) {
                 glint_video_output[i].write(glint_image[i]);
             }
+            eye_tracker.updateGazeBuffer(i);
         }
-        feature_detector.updateGazeBuffer();
         if (visualization_type != VisualizationType::DISABLED) {
             visualizer.show();
         }
@@ -261,7 +262,13 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        int key_pressed = cv::pollKey() & 0xFFFF;
+        int key_pressed{};
+        if (slow_mode) {
+            key_pressed = cv::waitKey(1000) & 0xFFFF;
+        } else {
+            key_pressed = cv::pollKey() & 0xFFFF;
+        }
+
         switch (key_pressed) {
         case 27: // Esc
             if (!socket_server.isClientConnected()) {

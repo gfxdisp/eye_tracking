@@ -10,8 +10,8 @@
                 1024
             ],
             "distortion_coefficients": [
-                -0.09007679671049118,
-                -10.167732238769531,
+                0.0,
+                0.0,
                 0.0,
                 0.0,
                 0.0
@@ -110,13 +110,13 @@
         "max_glint_radius": 5.0,
         "max_hor_glint_pupil_distance": 400.0,
         "max_pupil_radius": {
-            "left": 100.0,
+            "left": 50.0,
             "right": 90.0
         },
         "max_vert_glint_pupil_distance": 200.0,
         "min_glint_radius": 0.0,
         "min_pupil_radius": {
-            "left": 50.0,
+            "left": 5.0,
             "right": 10.0
         },
         "pupil_close_size": 0,
@@ -149,11 +149,11 @@
             "alpha": -0.0872664600610733,
             "beta": 0.02617993950843811,
             "glint_threshold": {
-                "left": 96,
+                "left": 204,
                 "right": 213
             },
             "pupil_threshold": {
-                "left": 17,
+                "left": 9,
                 "right": 21
             }
         }

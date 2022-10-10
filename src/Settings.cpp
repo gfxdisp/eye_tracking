@@ -38,10 +38,8 @@ void from_json(const json &j, CameraParams &camera_params) {
         }
     }
     ddata.clear();
-    j.at("distortion_coefficients").get_to(ddata);
-    for (int i = 0; i < 5; i++) {
-        camera_params.distortion_coefficients[i] = static_cast<float>(ddata[i]);
-    }
+    j.at("distortion_coefficients")
+        .get_to(camera_params.distortion_coefficients);
     j.at("gaze_shift").get_to(ddata);
     camera_params.gaze_shift = cv::Vec3f(ddata[0], ddata[1], ddata[2]);
 }
@@ -66,7 +64,7 @@ void to_json(json &j, const CameraParams &camera_params) {
                 camera_params.intrinsic_matrix.at<float>(cv::Point(i, k));
         }
     }
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < camera_params.distortion_coefficients.size(); i++) {
         j["distortion_coefficients"][i] =
             camera_params.distortion_coefficients[i];
     }
@@ -93,10 +91,18 @@ void to_json(json &j, const EyeParams &eye_params) {
 }
 
 void from_json(const json &j, DetectionParams &detection_params) {
-    j.at("min_pupil_radius").at("left").get_to(detection_params.min_pupil_radius[0]);
-    j.at("min_pupil_radius").at("right").get_to(detection_params.min_pupil_radius[1]);
-    j.at("max_pupil_radius").at("left").get_to(detection_params.max_pupil_radius[0]);
-    j.at("max_pupil_radius").at("right").get_to(detection_params.max_pupil_radius[1]);
+    j.at("min_pupil_radius")
+        .at("left")
+        .get_to(detection_params.min_pupil_radius[0]);
+    j.at("min_pupil_radius")
+        .at("right")
+        .get_to(detection_params.min_pupil_radius[1]);
+    j.at("max_pupil_radius")
+        .at("left")
+        .get_to(detection_params.max_pupil_radius[0]);
+    j.at("max_pupil_radius")
+        .at("right")
+        .get_to(detection_params.max_pupil_radius[1]);
     j.at("min_glint_radius").get_to(detection_params.min_glint_radius);
     j.at("max_glint_radius").get_to(detection_params.max_glint_radius);
     j.at("glint_bottom_hor_distance")
@@ -171,13 +177,17 @@ void from_json(
     for (const auto &item : j.items()) {
         std::string name = item.key();
         auto value = item.value();
-        value.at("pupil_threshold").at("left")
+        value.at("pupil_threshold")
+            .at("left")
             .get_to(features_params[name].pupil_threshold[0]);
-        value.at("pupil_threshold").at("right")
+        value.at("pupil_threshold")
+            .at("right")
             .get_to(features_params[name].pupil_threshold[1]);
-        value.at("glint_threshold").at("left")
+        value.at("glint_threshold")
+            .at("left")
             .get_to(features_params[name].glint_threshold[0]);
-        value.at("glint_threshold").at("right")
+        value.at("glint_threshold")
+            .at("right")
             .get_to(features_params[name].glint_threshold[1]);
         value.at("alpha").get_to(features_params[name].alpha);
         value.at("beta").get_to(features_params[name].beta);
@@ -189,10 +199,14 @@ void to_json(
     const std::unordered_map<std::string, FeaturesParams> &features_params) {
     for (const auto &item : features_params) {
         std::string name = item.first;
-        j[name]["pupil_threshold"]["left"] = features_params.at(name).pupil_threshold[0];
-        j[name]["pupil_threshold"]["right"] = features_params.at(name).pupil_threshold[1];
-        j[name]["glint_threshold"]["left"] = features_params.at(name).glint_threshold[0];
-        j[name]["glint_threshold"]["right"] = features_params.at(name).glint_threshold[1];
+        j[name]["pupil_threshold"]["left"] =
+            features_params.at(name).pupil_threshold[0];
+        j[name]["pupil_threshold"]["right"] =
+            features_params.at(name).pupil_threshold[1];
+        j[name]["glint_threshold"]["left"] =
+            features_params.at(name).glint_threshold[0];
+        j[name]["glint_threshold"]["right"] =
+            features_params.at(name).glint_threshold[1];
         j[name]["alpha"] = features_params.at(name).alpha;
         j[name]["beta"] = features_params.at(name).beta;
     }

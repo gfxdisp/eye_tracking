@@ -11,9 +11,8 @@
 using cv::Vec3d;
 
 namespace et {
-SocketServer::SocketServer(EyeTracker *eye_tracker,
-                           FeatureDetector *feature_detector)
-    : eye_tracker_(eye_tracker), feature_detector_(feature_detector) {
+SocketServer::SocketServer(EyeTracker *eye_tracker)
+    : eye_tracker_(eye_tracker) {
 }
 
 void SocketServer::startServer() {
@@ -81,9 +80,24 @@ void SocketServer::openSocket() {
                         sent += new_bytes;
                     }
                 }
+            } else if (buffer[0] == 2) {
+                for (int i = 0; i < 2; i++) {
+                    eye_tracker_->getEyeCentrePosition(eye_position_, i);
+                    uint32_t sent{0};
+                    uint32_t size_to_send{sizeof(eye_position_)};
+                    while (sent < size_to_send) {
+                        ssize_t new_bytes{send(socket_handle_,
+                                               (char *) &eye_position_ + sent,
+                                               size_to_send - sent, 0)};
+                        if (new_bytes < 0) {
+                            break;
+                        }
+                        sent += new_bytes;
+                    }
+                }
             } else if (buffer[0] == 3) {
                 for (int i = 0; i < 2; i++) {
-                    feature_detector_->getPupilGlintVector(pupil_glint_vector_, i);
+                    eye_tracker_->getPupilGlintVector(pupil_glint_vector_, i);
                     uint32_t sent{0};
                     uint32_t size_to_send{sizeof(pupil_glint_vector_)};
                     while (sent < size_to_send) {
@@ -130,10 +144,10 @@ void SocketServer::openSocket() {
             } else if (buffer[0] == 6) {
                 uint8_t moving_average_size{};
                 read(socket_handle_, &moving_average_size, 1);
-                feature_detector_->setGazeBufferSize(moving_average_size);
+                eye_tracker_->setGazeBufferSize(moving_average_size);
             } else if (buffer[0] == 7) {
                 for (int i = 0; i < 2; i++) {
-                    feature_detector_->getPupilGlintVectorFiltered(
+                    eye_tracker_->getPupilGlintVectorFiltered(
                         pupil_glint_vector_, i);
                     uint32_t sent{0};
                     uint32_t size_to_send{sizeof(pupil_glint_vector_)};
@@ -150,7 +164,7 @@ void SocketServer::openSocket() {
                 }
             } else if (buffer[0] == 8) {
                 for (int i = 0; i < 2; i++) {
-                    feature_detector_->getPupil(pupil_location_, i);
+                    eye_tracker_->getPupil(pupil_location_, i);
                     uint32_t sent{0};
                     uint32_t size_to_send{sizeof(pupil_location_)};
                     while (sent < size_to_send) {
@@ -165,7 +179,7 @@ void SocketServer::openSocket() {
                 }
             } else if (buffer[0] == 9) {
                 for (int i = 0; i < 2; i++) {
-                    feature_detector_->getPupilFiltered(pupil_location_, i);
+                    eye_tracker_->getPupilFiltered(pupil_location_, i);
                     uint32_t sent{0};
                     uint32_t size_to_send{sizeof(pupil_location_)};
                     while (sent < size_to_send) {

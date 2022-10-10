@@ -1,13 +1,6 @@
 #include "BayesMinimizer.hpp"
 
 namespace et {
-BayesMinimizer::BayesMinimizer() {
-    glints_sigma_ = 20.0f;
-    centre_sigma_ = 10.0f;
-    radius_sigma_ = 5.0f;
-    glints_.resize(3);
-}
-
 int BayesMinimizer::getDims() const {
     return 3;
 }
@@ -20,20 +13,25 @@ double BayesMinimizer::calc(const double *x) const {
     double centre_value{0.0};
     double radius_value{0.0};
     double value{0.0};
-    for (int i = 0; i < 3; i++) {
+    // Error equal on the distance between the previous circle and glints
+    for (auto glint : glints_) {
         value = 0.0;
-        value += (glints_[i].x - centre.x) * (glints_[i].x - centre.x);
-        value += (glints_[i].y - centre.y) * (glints_[i].y - centre.y);
+        value += (glint.x - centre.x) * (glint.x - centre.x);
+        value += (glint.y - centre.y) * (glint.y - centre.y);
         value -= radius * radius;
         glint_value += value * value;
     }
-    glint_value /= glints_sigma_;
+    glint_value /= glints_sigma_ * (int) glints_.size();
 
+    // Error equal on the distance between the previous circle's centre
+    // and the centre of the circle based on glints.
     value = 0.0;
     value += (previous_centre_.x - centre.x) * (previous_centre_.x - centre.x);
     value += (previous_centre_.y - centre.y) * (previous_centre_.y - centre.y);
     centre_value = value / centre_sigma_;
 
+    // Error equal on the difference between the previous circle's radius
+    // and the radius of the circle based on glints.
     value = 0.0;
     value += (previous_radius_ - radius) * (previous_radius_ - radius);
     radius_value = value / radius_sigma_;
@@ -44,9 +42,7 @@ double BayesMinimizer::calc(const double *x) const {
 void BayesMinimizer::setParameters(const std::vector<cv::Point2f> &glints,
                                    const cv::Point2d &previous_centre,
                                    double previous_radius) {
-    for (int i = 0; i < 3; i++) {
-        glints_[i] = glints[i];
-    }
+    glints_ = glints;
     previous_centre_ = previous_centre;
     previous_radius_ = previous_radius;
 }
