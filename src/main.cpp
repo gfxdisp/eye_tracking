@@ -25,8 +25,8 @@ int main(int argc, char *argv[]) {
         {"input-type", required_argument, nullptr, 't'},
         {"input-path", required_argument, nullptr, 'p'},
         {"user", required_argument, nullptr, 'u'},
-        {"glint-ellipse-left", no_argument, nullptr, 'g'},
-        {"glint-ellipse-right", no_argument, nullptr, 'e'},
+        {"cameras", no_argument, nullptr, 'c'},
+        {"glint-ellipse", no_argument, nullptr, 'e'},
         {"log", no_argument, nullptr, 'l'},
         {nullptr, no_argument, nullptr, 0}};
 
@@ -37,10 +37,11 @@ int main(int argc, char *argv[]) {
     std::string user{"default"};
 
     bool saving_log{false};
-    bool ellipse_fitting[]{false, false};
+    bool ellipse_fitting[]{true, false};
+    bool enabled_cameras[]{true, true};
 
     while (argument != -1) {
-        argument = getopt_long(argc, argv, "s:t:p:u:gel", options, nullptr);
+        argument = getopt_long(argc, argv, "s:t:p:u:c:e:l", options, nullptr);
         switch (argument) {
         case 's':
             settings_path = optarg;
@@ -54,11 +55,13 @@ int main(int argc, char *argv[]) {
         case 'u':
             user = optarg;
             break;
-        case 'g':
-            ellipse_fitting[0] = true;
+        case 'c':
+            enabled_cameras[0] = optarg[0] == '1';
+            enabled_cameras[1] = optarg[1] == '1';
             break;
         case 'e':
-            ellipse_fitting[1] = true;
+            ellipse_fitting[0] = optarg[0] == '1';
+            ellipse_fitting[1] = optarg[1] == '1';
             break;
         case 'l':
             saving_log = true;
@@ -89,7 +92,7 @@ int main(int argc, char *argv[]) {
 
     std::vector<int> camera_ids = image_provider->getCameraIds();
     et::EyeTracker eye_tracker{};
-    eye_tracker.initialize(image_provider, ellipse_fitting);
+    eye_tracker.initialize(image_provider, enabled_cameras, ellipse_fitting);
 
     et::SocketServer socket_server{&eye_tracker};
     socket_server.startServer();
@@ -104,7 +107,6 @@ int main(int argc, char *argv[]) {
     int frame_counter{0};
     bool slow_mode{false};
 
-    cv::Mat pupil_image[2], glint_image[2];
     while (!socket_server.finished) {
         if (!eye_tracker.analyzeNextFrame()) {
             std::cout << "Empty image. Finishing.\n";
@@ -135,7 +137,7 @@ int main(int argc, char *argv[]) {
             }
             break;
         case 'v': {
-            eye_tracker.startVideoRecording();
+            eye_tracker.switchVideoRecordingState();
             break;
         }
         case 's':
@@ -179,25 +181,25 @@ int main(int argc, char *argv[]) {
             et::Settings::parameters.detection_params.pupil_search_centre[0]
                 .y++;
             break;
-        case 65451: // + right
+        case 'I': // + right
             et::Settings::parameters.detection_params.pupil_search_radius[1]++;
             break;
-        case 65453: // - right
+        case 'K': // - right
             et::Settings::parameters.detection_params.pupil_search_radius[1]--;
             break;
-        case 65361: // ← right
+        case 'G': // ← right
             et::Settings::parameters.detection_params.pupil_search_centre[1]
                 .x--;
             break;
-        case 65362: // ↑ right
+        case 'Y': // ↑ right
             et::Settings::parameters.detection_params.pupil_search_centre[1]
                 .y--;
             break;
-        case 65363: // → right
+        case 'J': // → right
             et::Settings::parameters.detection_params.pupil_search_centre[1]
                 .x++;
             break;
-        case 65364: // ↓ right
+        case 'H': // ↓ right
             et::Settings::parameters.detection_params.pupil_search_centre[1]
                 .y++;
             break;

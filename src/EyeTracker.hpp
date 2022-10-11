@@ -18,7 +18,7 @@ enum class VisualizationType {
 
 class EyeTracker {
 public:
-    void initialize(ImageProvider *image_provider, bool ellipse_fitting[]);
+    void initialize(ImageProvider *image_provider, bool enabled_cameras[], bool ellipse_fitting[]);
     bool analyzeNextFrame();
     void getPupil(cv::Point2f &pupil, int camera_id);
     void getPupilFiltered(cv::Point2f &pupil, int camera_id);
@@ -33,7 +33,7 @@ public:
 
     void logEyeFeatures(std::ostream &output);
 
-    void startVideoRecording();
+    void switchVideoRecordingState();
 
     void stopVideoRecording();
 
@@ -67,6 +67,7 @@ private:
     cv::VideoWriter output_video_[2]{};
     cv::VideoWriter output_video_ui_[2]{};
     VisualizationType visualization_type_{};
+    std::vector<int> camera_ids_{};
 };
 
 } // namespace et

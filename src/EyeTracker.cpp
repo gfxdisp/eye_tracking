@@ -3,15 +3,21 @@
 #include <iostream>
 
 namespace et {
-void EyeTracker::initialize(ImageProvider *image_provider, bool ellipse_fitting[]) {
+void EyeTracker::initialize(ImageProvider *image_provider,
+                            bool enabled_cameras[], bool ellipse_fitting[]) {
     image_provider_ = image_provider;
-
     image_provider_->initialize();
+
     for (int i = 0; i < 2; i++) {
+        if (enabled_cameras[i]) {
+            camera_ids_.push_back(i);
+        }
         feature_detectors_[i].initialize(i);
         eye_estimators_[i].initialize(i);
-        visualizer_[i].initialize(i);
         ellipse_fitting_[i] = ellipse_fitting[i];
+    }
+    for (auto &i : camera_ids_) {
+        visualizer_[i].initialize(i);
     }
     visualization_type_ = VisualizationType::CAMERA_IMAGE;
     initialized_ = true;
@@ -21,7 +27,7 @@ bool EyeTracker::analyzeNextFrame() {
     if (!initialized_) {
         return false;
     }
-    for (int i = 0; i < 2; i++) {
+    for (auto &i : camera_ids_) {
         analyzed_frame_[i] = image_provider_->grabImage(i);
         if (analyzed_frame_[i].empty()) {
             return false;
@@ -99,7 +105,7 @@ void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &cornea_centre,
 }
 
 void EyeTracker::logEyeFeatures(std::ostream &output) {
-    for (int i = 0; i < 2; i++) {
+    for (auto &i : camera_ids_) {
         cv::Point2f pupil = feature_detectors_[i].getPupil();
         output << i << "," << frame_counter_ << "," << pupil.x << ","
                << pupil.y;
@@ -120,26 +126,32 @@ void EyeTracker::logEyeFeatures(std::ostream &output) {
     }
 }
 
-void EyeTracker::startVideoRecording() {
-    for (int i = 0; i < 2; i++) {
-        std::string filename = "videos/" + Utils::getCurrentTimeText() + "_"
-            + std::to_string(i) + ".mp4";
-        std::clog << "Saving video to " << filename << "\n";
-        output_video_[i].open(
-            filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
-            et::Settings::parameters.camera_params[i].region_of_interest,
-            false);
-        filename = "videos/" + Utils::getCurrentTimeText() + "_"
-            + std::to_string(i) + "_ui.mp4";
-        output_video_ui_[i].open(
-            filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
-            et::Settings::parameters.camera_params[i].region_of_interest,
-            false);
+void EyeTracker::switchVideoRecordingState() {
+    if (!camera_ids_.empty() && output_video_[camera_ids_[0]].isOpened()) {
+        stopVideoRecording();
+    } else {
+        for (auto &i : camera_ids_) {
+            auto current_time = Utils::getCurrentTimeText();
+            std::string filename =
+                "videos/" + current_time + "_" + std::to_string(i) + ".mp4";
+            std::clog << "Saving video to " << filename << "\n";
+            output_video_[i].open(
+                filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+                et::Settings::parameters.camera_params[i].region_of_interest,
+                false);
+            filename =
+                "videos/" + current_time + "_" + std::to_string(i) + "_ui.mp4";
+            output_video_ui_[i].open(
+                filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+                et::Settings::parameters.camera_params[i].region_of_interest,
+                true);
+        }
     }
 }
 
 void EyeTracker::stopVideoRecording() {
-    for (int i = 0; i < 2; i++) {
+    std::clog << "Finished video recording.\n";
+    for (auto &i : camera_ids_) {
         if (output_video_[i].isOpened()) {
             output_video_[i].release();
         }
@@ -150,7 +162,7 @@ void EyeTracker::stopVideoRecording() {
 }
 
 void EyeTracker::captureCameraImage() {
-    for (int i = 0; i < 2; i++) {
+    for (auto &i : camera_ids_) {
         std::string filename{"images/" + Utils::getCurrentTimeText() + "_"
                              + std::to_string(i) + ".png"};
         imwrite(filename, analyzed_frame_[i]);
@@ -159,7 +171,7 @@ void EyeTracker::captureCameraImage() {
 
 void EyeTracker::updateUi() {
     Visualizer::calculateFramerate();
-    for (int i = 0; i < 2; i++) {
+    for (auto &i : camera_ids_) {
         switch (visualization_type_) {
         case VisualizationType::CAMERA_IMAGE:
             visualizer_[i].prepareImage(analyzed_frame_[i]);
@@ -199,7 +211,7 @@ void EyeTracker::updateUi() {
         }
 
         if (output_video_ui_[i].isOpened()) {
-            output_video_ui_->write(visualizer_[i].getUiImage());
+            output_video_ui_[i].write(visualizer_[i].getUiImage());
         }
     }
 }
@@ -221,8 +233,8 @@ void EyeTracker::switchToGlintThreshImage() {
 }
 
 bool EyeTracker::shouldAppClose() {
-    for (int i = 0; i < 2; i++) {
-        if (!visualizer_->isWindowOpen()) {
+    for (auto &i : camera_ids_) {
+        if (!visualizer_[i].isWindowOpen()) {
             return true;
         }
     }
