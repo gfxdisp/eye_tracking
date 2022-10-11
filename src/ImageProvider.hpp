@@ -9,17 +9,13 @@
 namespace et {
 class ImageProvider {
 public:
-    virtual void initialize(bool separate_exposures);
-    virtual cv::Mat grabImage(int camera_id);
-    virtual cv::Mat grabPupilImage(int camera_id) = 0;
-    virtual cv::Mat grabGlintImage(int camera_id) = 0;
-    virtual void close();
-    virtual bool isSeparateExposures();
+    virtual void initialize() = 0;
+    virtual cv::Mat grabImage(int camera_id) = 0;
+    virtual void close() = 0;
     virtual std::vector<int> getCameraIds() = 0;
 
 protected:
     cv::Mat image_{};
-    bool separate_exposures_{false};
 };
 } // namespace et
 

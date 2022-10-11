@@ -13,6 +13,8 @@ public:
     static std::vector<std::vector<float>>
     readFloatRowsCsv(const std::string& filename);
     static void writeFloatCsv(std::vector<std::vector<float>> &data, const std::string& filename);
+
+    static std::string getCurrentTimeText();
 };
 
 } // namespace et

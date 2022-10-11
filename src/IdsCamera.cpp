@@ -8,16 +8,9 @@
 
 namespace et {
 
-void IdsCamera::initialize(bool separate_exposures) {
+void IdsCamera::initialize() {
     initializeCamera();
-    separate_exposures_ = separate_exposures;
-    if (separate_exposures_) {
-        image_gatherer_ =
-            std::thread{&IdsCamera::imageGatheringTwoExposuresThread, this};
-    } else {
-        image_gatherer_ =
-            std::thread{&IdsCamera::imageGatheringOneExposureThread, this};
-    }
+    image_gatherer_ = std::thread{&IdsCamera::imageGatheringThread, this};
 }
 
 void IdsCamera::initializeCamera() {
@@ -28,14 +21,18 @@ void IdsCamera::initializeCamera() {
     assert(result == IS_SUCCESS);
     assert(all_camera_count > 0);
 
-    UEYE_CAMERA_LIST* camera_list = (UEYE_CAMERA_LIST*) new BYTE[sizeof (DWORD) + all_camera_count * sizeof (UEYE_CAMERA_LIST)];
+    UEYE_CAMERA_LIST *camera_list =
+        (UEYE_CAMERA_LIST
+             *) new BYTE[sizeof(DWORD)
+                         + all_camera_count * sizeof(UEYE_CAMERA_LIST)];
     result = is_GetCameraList(camera_list);
     assert(result == IS_SUCCESS);
 
     std::vector<int> camera_indices{};
 
     for (int i = 0; i < all_camera_count; i++) {
-        std::clog << "Connected camera: " << std::string(camera_list->uci[i].Model) << ", "
+        std::clog << "Connected camera: "
+                  << std::string(camera_list->uci[i].Model) << ", "
                   << std::string(camera_list->uci[i].SerNo) << "\n";
         for (int j = 0; j < 2; j++) {
             if (std::string(camera_list->uci[i].SerNo)
@@ -47,7 +44,7 @@ void IdsCamera::initializeCamera() {
     }
     assert(!camera_indices.empty());
     used_camera_count_ = static_cast<int>(camera_indices.size());
-    
+
     for (int i = 0; i < camera_ids_.size(); i++) {
         int camera_id = camera_ids_[i];
         camera_handles_[camera_id] =
@@ -71,103 +68,77 @@ void IdsCamera::initializeCamera() {
         area_of_interest.s32Y =
             Settings::parameters.camera_params[camera_id].capture_offset.height;
         area_of_interest.s32Width =
-            Settings::parameters.camera_params[camera_id].region_of_interest.width;
+            Settings::parameters.camera_params[camera_id]
+                .region_of_interest.width;
         area_of_interest.s32Height =
-            Settings::parameters.camera_params[camera_id].region_of_interest.height;
+            Settings::parameters.camera_params[camera_id]
+                .region_of_interest.height;
 
         result = is_AOI(camera_handles_[camera_id], IS_AOI_IMAGE_SET_AOI,
                         &area_of_interest, sizeof(area_of_interest));
         assert(result == IS_SUCCESS);
 
-
-        uint32_t pixel_clock = (uint32_t) et::Settings::parameters.camera_params[camera_id].pixel_clock;
-        result = is_PixelClock(camera_handles_[camera_id], IS_PIXELCLOCK_CMD_SET, &pixel_clock, sizeof(pixel_clock));
+        uint32_t pixel_clock =
+            (uint32_t) et::Settings::parameters.camera_params[camera_id]
+                .pixel_clock;
+        result =
+            is_PixelClock(camera_handles_[camera_id], IS_PIXELCLOCK_CMD_SET,
+                          &pixel_clock, sizeof(pixel_clock));
         assert(result == IS_SUCCESS);
 
-        setGamma(et::Settings::parameters.camera_params[camera_id].gamma, camera_id);
-        setFramerate(et::Settings::parameters.camera_params[camera_id].framerate, camera_id);
-        setExposure(et::Settings::parameters.camera_params[camera_id].pupil_exposure, camera_id);
+        setGamma(et::Settings::parameters.camera_params[camera_id].gamma,
+                 camera_id);
+        setFramerate(
+            et::Settings::parameters.camera_params[camera_id].framerate,
+            camera_id);
+        setExposure(
+            et::Settings::parameters.camera_params[camera_id].pupil_exposure,
+            camera_id);
 
-        result = is_AllocImageMem(camera_handles_[camera_id], area_of_interest.s32Width,
-                                  area_of_interest.s32Height, CHAR_BIT * 1,
-                                  &image_handles_[camera_id], &image_ids_[camera_id]);
+        result = is_AllocImageMem(
+            camera_handles_[camera_id], area_of_interest.s32Width,
+            area_of_interest.s32Height, CHAR_BIT * 1,
+            &image_handles_[camera_id], &image_ids_[camera_id]);
         assert(result == IS_SUCCESS);
 
-        result = is_SetImageMem(camera_handles_[camera_id], image_handles_[camera_id],
-                                image_ids_[camera_id]);
+        result =
+            is_SetImageMem(camera_handles_[camera_id],
+                           image_handles_[camera_id], image_ids_[camera_id]);
         assert(result == IS_SUCCESS);
 
         image_.create(area_of_interest.s32Height, area_of_interest.s32Width,
                       CV_8UC1);
-        for (auto &j : pupil_image_queues_) {
-            j[camera_id].create(area_of_interest.s32Height, area_of_interest.s32Width,
-                        CV_8UC1);
-        }
-
-        if (separate_exposures_) {
-            for (auto &j : glint_image_queues_) {
-                j[camera_id].create(area_of_interest.s32Height,
-                            area_of_interest.s32Width, CV_8UC1);
-            }
+        for (auto &j : image_queues_) {
+            j[camera_id].create(area_of_interest.s32Height,
+                                area_of_interest.s32Width, CV_8UC1);
         }
     }
 
     delete[] camera_list;
 }
 
-void IdsCamera::imageGatheringTwoExposuresThread() {
-    int result;
-    int new_image_index{image_index_};
-    while (thread_running_) {
-        new_image_index = (new_image_index + 1) % IMAGE_IN_QUEUE_COUNT;
-
-        for (int camera_id : camera_ids_) {
-            setExposure(
-                et::Settings::parameters.camera_params[camera_id].pupil_exposure, camera_id);
-            result = is_FreezeVideo(camera_handles_[camera_id], IS_WAIT);
-            result = is_CopyImageMem(
-                camera_handles_[camera_id], image_handles_[camera_id], image_ids_[camera_id],
-                (char *) pupil_image_queues_[new_image_index][camera_id].data);
-
-            setExposure(
-                et::Settings::parameters.camera_params[camera_id].glint_exposure, camera_id);
-            result = is_FreezeVideo(camera_handles_[camera_id], IS_WAIT);
-            result = is_CopyImageMem(
-                camera_handles_[camera_id], image_handles_[camera_id], image_ids_[camera_id],
-                (char *) glint_image_queues_[new_image_index][camera_id].data);
-        }
-
-        image_index_ = new_image_index;
-    }
-}
-
-void IdsCamera::imageGatheringOneExposureThread() {
-    int result;
+void IdsCamera::imageGatheringThread() {
     int new_image_index{image_index_};
 
     while (thread_running_) {
         new_image_index = (new_image_index + 1) % IMAGE_IN_QUEUE_COUNT;
 
         for (int camera_id : camera_ids_) {
-            setExposure(et::Settings::parameters.camera_params[camera_id].pupil_exposure,
-                    camera_id);
-            result = is_FreezeVideo(camera_handles_[camera_id], IS_WAIT);
-            result = is_CopyImageMem(
-                camera_handles_[camera_id], image_handles_[camera_id], image_ids_[camera_id],
-                (char *) pupil_image_queues_[new_image_index][camera_id].data);
+            setExposure(et::Settings::parameters.camera_params[camera_id]
+                            .pupil_exposure,
+                        camera_id);
+            is_FreezeVideo(camera_handles_[camera_id], IS_WAIT);
+            is_CopyImageMem(
+                camera_handles_[camera_id], image_handles_[camera_id],
+                image_ids_[camera_id],
+                (char *) image_queues_[new_image_index][camera_id].data);
         }
         image_index_ = new_image_index;
     }
 }
 
-cv::Mat IdsCamera::grabPupilImage(int camera_id) {
-    image_ = pupil_image_queues_[image_index_][camera_id];
-    //image_.convertTo(image_, CV_8UC1, 1.0 / 256.0);
-    return image_;
-}
-
-cv::Mat IdsCamera::grabGlintImage(int camera_id) {
-    image_ = glint_image_queues_[image_index_][camera_id];
+cv::Mat IdsCamera::grabImage(int camera_id) {
+    image_ = image_queues_[image_index_][camera_id];
     //image_.convertTo(image_, CV_8UC1, 1.0 / 256.0);
     return image_;
 }
@@ -179,9 +150,9 @@ void IdsCamera::close() {
     image_gatherer_.join();
 
     for (int camera_id : camera_ids_) {
-        result = is_FreeImageMem(camera_handles_[camera_id],
-                                 image_handles_[camera_id],
-                                 image_ids_[camera_id]);
+        result =
+            is_FreeImageMem(camera_handles_[camera_id],
+                            image_handles_[camera_id], image_ids_[camera_id]);
         assert(result == IS_SUCCESS);
 
         result = is_ExitCamera(camera_handles_[camera_id]);

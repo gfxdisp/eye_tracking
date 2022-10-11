@@ -16,24 +16,22 @@
 namespace et {
 class IdsCamera : public ImageProvider {
 public:
-    void initialize(bool separate_exposures) override;
-    cv::Mat grabPupilImage(int camera_id) override;
-    cv::Mat grabGlintImage(int camera_id) override;
+    void initialize() override;
+    cv::Mat grabImage(int camera_id) override;
     void close() override;
+    std::vector<int> getCameraIds() override;
+
     void setExposure(double exposure, int camera_id);
     void setGamma(float gamma, int camera_id);
     void setFramerate(double framerate, int camera_id);
-    std::vector<int> getCameraIds() override;
 
 private:
     void initializeCamera();
-    void imageGatheringTwoExposuresThread();
-    void imageGatheringOneExposureThread();
+    void imageGatheringThread();
 
     static constexpr int IMAGE_IN_QUEUE_COUNT = 10;
 
-    cv::Mat pupil_image_queues_[IMAGE_IN_QUEUE_COUNT][2]{};
-    cv::Mat glint_image_queues_[IMAGE_IN_QUEUE_COUNT][2]{};
+    cv::Mat image_queues_[IMAGE_IN_QUEUE_COUNT][2]{};
     int image_index_{-1};
 
     bool thread_running_{true};

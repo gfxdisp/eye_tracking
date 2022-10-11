@@ -1,5 +1,7 @@
 #include "Utils.hpp"
 
+#include <chrono>
+#include <ctime>
 #include <fstream>
 #include <sstream>
 
@@ -65,4 +67,15 @@ void Utils::writeFloatCsv(std::vector<std::vector<float>> &data, const std::stri
     }
     file.close();
 }
+
+std::string Utils::getCurrentTimeText() {
+    std::time_t now{
+        std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())};
+    static char buffer[80];
+
+    std::strftime(buffer, 80, "%Y-%m-%d_%H-%M-%S", std::localtime(&now));
+    std::string s{buffer};
+    return s;
+}
+
 } // namespace et
