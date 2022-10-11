@@ -9,16 +9,26 @@ void EyeTracker::initialize(ImageProvider *image_provider) {
     }
 }
 
-bool EyeTracker::findPupil(const cv::Mat &image, int camera_id) {
-    return feature_detectors_[camera_id].findPupil(image);
+void EyeTracker::preprocessGlintEllipse(const cv::Mat &image, int camera_id)
+{
+    feature_detectors_[camera_id].preprocessGlintEllipse(image);
 }
 
-bool EyeTracker::findGlints(const cv::Mat &image, int camera_id) {
-    return feature_detectors_[camera_id].findGlints(image);
+void EyeTracker::preprocessIndivGlints(const cv::Mat &image, int camera_id)
+{
+    feature_detectors_[camera_id].preprocessIndivGlints(image);
 }
 
-bool EyeTracker::findEllipse(const cv::Mat &image, const cv::Point2f &pupil, int camera_id) {
-    return feature_detectors_[camera_id].findEllipse(image, pupil);
+bool EyeTracker::findPupil(int camera_id) {
+    return feature_detectors_[camera_id].findPupil();
+}
+
+bool EyeTracker::findGlints(int camera_id) {
+    return feature_detectors_[camera_id].findGlints();
+}
+
+bool EyeTracker::findEllipse(const cv::Point2f &pupil, int camera_id) {
+    return feature_detectors_[camera_id].findEllipse(pupil);
 }
 
 cv::Point2f EyeTracker::getPupil(int camera_id) {

@@ -144,13 +144,18 @@ int main(int argc, char *argv[]) {
                 socket_server.finished = true;
                 break;
             }
-            bool features_found{eye_tracker.findPupil(pupil_image[i], i)};
+            if (ellipse_fitting) {
+                eye_tracker.preprocessGlintEllipse(pupil_image[i], i);
+            } else {
+                eye_tracker.preprocessIndivGlints(pupil_image[i], i);
+            }
+            bool features_found{eye_tracker.findPupil(i)};
             if (ellipse_fitting) {
                 features_found &= eye_tracker.findEllipse(
-                    glint_image[i], eye_tracker.getPupil(i), i);
+                    eye_tracker.getPupil(i), i);
             } else {
                 features_found &=
-                    eye_tracker.findGlints(glint_image[i], i);
+                    eye_tracker.findGlints(i);
             }
             et::EyePosition eye_position{};
             if (saving_log && features_found) {

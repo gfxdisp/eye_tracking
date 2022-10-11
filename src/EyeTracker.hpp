@@ -11,9 +11,11 @@ namespace et {
 class EyeTracker {
 public:
     void initialize(ImageProvider *image_provider);
-    bool findPupil(const cv::Mat &image, int camera_id);
-    bool findGlints(const cv::Mat &image, int camera_id);
-    bool findEllipse(const cv::Mat &image, const cv::Point2f &pupil, int camera_id);
+    void preprocessGlintEllipse(const cv::Mat &image, int camera_id);
+    void preprocessIndivGlints(const cv::Mat &image, int camera_id);
+    bool findPupil(int camera_id);
+    bool findGlints(int camera_id);
+    bool findEllipse(const cv::Point2f &pupil, int camera_id);
     cv::Point2f getPupil(int camera_id);
     void getPupil(cv::Point2f &pupil, int camera_id);
     void getPupilFiltered(cv::Point2f &pupil, int camera_id);

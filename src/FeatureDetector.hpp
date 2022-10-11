@@ -42,11 +42,15 @@ public:
     virtual ~FeatureDetector();
     void initialize(int camera_id);
 
-    bool findPupil(const cv::Mat &image);
+    void preprocessGlintEllipse(const cv::Mat& image);
+    
+    void preprocessIndivGlints(const cv::Mat& image);
 
-    bool findGlints(const cv::Mat &image);
+    bool findPupil();
 
-    bool findEllipse(const cv::Mat &image, const cv::Point2f &pupil);
+    bool findGlints();
+
+    bool findEllipse(const cv::Point2f &pupil);
 
     cv::Point2f getPupil();
 
@@ -114,7 +118,7 @@ private:
     float *min_pupil_radius_{};
     float *max_pupil_radius_{};
 
-    cv::Mat glints_template_;
+    cv::cuda::GpuMat glints_template_;
     cv::Ptr<cv::cuda::TemplateMatching> template_matcher_{};
     cv::Mat template_crop_{};
 
@@ -129,6 +133,9 @@ private:
     cv::Point2f glint_location_filtered_{};
 
     cv::cuda::GpuMat gpu_image_{};
+    cv::cuda::GpuMat pupil_thresholded_image_gpu_{};
+    cv::cuda::GpuMat glints_thresholded_image_gpu_{};
+    cv::Mat cpu_image_{};
     cv::Mat pupil_thresholded_image_;
     cv::Mat glints_thresholded_image_;
 

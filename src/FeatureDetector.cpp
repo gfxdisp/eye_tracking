@@ -103,7 +103,9 @@ void FeatureDetector::initialize(int camera_id) {
             cv::MORPH_ERODE, CV_8UC1, morphology_element);
     }
 
-    glints_template_ = cv::imread("template.png", cv::IMREAD_GRAYSCALE);
+    cv::Mat glints_template_cpu = cv::imread("template.png", cv::IMREAD_GRAYSCALE);
+    glints_template_.upload(glints_template_cpu);
+    template_matcher_ = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF);
     template_crop_ = (KFMatF(2, 3) << 1, 0, glints_template_.cols / 2,
                          0, 1, glints_template_.rows / 2);
 }
@@ -138,13 +140,41 @@ void FeatureDetector::getGlints(std::vector<cv::Point2f> &glint_locations) {
     mtx_features_.unlock();
 }
 
-bool FeatureDetector::findPupil(const cv::Mat &image) {
-    cv::threshold(
-        image, pupil_thresholded_image_, *pupil_threshold_, 255,
-        cv::THRESH_BINARY_INV);
-    pupil_thresholded_image_.convertTo(
-        pupil_thresholded_image_, CV_8UC1);
+void FeatureDetector::preprocessGlintEllipse(const cv::Mat& image) {
+    gpu_image_.upload(image);
 
+    cv::cuda::threshold(
+        gpu_image_, pupil_thresholded_image_gpu_, *pupil_threshold_, 255,
+        cv::THRESH_BINARY_INV);
+
+    template_matcher_->match(gpu_image_, glints_template_, glints_thresholded_image_gpu_);
+
+    cv::cuda::threshold(glints_thresholded_image_gpu_, glints_thresholded_image_gpu_, *glint_threshold_ * 2e3, 255, cv::THRESH_BINARY);    
+    glints_thresholded_image_gpu_.convertTo(
+        glints_thresholded_image_gpu_, CV_8UC1);
+
+    pupil_thresholded_image_gpu_.download(pupil_thresholded_image_);
+    glints_thresholded_image_gpu_.download(glints_thresholded_image_);
+}
+
+void FeatureDetector::preprocessIndivGlints(const cv::Mat& image) {
+    gpu_image_.upload(image);
+
+    cv::cuda::threshold(
+        gpu_image_, pupil_thresholded_image_gpu_, *pupil_threshold_, 255,
+        cv::THRESH_BINARY_INV);
+    
+    cv::cuda::threshold(
+        gpu_image_, glints_thresholded_image_gpu_,
+        *glint_threshold_, 255,
+        cv::THRESH_BINARY);
+
+
+    pupil_thresholded_image_gpu_.download(pupil_thresholded_image_);
+    glints_thresholded_image_gpu_.download(glints_thresholded_image_);
+}
+
+bool FeatureDetector::findPupil() {
     cv::findContours(pupil_thresholded_image_, contours_, hierarchy_,
                      cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
     cv::Point2f best_centre{};
@@ -158,7 +188,10 @@ bool FeatureDetector::findPupil(const cv::Mat &image) {
         cv::Point2f centre;
         float radius;
 
-        cv::minEnclosingCircle(contour, centre, radius);
+        cv::Rect bound_rect = cv::boundingRect(contour);
+        centre = 0.5 * (bound_rect.tl() + bound_rect.br());
+        radius = std::max(bound_rect.width, bound_rect.height) / 2;
+
         if (radius < *min_pupil_radius_
             or radius > *max_pupil_radius_)
             continue;
@@ -194,13 +227,8 @@ bool FeatureDetector::findPupil(const cv::Mat &image) {
     return true;
 }
 
-bool FeatureDetector::findGlints(const cv::Mat &image) {
-    cv::threshold(
-        image, glints_thresholded_image_,
-        *glint_threshold_, 255,
-        cv::THRESH_BINARY);
-    glints_thresholded_image_.convertTo(
-        glints_thresholded_image_, CV_8UC1);
+bool FeatureDetector::findGlints() {
+
 
     cv::findContours(glints_thresholded_image_, contours_,
                      hierarchy_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
@@ -214,7 +242,10 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
     for (const std::vector<cv::Point> &contour : contours_) {
         cv::Point2f centre;
         float radius;
-        cv::minEnclosingCircle(contour, centre, radius);
+        cv::Rect bound_rect = cv::boundingRect(contour);
+        centre = 0.5 * (bound_rect.tl() + bound_rect.br());
+        radius = std::max(bound_rect.width, bound_rect.height) / 2;
+
         if (radius > Settings::parameters.detection_params.max_glint_radius
             || radius < Settings::parameters.detection_params.min_glint_radius)
             continue;
@@ -350,6 +381,150 @@ bool FeatureDetector::findGlints(const cv::Mat &image) {
             + (new_glints_centre - glints_centre);
         mtx_features_.unlock();
     }
+
+    return true;
+}
+
+bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
+
+
+    cv::warpAffine(glints_thresholded_image_,
+               glints_thresholded_image_,
+               template_crop_,
+               *region_if_interest_);
+
+    cv::findContours(glints_thresholded_image_, contours_,
+                     hierarchy_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    std::vector<cv::Point2f> ellipse_points{};
+    cv::Point2f im_centre{
+        *region_if_interest_ / 2};
+
+    static unsigned seed =
+        std::chrono::system_clock::now().time_since_epoch().count();
+
+    for (const auto &contour : contours_) {
+        cv::Point2d mean_point{};
+        for (const auto &point : contour) {
+            mean_point.x += point.x;
+            mean_point.y += point.y;
+        }
+        mean_point.x /= contour.size();
+        mean_point.y /= contour.size();
+        ellipse_points.push_back(mean_point);
+    }
+
+    ellipse_points.erase(
+        std::remove_if(ellipse_points.begin(), ellipse_points.end(),
+                       [&pupil, &im_centre](auto const &p) {
+                           float distance_a = euclideanDistance(p, pupil);
+                           float distance_b = euclideanDistance(p, im_centre);
+                           return distance_a > 300 || distance_b > 300;
+                       }),
+        ellipse_points.end());
+
+    std::sort(ellipse_points.begin(), ellipse_points.end(),
+              [this](auto const &a, auto const &b) {
+                  float distance_a =
+                      euclideanDistance(a, ellipse_centre_);
+                  float distance_b =
+                      euclideanDistance(b, ellipse_centre_);
+                  return distance_a < distance_b;
+              });
+
+    ellipse_points.resize(std::min((int) ellipse_points.size(), 20));
+
+    if (ellipse_points.size() < 5) {
+        return false;
+    }
+
+    static int frame_counter = 0;
+    frame_counter++;
+
+    std::string bitmask(3, 1);
+    std::vector<cv::Point2f> circle_points{};
+    circle_points.resize(3);
+    int best_counter = 0;
+    cv::Point2d best_circle_centre{};
+    double best_circle_radius{};
+    bitmask.resize(ellipse_points.size() - 3, 0);
+    cv::Point2d ellipse_centre{};
+    double ellipse_radius{};
+    do {
+        int counter = 0;
+        for (int i = 0; counter < 3; i++) {
+            if (bitmask[i]) {
+                circle_points[counter] = ellipse_points[i];
+                counter++;
+            }
+        }
+        bayes_minimizer_->setParameters(circle_points,
+                                        ellipse_centre_,
+                                        ellipse_radius_);
+
+        cv::Mat x = (cv::Mat_<double>(1, 3) << im_centre.x, im_centre.y,
+                     ellipse_radius_);
+        bayes_solver_->minimize(x);
+        ellipse_centre.x = x.at<double>(0, 0);
+        ellipse_centre.y = x.at<double>(0, 1);
+        ellipse_radius = x.at<double>(0, 2);
+
+        counter = 0;
+        for (auto &ellipse_point : ellipse_points) {
+            double value{0.0};
+            value += (ellipse_centre.x - ellipse_point.x)
+                * (ellipse_centre.x - ellipse_point.x);
+            value += (ellipse_centre.y - ellipse_point.y)
+                * (ellipse_centre.y - ellipse_point.y);
+            if (std::abs(std::sqrt(value) - ellipse_radius) <= 3.0) {
+                counter++;
+            }
+        }
+        if (counter > best_counter) {
+            best_counter = counter;
+            best_circle_centre = ellipse_centre;
+            best_circle_radius = ellipse_radius;
+        }
+    } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
+
+    ellipse_centre_ = best_circle_centre;
+    ellipse_radius_ = best_circle_radius;
+
+    ellipse_points.erase(
+        std::remove_if(ellipse_points.begin(), ellipse_points.end(),
+                       [this](auto const &p) {
+                           double value{0.0};
+                           value += (ellipse_centre_.x - p.x)
+                               * (ellipse_centre_.x - p.x);
+                           value += (ellipse_centre_.y - p.y)
+                               * (ellipse_centre_.y - p.y);
+                           return std::abs(std::sqrt(value)
+                                           - ellipse_radius_)
+                               > 3.0;
+                       }),
+        ellipse_points.end());
+
+    if (ellipse_points.size() < 5) {
+        return false;
+    }
+
+    cv::RotatedRect ellipse = cv::fitEllipse(ellipse_points);
+
+    mtx_features_.lock();
+    glint_locations_[0] = ellipse.center;
+    mtx_features_.unlock();
+
+    glint_ellipse_kalman_.correct(
+        (KFMatF(5, 1) << ellipse.center.x, ellipse.center.y, ellipse.size.width,
+         ellipse.size.height, ellipse.angle));
+
+    cv::Mat predicted_ellipse = glint_ellipse_kalman_.predict();
+    glint_ellipse_.center.x = predicted_ellipse.at<float>(0, 0);
+    glint_ellipse_.center.y = predicted_ellipse.at<float>(1, 0);
+    glint_ellipse_.size.width = predicted_ellipse.at<float>(2, 0);
+    glint_ellipse_.size.height = predicted_ellipse.at<float>(3, 0);
+    glint_ellipse_.angle = predicted_ellipse.at<float>(4, 0);
+//    glint_ellipse_[camera_id] = ellipse; // Disables Kalman filtering
 
     return true;
 }
@@ -626,157 +801,6 @@ void FeatureDetector::getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector)
     pupil_glint_vector = pupil_location_filtered_
         - glint_location_filtered_;
     mtx_features_.unlock();
-}
-
-bool FeatureDetector::findEllipse(const cv::Mat &image,
-                                  const cv::Point2f &pupil) {
-
-    cv::matchTemplate(image, glints_template_,
-                      glints_thresholded_image_, cv::TM_CCOEFF);
-    cv::warpAffine(glints_thresholded_image_,
-                   glints_thresholded_image_,
-                   template_crop_,
-                   cv::Size(image.cols, image.rows));
-    cv::threshold(glints_thresholded_image_,
-                  glints_thresholded_image_, *glint_threshold_ * 2e3, 255,
-                  CV_8UC1);
-    glints_thresholded_image_.convertTo(
-        glints_thresholded_image_, CV_8UC1);
-
-    cv::findContours(glints_thresholded_image_, contours_,
-                     hierarchy_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-    std::vector<cv::Point2f> ellipse_points{};
-    cv::Point2f im_centre{
-        *region_if_interest_ / 2};
-
-    static unsigned seed =
-        std::chrono::system_clock::now().time_since_epoch().count();
-
-    for (const auto &contour : contours_) {
-        cv::Point2d mean_point{};
-        for (const auto &point : contour) {
-            mean_point.x += point.x;
-            mean_point.y += point.y;
-        }
-        mean_point.x /= contour.size();
-        mean_point.y /= contour.size();
-        ellipse_points.push_back(mean_point);
-    }
-
-    ellipse_points.erase(
-        std::remove_if(ellipse_points.begin(), ellipse_points.end(),
-                       [&pupil, &im_centre](auto const &p) {
-                           float distance_a = euclideanDistance(p, pupil);
-                           float distance_b = euclideanDistance(p, im_centre);
-                           return distance_a > 300 || distance_b > 300;
-                       }),
-        ellipse_points.end());
-
-    std::sort(ellipse_points.begin(), ellipse_points.end(),
-              [this](auto const &a, auto const &b) {
-                  float distance_a =
-                      euclideanDistance(a, ellipse_centre_);
-                  float distance_b =
-                      euclideanDistance(b, ellipse_centre_);
-                  return distance_a < distance_b;
-              });
-
-    ellipse_points.resize(std::min((int) ellipse_points.size(), 20));
-
-    if (ellipse_points.size() < 5) {
-        return false;
-    }
-
-    static int frame_counter = 0;
-    frame_counter++;
-
-    std::string bitmask(3, 1);
-    std::vector<cv::Point2f> circle_points{};
-    circle_points.resize(3);
-    int best_counter = 0;
-    cv::Point2d best_circle_centre{};
-    double best_circle_radius{};
-    bitmask.resize(ellipse_points.size() - 3, 0);
-    cv::Point2d ellipse_centre{};
-    double ellipse_radius{};
-    do {
-        int counter = 0;
-        for (int i = 0; counter < 3; i++) {
-            if (bitmask[i]) {
-                circle_points[counter] = ellipse_points[i];
-                counter++;
-            }
-        }
-        bayes_minimizer_->setParameters(circle_points,
-                                        ellipse_centre_,
-                                        ellipse_radius_);
-
-        cv::Mat x = (cv::Mat_<double>(1, 3) << im_centre.x, im_centre.y,
-                     ellipse_radius_);
-        bayes_solver_->minimize(x);
-        ellipse_centre.x = x.at<double>(0, 0);
-        ellipse_centre.y = x.at<double>(0, 1);
-        ellipse_radius = x.at<double>(0, 2);
-
-        counter = 0;
-        for (auto &ellipse_point : ellipse_points) {
-            double value{0.0};
-            value += (ellipse_centre.x - ellipse_point.x)
-                * (ellipse_centre.x - ellipse_point.x);
-            value += (ellipse_centre.y - ellipse_point.y)
-                * (ellipse_centre.y - ellipse_point.y);
-            if (std::abs(std::sqrt(value) - ellipse_radius) <= 3.0) {
-                counter++;
-            }
-        }
-        if (counter > best_counter) {
-            best_counter = counter;
-            best_circle_centre = ellipse_centre;
-            best_circle_radius = ellipse_radius;
-        }
-    } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
-
-    ellipse_centre_ = best_circle_centre;
-    ellipse_radius_ = best_circle_radius;
-
-    ellipse_points.erase(
-        std::remove_if(ellipse_points.begin(), ellipse_points.end(),
-                       [this](auto const &p) {
-                           double value{0.0};
-                           value += (ellipse_centre_.x - p.x)
-                               * (ellipse_centre_.x - p.x);
-                           value += (ellipse_centre_.y - p.y)
-                               * (ellipse_centre_.y - p.y);
-                           return std::abs(std::sqrt(value)
-                                           - ellipse_radius_)
-                               > 3.0;
-                       }),
-        ellipse_points.end());
-
-    if (ellipse_points.size() < 5) {
-        return false;
-    }
-
-    cv::RotatedRect ellipse = cv::fitEllipse(ellipse_points);
-
-    mtx_features_.lock();
-    glint_locations_[0] = ellipse.center;
-    mtx_features_.unlock();
-
-    glint_ellipse_kalman_.correct(
-        (KFMatF(5, 1) << ellipse.center.x, ellipse.center.y, ellipse.size.width,
-         ellipse.size.height, ellipse.angle));
-
-    cv::Mat predicted_ellipse = glint_ellipse_kalman_.predict();
-    glint_ellipse_.center.x = predicted_ellipse.at<float>(0, 0);
-    glint_ellipse_.center.y = predicted_ellipse.at<float>(1, 0);
-    glint_ellipse_.size.width = predicted_ellipse.at<float>(2, 0);
-    glint_ellipse_.size.height = predicted_ellipse.at<float>(3, 0);
-    glint_ellipse_.angle = predicted_ellipse.at<float>(4, 0);
-//    glint_ellipse_[camera_id] = ellipse; // Disables Kalman filtering
-
-    return true;
 }
 
 cv::RotatedRect FeatureDetector::getEllipse() {

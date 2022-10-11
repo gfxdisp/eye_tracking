@@ -56,7 +56,7 @@ void IdsCamera::initializeCamera() {
         result = is_InitCamera(&camera_handles_[camera_id], nullptr);
         assert(result == IS_SUCCESS);
 
-        result = is_SetColorMode(camera_handles_[camera_id], IS_CM_MONO8);
+        result = is_SetColorMode(camera_handles_[camera_id], IS_CM_SENSOR_RAW8);
         assert(result == IS_SUCCESS);
 
         double enable_auto_gain = 0.0;
@@ -89,8 +89,7 @@ void IdsCamera::initializeCamera() {
         setExposure(et::Settings::parameters.camera_params[camera_id].pupil_exposure, camera_id);
 
         result = is_AllocImageMem(camera_handles_[camera_id], area_of_interest.s32Width,
-                                  area_of_interest.s32Height,
-                                  sizeof(char) * CHAR_BIT * 1,
+                                  area_of_interest.s32Height, CHAR_BIT * 1,
                                   &image_handles_[camera_id], &image_ids_[camera_id]);
         assert(result == IS_SUCCESS);
 
@@ -163,13 +162,13 @@ void IdsCamera::imageGatheringOneExposureThread() {
 
 cv::Mat IdsCamera::grabPupilImage(int camera_id) {
     image_ = pupil_image_queues_[image_index_][camera_id];
-    // image_.convertTo(image_, CV_8UC1, 1.0 / 256.0);
+    //image_.convertTo(image_, CV_8UC1, 1.0 / 256.0);
     return image_;
 }
 
 cv::Mat IdsCamera::grabGlintImage(int camera_id) {
     image_ = glint_image_queues_[image_index_][camera_id];
-    // image_.convertTo(image_, CV_8UC1, 1.0 / 256.0);
+    //image_.convertTo(image_, CV_8UC1, 1.0 / 256.0);
     return image_;
 }
 
