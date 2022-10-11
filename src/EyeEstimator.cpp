@@ -238,7 +238,7 @@ void EyeEstimator::getGazeDirection(cv::Vec3f &gaze_direction) {
 
     cv::Vec4f homo_inv_optical_axis{};
     mtx_eye_position_.lock();
-    inv_optical_axis_ = *eye_position_.cornea_curvature - *eye_position_.pupil;
+    inv_optical_axis_ = *eye_position_.eye_centre - *eye_position_.cornea_curvature;
     inv_optical_axis_ -= *gaze_shift_;
     cv::normalize(inv_optical_axis_, inv_optical_axis_);
     for (int i = 0; i < 3; i++)

@@ -122,7 +122,7 @@ private:
     cv::Ptr<cv::cuda::TemplateMatching> template_matcher_{};
     cv::Mat template_crop_{};
 
-    int buffer_size_{16};
+    int buffer_size_{4};
     int buffer_idx_{0};
     int buffer_summed_count_{0};
     std::vector<cv::Point2f> pupil_location_buffer_{};

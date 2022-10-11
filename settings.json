@@ -156,6 +156,18 @@
                 "left": 17,
                 "right": 21
             }
+        },
+        "mw861": {
+            "alpha": -0.0872664600610733,
+            "beta": 0.02617993950843811,
+            "glint_threshold": {
+                "left": 96,
+                "right": 213
+            },
+            "pupil_threshold": {
+                "left": 17,
+                "right": 21
+            }
         }
     },
     "led_positions": {
