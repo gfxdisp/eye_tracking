@@ -1,17 +1,17 @@
-#ifndef HDRMFS_EYE_TRACKER_BAYESMINIMIZER_HPP
-#define HDRMFS_EYE_TRACKER_BAYESMINIMIZER_HPP
+#ifndef HDRMFS_EYE_TRACKER_BAYES_MINIMIZER_HPP
+#define HDRMFS_EYE_TRACKER_BAYES_MINIMIZER_HPP
 
 #include <opencv2/core/optim.hpp>
 
 namespace et {
 
-/** Class used to find a circle, on which glints lie. The position is calculated
+/** Finds a circle, on which glints lie. The position is calculated
  * based on the circle from previous frame and a vector of glints.
  */
 class BayesMinimizer : public cv::DownhillSolver::Function {
 public:
-    /** Sets the parameters needed for minimization.
-     *
+    /**
+     * Sets the parameters needed for minimization.
      * @param glints a vector of glint positions in the current frame.
      * @param previous_centre a centre position of the circle fit
      * in the previous frame.
@@ -32,19 +32,19 @@ private:
     double centre_sigma_{2};
     // Radius of the circle from the previous frame.
     double previous_radius_{};
-    // Expected error of the ptevious circle radius (in pixels).
+    // Expected error of the previous circle radius (in pixels).
     double radius_sigma_{5};
 
-    /** Internal cv::DownhillSolver method used to calculate number of optimized
+    /**
+     * Internal cv::DownhillSolver method used to calculate number of optimized
      * parameters.
-     *
      * @return number of optimized parameters.
      */
     [[nodiscard]] int getDims() const override;
 
-    /** Internal cv::DownhillSolver method used to run a single optimization
+    /**
+     * Internal cv::DownhillSolver method used to run a single optimization
      * iteration.
-     *
      * @param x set of parameters for which the function is checked.
      * @return total error computed for the parameters.
      */
@@ -53,4 +53,4 @@ private:
 
 } // namespace et
 
-#endif //HDRMFS_EYE_TRACKER_BAYESMINIMIZER_HPP
+#endif //HDRMFS_EYE_TRACKER_BAYES_MINIMIZER_HPP

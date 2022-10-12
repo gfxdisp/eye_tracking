@@ -1,12 +1,13 @@
 #include "InputImages.hpp"
 
 namespace et {
-InputImages::InputImages(std::string &images_folder_path) {
+InputImages::InputImages(const std::string &images_folder_path) {
     cv::glob(images_folder_path + "/*.png", filenames_, false);
 }
 
 cv::Mat InputImages::grabImage(int camera_id) {
     if (image_count_ >= filenames_.size()) {
+        // Once all images have been processed, empty image is returned.
         return {};
     }
 
@@ -14,10 +15,6 @@ cv::Mat InputImages::grabImage(int camera_id) {
     cv::cvtColor(image_, image_, cv::COLOR_BGR2GRAY);
     image_count_++;
     return image_;
-}
-
-std::vector<int> InputImages::getCameraIds() {
-    return {0};
 }
 
 void InputImages::initialize() {

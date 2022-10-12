@@ -17,7 +17,7 @@ Tested with version 10.1.243-3. Use `nvcc --version` to check whether CUDA is in
 ### [IDS Software Suite](https://en.ids-imaging.com/ids-software-suite.html) (required for IDS uEye support)
 
 Select your camera model, create an account, download and install the 64-bit Linux Debian packages.
-You will need all of the included packages.
+You will need all the included packages.
 
 ### OpenCV
 

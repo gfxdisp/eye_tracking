@@ -2,7 +2,6 @@
 
 #include <arpa/inet.h>
 #include <chrono>
-#include <cstdio>
 #include <fcntl.h>
 #include <iostream>
 #include <thread>
@@ -19,7 +18,7 @@ void SocketServer::startServer() {
     int opt{1};
 
     if ((server_handle_ = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("socket failed");
+        std::clog << "Failed to create a socket.\n";
         return;
     }
 
@@ -27,7 +26,7 @@ void SocketServer::startServer() {
 
     if (setsockopt(server_handle_, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
                    &opt, sizeof(opt))) {
-        perror("setsockopt");
+        std::clog << "Failed to set socket options.\n";
         close(server_handle_);
         return;
     }
@@ -36,12 +35,12 @@ void SocketServer::startServer() {
     address_.sin_port = htons(8080);
 
     if (bind(server_handle_, (sockaddr *) &address_, sizeof(address_)) < 0) {
-        perror("bind failed");
+        std::clog << "Failed to bind a socket address.\n";
         close(server_handle_);
         return;
     }
     if (listen(server_handle_, 3) < 0) {
-        perror("listen");
+        std::clog << "Failed to start socket listening.\n";
         close(server_handle_);
     }
 }
@@ -50,24 +49,24 @@ void SocketServer::openSocket() {
     std::clog << "Socket opened.\n";
     char buffer[1]{1};
     while (!finished) {
-        int addrlen = sizeof(address_);
+        int address_length = sizeof(address_);
         while (socket_handle_ < 0 && !finished) {
             socket_handle_ =
                 accept(server_handle_, (struct sockaddr *) &address_,
-                       (socklen_t *) &addrlen);
+                       (socklen_t *) &address_length);
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
         while (!finished) {
-            int valread = read(socket_handle_, buffer, 1);
-            if (valread != 1) {
+            auto read_bytes = (int) read(socket_handle_, buffer, 1);
+            if (read_bytes != 1) {
                 break;
             }
-            if (buffer[0] == 0) {
+            if (buffer[0] == MSG_CLOSE_CONNECTION) {
                 finished = true;
-            } else if (buffer[0] == 1) {
+            } else if (buffer[0] == MSG_GET_CORNEA_CENTRE_POS) {
                 for (int i = 0; i < 2; i++) {
-                    eye_tracker_->getCorneaCurvaturePosition(eye_position_, i);
+                    eye_tracker_->getCorneaCentrePosition(eye_position_, i);
                     uint32_t sent{0};
                     uint32_t size_to_send{sizeof(eye_position_)};
                     while (sent < size_to_send) {
@@ -80,7 +79,7 @@ void SocketServer::openSocket() {
                         sent += new_bytes;
                     }
                 }
-            } else if (buffer[0] == 2) {
+            } else if (buffer[0] == MSG_GET_EYE_CENTRE_POS) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getEyeCentrePosition(eye_position_, i);
                     uint32_t sent{0};
@@ -95,22 +94,23 @@ void SocketServer::openSocket() {
                         sent += new_bytes;
                     }
                 }
-            } else if (buffer[0] == 3) {
+            } else if (buffer[0] == MSG_GET_PUPIL_GLINT_VEC) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupilGlintVector(pupil_glint_vector_, i);
                     uint32_t sent{0};
                     uint32_t size_to_send{sizeof(pupil_glint_vector_)};
                     while (sent < size_to_send) {
-                        ssize_t new_bytes{send(socket_handle_,
-                                               (char *) &pupil_glint_vector_ + sent,
-                                               size_to_send - sent, 0)};
+                        ssize_t new_bytes{
+                            send(socket_handle_,
+                                 (char *) &pupil_glint_vector_ + sent,
+                                 size_to_send - sent, 0)};
                         if (new_bytes < 0) {
                             break;
                         }
                         sent += new_bytes;
                     }
                 }
-            } else if (buffer[0] == 4) {
+            } else if (buffer[0] == MSG_GET_PUPIL_DIAM) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupilDiameter(pupil_diameter_, i);
                     uint32_t sent{0};
@@ -125,7 +125,7 @@ void SocketServer::openSocket() {
                         sent += new_bytes;
                     }
                 }
-            } else if (buffer[0] == 5) {
+            } else if (buffer[0] == MSG_GET_GAZE_DIR) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getGazeDirection(gaze_direction_, i);
                     uint32_t sent{0};
@@ -141,11 +141,15 @@ void SocketServer::openSocket() {
                     }
                 }
 
-            } else if (buffer[0] == 6) {
+            } else if (buffer[0] == MSG_SET_MOVING_AVG_SIZE) {
                 uint8_t moving_average_size{};
-                read(socket_handle_, &moving_average_size, 1);
+                read_bytes =
+                    (int) read(socket_handle_, &moving_average_size, 1);
+                if (read_bytes != 1) {
+                    break;
+                }
                 eye_tracker_->setGazeBufferSize(moving_average_size);
-            } else if (buffer[0] == 7) {
+            } else if (buffer[0] == MSG_GET_PUPIL_GLINT_VEC_FLTR) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupilGlintVectorFiltered(
                         pupil_glint_vector_, i);
@@ -162,7 +166,7 @@ void SocketServer::openSocket() {
                         sent += new_bytes;
                     }
                 }
-            } else if (buffer[0] == 8) {
+            } else if (buffer[0] == MSG_GET_PUPIL) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupil(pupil_location_, i);
                     uint32_t sent{0};
@@ -177,7 +181,7 @@ void SocketServer::openSocket() {
                         sent += new_bytes;
                     }
                 }
-            } else if (buffer[0] == 9) {
+            } else if (buffer[0] == MSG_GET_PUPIL_FLTR) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupilFiltered(pupil_location_, i);
                     uint32_t sent{0};
@@ -200,11 +204,11 @@ void SocketServer::openSocket() {
     std::cout << "Socket closed.\n";
 }
 
-void SocketServer::closeSocket() {
+void SocketServer::closeSocket() const {
     close(server_handle_);
 }
 
-bool SocketServer::isClientConnected() {
+bool SocketServer::isClientConnected() const {
     return socket_handle_ > -1 && !finished;
 }
 } // namespace et

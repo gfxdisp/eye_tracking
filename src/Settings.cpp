@@ -14,34 +14,32 @@ Parameters Settings::parameters{};
 
 void from_json(const json &j, CameraParams &camera_params) {
     j.at("serial_number").get_to(camera_params.serial_number);
-    std::vector<int> idata{};
-    j.at("dimensions").get_to(idata);
-    camera_params.dimensions = cv::Size2i(idata[0], idata[1]);
-    idata.clear();
-    j.at("region_of_interest").get_to(idata);
-    camera_params.region_of_interest = cv::Size2i(idata[0], idata[1]);
-    idata.clear();
-    j.at("capture_offset").get_to(idata);
-    camera_params.capture_offset = cv::Size2i(idata[0], idata[1]);
+    std::vector<int> i_data{};
+    j.at("dimensions").get_to(i_data);
+    camera_params.dimensions = cv::Size2i(i_data[0], i_data[1]);
+    i_data.clear();
+    j.at("region_of_interest").get_to(i_data);
+    camera_params.region_of_interest = cv::Size2i(i_data[0], i_data[1]);
+    i_data.clear();
+    j.at("capture_offset").get_to(i_data);
+    camera_params.capture_offset = cv::Size2i(i_data[0], i_data[1]);
     j.at("framerate").get_to(camera_params.framerate);
     j.at("pixel_clock").get_to(camera_params.pixel_clock);
-    j.at("pupil_exposure").get_to(camera_params.pupil_exposure);
-    j.at("glint_exposure").get_to(camera_params.glint_exposure);
     j.at("gamma").get_to(camera_params.gamma);
-    std::vector<float> ddata{};
-    j.at("intrinsic_matrix_opencv").get_to(ddata);
+    std::vector<float> d_data{};
+    j.at("intrinsic_matrix_opencv").get_to(d_data);
     camera_params.intrinsic_matrix = cv::Mat(3, 3, CV_32FC1);
     for (int i = 0; i < 3; i++) {
         for (int k = 0; k < 3; k++) {
             camera_params.intrinsic_matrix.at<float>(cv::Point(i, k)) =
-                ddata[i * 3 + k];
+                d_data[i * 3 + k];
         }
     }
-    ddata.clear();
+    d_data.clear();
     j.at("distortion_coefficients")
         .get_to(camera_params.distortion_coefficients);
-    j.at("gaze_shift").get_to(ddata);
-    camera_params.gaze_shift = cv::Vec3f(ddata[0], ddata[1], ddata[2]);
+    j.at("gaze_shift").get_to(d_data);
+    camera_params.gaze_shift = cv::Vec3f(d_data[0], d_data[1], d_data[2]);
 }
 
 void to_json(json &j, const CameraParams &camera_params) {
@@ -55,8 +53,6 @@ void to_json(json &j, const CameraParams &camera_params) {
 
     j["framerate"] = camera_params.framerate;
     j["pixel_clock"] = camera_params.pixel_clock;
-    j["pupil_exposure"] = camera_params.pupil_exposure;
-    j["glint_exposure"] = camera_params.glint_exposure;
     j["gamma"] = camera_params.gamma;
     for (int i = 0; i < 3; i++) {
         for (int k = 0; k < 3; k++) {
@@ -80,6 +76,8 @@ void from_json(const json &j, EyeParams &eye_params) {
     j.at("eyeball_radius").get_to(eye_params.eyeball_radius);
     j.at("pupil_eye_centre_distance")
         .get_to(eye_params.pupil_eye_centre_distance);
+    j.at("alpha").get_to(eye_params.alpha);
+    j.at("beta").get_to(eye_params.beta);
 }
 
 void to_json(json &j, const EyeParams &eye_params) {
@@ -88,87 +86,73 @@ void to_json(json &j, const EyeParams &eye_params) {
     j["cornea_refraction_index"] = eye_params.cornea_refraction_index;
     j["eyeball_radius"] = eye_params.eyeball_radius;
     j["pupil_eye_centre_distance"] = eye_params.pupil_eye_centre_distance;
+    j["alpha"] = eye_params.alpha;
+    j["beta"] = eye_params.beta;
 }
 
 void from_json(const json &j, DetectionParams &detection_params) {
-    j.at("min_pupil_radius")
-        .at("left")
-        .get_to(detection_params.min_pupil_radius[0]);
-    j.at("min_pupil_radius")
-        .at("right")
-        .get_to(detection_params.min_pupil_radius[1]);
-    j.at("max_pupil_radius")
-        .at("left")
-        .get_to(detection_params.max_pupil_radius[0]);
-    j.at("max_pupil_radius")
-        .at("right")
-        .get_to(detection_params.max_pupil_radius[1]);
+    j.at("min_pupil_radius").get_to(detection_params.min_pupil_radius);
+    j.at("max_pupil_radius").get_to(detection_params.max_pupil_radius);
     j.at("min_glint_radius").get_to(detection_params.min_glint_radius);
     j.at("max_glint_radius").get_to(detection_params.max_glint_radius);
-    j.at("glint_bottom_hor_distance")
-        .get_to(detection_params.glint_bottom_hor_distance);
-    j.at("glint_bottom_vert_distance")
-        .get_to(detection_params.glint_bottom_vert_distance);
-    j.at("glint_right_hor_distance")
-        .get_to(detection_params.glint_right_hor_distance);
-    j.at("glint_right_vert_distance")
-        .get_to(detection_params.glint_right_vert_distance);
+    j.at("min_glint_bottom_hor_distance")
+        .get_to(detection_params.min_glint_bottom_hor_distance);
+    j.at("max_glint_bottom_hor_distance")
+        .get_to(detection_params.max_glint_bottom_hor_distance);
+    j.at("min_glint_bottom_vert_distance")
+        .get_to(detection_params.min_glint_bottom_vert_distance);
+    j.at("max_glint_bottom_vert_distance")
+        .get_to(detection_params.max_glint_bottom_vert_distance);
+    j.at("min_glint_right_hor_distance")
+        .get_to(detection_params.min_glint_right_hor_distance);
+    j.at("max_glint_right_hor_distance")
+        .get_to(detection_params.max_glint_right_hor_distance);
+    j.at("min_glint_right_vert_distance")
+        .get_to(detection_params.min_glint_right_vert_distance);
+    j.at("max_glint_right_vert_distance")
+        .get_to(detection_params.max_glint_right_vert_distance);
     j.at("max_hor_glint_pupil_distance")
         .get_to(detection_params.max_hor_glint_pupil_distance);
     j.at("max_vert_glint_pupil_distance")
         .get_to(detection_params.max_vert_glint_pupil_distance);
-    j.at("glint_dilate_size").get_to(detection_params.glint_dilate_size);
-    j.at("glint_erode_size").get_to(detection_params.glint_erode_size);
-    j.at("glint_close_size").get_to(detection_params.glint_close_size);
-    j.at("pupil_dilate_size").get_to(detection_params.pupil_dilate_size);
-    j.at("pupil_erode_size").get_to(detection_params.pupil_erode_size);
-    j.at("pupil_close_size").get_to(detection_params.pupil_close_size);
 
     std::vector<float> data{};
-    j.at("pupil_search_centre").at("left").get_to(data);
-    detection_params.pupil_search_centre[0] = {data[0], data[1]};
-    data.clear();
-    j.at("pupil_search_centre").at("right").get_to(data);
-    detection_params.pupil_search_centre[1] = {data[0], data[1]};
+    j.at("pupil_search_centre").get_to(data);
+    detection_params.pupil_search_centre = {data[0], data[1]};
 
-    j.at("pupil_search_radius")
-        .at("left")
-        .get_to(detection_params.pupil_search_radius[0]);
-    j.at("pupil_search_radius")
-        .at("right")
-        .get_to(detection_params.pupil_search_radius[1]);
+    j.at("pupil_search_radius").get_to(detection_params.pupil_search_radius);
 }
 
 void to_json(json &j, const DetectionParams &detection_params) {
-    j["min_pupil_radius"]["left"] = detection_params.min_pupil_radius[0];
-    j["min_pupil_radius"]["right"] = detection_params.min_pupil_radius[1];
-    j["max_pupil_radius"]["left"] = detection_params.max_pupil_radius[0];
-    j["max_pupil_radius"]["right"] = detection_params.max_pupil_radius[1];
+    j["min_pupil_radius"] = detection_params.min_pupil_radius;
+    j["min_pupil_radius"] = detection_params.min_pupil_radius;
+    j["max_pupil_radius"] = detection_params.max_pupil_radius;
+    j["max_pupil_radius"] = detection_params.max_pupil_radius;
     j["min_glint_radius"] = detection_params.min_glint_radius;
     j["max_glint_radius"] = detection_params.max_glint_radius;
-    j["glint_bottom_hor_distance"] = detection_params.glint_bottom_hor_distance;
-    j["glint_bottom_vert_distance"] =
-        detection_params.glint_bottom_vert_distance;
-    j["glint_right_hor_distance"] = detection_params.glint_right_hor_distance;
-    j["glint_right_vert_distance"] = detection_params.glint_right_vert_distance;
+    j["min_glint_bottom_hor_distance"] =
+        detection_params.min_glint_bottom_hor_distance;
+    j["max_glint_bottom_hor_distance"] =
+        detection_params.max_glint_bottom_hor_distance;
+    j["min_glint_bottom_vert_distance"] =
+        detection_params.min_glint_bottom_vert_distance;
+    j["max_glint_bottom_vert_distance"] =
+        detection_params.max_glint_bottom_vert_distance;
+    j["min_glint_right_hor_distance"] =
+        detection_params.min_glint_right_hor_distance;
+    j["max_glint_right_hor_distance"] =
+        detection_params.max_glint_right_hor_distance;
+    j["min_glint_right_vert_distance"] =
+        detection_params.min_glint_right_vert_distance;
+    j["max_glint_right_vert_distance"] =
+        detection_params.max_glint_right_vert_distance;
     j["max_hor_glint_pupil_distance"] =
         detection_params.max_hor_glint_pupil_distance;
     j["max_vert_glint_pupil_distance"] =
         detection_params.max_vert_glint_pupil_distance;
-    j["glint_dilate_size"] = detection_params.glint_dilate_size;
-    j["glint_erode_size"] = detection_params.glint_erode_size;
-    j["glint_close_size"] = detection_params.glint_close_size;
-    j["pupil_dilate_size"] = detection_params.pupil_dilate_size;
-    j["pupil_erode_size"] = detection_params.pupil_erode_size;
-    j["pupil_close_size"] = detection_params.pupil_close_size;
-    j["pupil_search_centre"]["left"] = {
-        detection_params.pupil_search_centre[0].x,
-        detection_params.pupil_search_centre[0].y};
-    j["pupil_search_centre"]["right"] = {
-        detection_params.pupil_search_centre[1].x,
-        detection_params.pupil_search_centre[1].y};
-    j["pupil_search_radius"]["left"] = detection_params.pupil_search_radius[0];
-    j["pupil_search_radius"]["right"] = detection_params.pupil_search_radius[1];
+    j["pupil_search_centre"] = {detection_params.pupil_search_centre.x,
+                                detection_params.pupil_search_centre.y};
+    j["pupil_search_radius"] = detection_params.pupil_search_radius;
 }
 
 void from_json(
@@ -178,19 +162,10 @@ void from_json(
         std::string name = item.key();
         auto value = item.value();
         value.at("pupil_threshold")
-            .at("left")
-            .get_to(features_params[name].pupil_threshold[0]);
-        value.at("pupil_threshold")
-            .at("right")
-            .get_to(features_params[name].pupil_threshold[1]);
+            .get_to(features_params[name].pupil_threshold);
         value.at("glint_threshold")
-            .at("left")
-            .get_to(features_params[name].glint_threshold[0]);
-        value.at("glint_threshold")
-            .at("right")
-            .get_to(features_params[name].glint_threshold[1]);
-        value.at("alpha").get_to(features_params[name].alpha);
-        value.at("beta").get_to(features_params[name].beta);
+            .get_to(features_params[name].glint_threshold);
+        value.at("exposure").get_to(features_params[name].exposure);
     }
 }
 
@@ -199,16 +174,9 @@ void to_json(
     const std::unordered_map<std::string, FeaturesParams> &features_params) {
     for (const auto &item : features_params) {
         std::string name = item.first;
-        j[name]["pupil_threshold"]["left"] =
-            features_params.at(name).pupil_threshold[0];
-        j[name]["pupil_threshold"]["right"] =
-            features_params.at(name).pupil_threshold[1];
-        j[name]["glint_threshold"]["left"] =
-            features_params.at(name).glint_threshold[0];
-        j[name]["glint_threshold"]["right"] =
-            features_params.at(name).glint_threshold[1];
-        j[name]["alpha"] = features_params.at(name).alpha;
-        j[name]["beta"] = features_params.at(name).beta;
+        j[name]["pupil_threshold"] = features_params.at(name).pupil_threshold;
+        j[name]["glint_threshold"] = features_params.at(name).glint_threshold;
+        j[name]["exposure"] = features_params.at(name).exposure;
     }
 }
 
@@ -243,8 +211,10 @@ void from_json(const json &j, Parameters &parameters) {
     }
 
     j.at("eye_params").get_to(parameters.eye_params);
-    j.at("detection_params").get_to(parameters.detection_params);
-    j.at("features_params").get_to(parameters.features_params);
+    j.at("detection_params").at("left").get_to(parameters.detection_params[0]);
+    j.at("detection_params").at("right").get_to(parameters.detection_params[1]);
+    j.at("features_params").at("left").get_to(parameters.features_params[0]);
+    j.at("features_params").at("right").get_to(parameters.features_params[1]);
 }
 
 void to_json(json &j, const Parameters &parameters) {
@@ -260,11 +230,13 @@ void to_json(json &j, const Parameters &parameters) {
                                           parameters.leds_positions[1][i](2)};
     }
     j["eye_params"] = parameters.eye_params;
-    j["detection_params"] = parameters.detection_params;
-    j["features_params"] = parameters.features_params;
+    j["detection_params"]["left"] = parameters.detection_params[0];
+    j["detection_params"]["right"] = parameters.detection_params[1];
+    j["features_params"]["left"] = parameters.features_params[0];
+    j["features_params"]["right"] = parameters.features_params[1];
 }
 
-Settings::Settings(std::string file_path) {
+Settings::Settings(const std::string &file_path) {
     std::ifstream file(file_path);
     json j;
     file >> j;
@@ -272,7 +244,7 @@ Settings::Settings(std::string file_path) {
     file.close();
 }
 
-void Settings::saveSettings(std::string file_path) {
+void Settings::saveSettings(const std::string &file_path) {
     std::ofstream file(file_path);
     json j{parameters};
     file << j[0].dump(4);

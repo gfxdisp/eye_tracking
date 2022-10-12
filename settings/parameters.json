@@ -1,0 +1,221 @@
+{
+  "camera_params": {
+    "left": {
+      "capture_offset": [
+        304,
+        32
+      ],
+      "dimensions": [
+        1280,
+        1024
+      ],
+      "distortion_coefficients": [
+        -0.09007679671049118,
+        -10.167732238769531,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "framerate": 180.0,
+      "gamma": 1.0,
+      "gaze_shift": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "intrinsic_matrix_opencv": [
+        5377.0830078125,
+        0.0,
+        640.0,
+        0.0,
+        5377.0830078125,
+        512.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "pixel_clock": 200.0,
+      "region_of_interest": [
+        872,
+        858
+      ],
+      "serial_number": "4103589293"
+    },
+    "right": {
+      "capture_offset": [
+        500,
+        0
+      ],
+      "dimensions": [
+        1280,
+        1024
+      ],
+      "distortion_coefficients": [
+        -0.4707719683647156,
+        5.551302433013916,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "framerate": 180.0,
+      "gamma": 1.0,
+      "gaze_shift": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "intrinsic_matrix_opencv": [
+        5867.91845703125,
+        0.0,
+        449.1881103515625,
+        0.0,
+        5880.31103515625,
+        584.5613403320313,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "pixel_clock": 160.0,
+      "region_of_interest": [
+        560,
+        400
+      ],
+      "serial_number": "4103176841"
+    }
+  },
+  "detection_params": {
+    "left": {
+      "min_glint_bottom_hor_distance": -5.0,
+      "max_glint_bottom_hor_distance": 5.0,
+      "min_glint_bottom_vert_distance": 35.0,
+      "max_glint_bottom_vert_distance": 55.0,
+      "min_glint_right_hor_distance": 10.0,
+      "max_glint_right_hor_distance": 20.0,
+      "min_glint_right_vert_distance": -5.0,
+      "max_glint_right_vert_distance": 5.0,
+      "min_glint_radius": 0.0,
+      "max_glint_radius": 5.0,
+      "max_vert_glint_pupil_distance": 200.0,
+      "max_hor_glint_pupil_distance": 400.0,
+      "max_pupil_radius": 100.0,
+      "min_pupil_radius": 30.0,
+      "pupil_search_centre": [
+        443.0,
+        433.0
+      ],
+      "pupil_search_radius": 446
+    },
+    "right": {
+      "min_glint_bottom_hor_distance": -5.0,
+      "max_glint_bottom_hor_distance": 5.0,
+      "min_glint_bottom_vert_distance": 35.0,
+      "max_glint_bottom_vert_distance": 55.0,
+      "min_glint_right_hor_distance": 10.0,
+      "max_glint_right_hor_distance": 20.0,
+      "min_glint_right_vert_distance": -5.0,
+      "max_glint_right_vert_distance": 5.0,
+      "min_glint_radius": 0.0,
+      "max_glint_radius": 5.0,
+      "max_vert_glint_pupil_distance": 200.0,
+      "max_hor_glint_pupil_distance": 400.0,
+      "max_pupil_radius": 90.0,
+      "min_pupil_radius": 10.0,
+      "pupil_search_centre": [
+        277.0,
+        127.0
+      ],
+      "pupil_search_radius": 286
+    }
+  },
+  "eye_params": {
+    "cornea_curvature_radius": 7.800000190734863,
+    "cornea_refraction_index": 1.337499976158142,
+    "eyeball_radius": 11.600000381469727,
+    "pupil_cornea_distance": 4.199999809265137,
+    "pupil_eye_centre_distance": 9.5,
+    "alpha": -0.0872664600610733,
+    "beta": 0.02617993950843811
+  },
+  "features_params": {
+    "left": {
+      "default": {
+        "glint_threshold": 86,
+        "pupil_threshold": 17,
+        "exposure": 3.0
+      }
+    },
+    "right": {
+      "default": {
+        "glint_threshold": 213,
+        "pupil_threshold": 21,
+        "exposure": 6.0
+      }
+    }
+  },
+  "led_positions": {
+    "left": [
+      [
+        -53.6920166015625,
+        -65.3182144165039,
+        279.45159912109375
+      ],
+      [
+        -34.21810531616211,
+        -64.00312042236328,
+        283.81475830078125
+      ],
+      [
+        -14.74419116973877,
+        -62.68803024291992,
+        288.17791748046875
+      ],
+      [
+        -58.12984085083008,
+        -13.682007789611816,
+        283.6951599121094
+      ],
+      [
+        -38.65592956542969,
+        -12.366914749145508,
+        288.0583190917969
+      ],
+      [
+        -19.182016372680664,
+        -11.0518217086792,
+        292.4215087890625
+      ]
+    ],
+    "right": [
+      [
+        -53.6920166015625,
+        -65.3182144165039,
+        279.45159912109375
+      ],
+      [
+        -34.21810531616211,
+        -64.00312042236328,
+        283.81475830078125
+      ],
+      [
+        -14.74419116973877,
+        -62.68803024291992,
+        288.17791748046875
+      ],
+      [
+        -58.12984085083008,
+        -13.682007789611816,
+        283.6951599121094
+      ],
+      [
+        -38.65592956542969,
+        -12.366914749145508,
+        288.0583190917969
+      ],
+      [
+        -19.182016372680664,
+        -11.0518217086792,
+        292.4215087890625
+      ]
+    ]
+  }
+}

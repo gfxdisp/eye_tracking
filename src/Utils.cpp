@@ -6,7 +6,8 @@
 #include <sstream>
 
 namespace et {
-std::vector<std::vector<float>> Utils::readFloatColumnsCsv(const std::string& filename) {
+std::vector<std::vector<float>>
+Utils::readFloatColumnsCsv(const std::string &filename) {
     std::ifstream input_file{filename};
     if (!input_file.is_open()) {
         return {};
@@ -32,7 +33,8 @@ std::vector<std::vector<float>> Utils::readFloatColumnsCsv(const std::string& fi
     return csv_data;
 }
 
-std::vector<std::vector<float>> Utils::readFloatRowsCsv(const std::string& filename) {
+std::vector<std::vector<float>>
+Utils::readFloatRowsCsv(const std::string &filename) {
     std::ifstream input_file{filename};
     if (!input_file.is_open()) {
         return {};
@@ -53,9 +55,10 @@ std::vector<std::vector<float>> Utils::readFloatRowsCsv(const std::string& filen
     return csv_data;
 }
 
-void Utils::writeFloatCsv(std::vector<std::vector<float>> &data, const std::string& filename) {
+void Utils::writeFloatCsv(std::vector<std::vector<float>> &data,
+                          const std::string &filename) {
     std::ofstream file{filename};
-    for (auto & row : data) {
+    for (auto &row : data) {
         for (int i = 0; i < row.size(); i++) {
             if (i != 0) {
                 file << "," << row[i];

@@ -1,52 +1,66 @@
 #include "FeatureDetector.hpp"
-
 #include "Utils.hpp"
 
 #include <opencv2/cudaarithm.hpp>
-
-#include <algorithm>
-#include <cmath>
-#include <iostream>
-#include <numeric>
 #include <opencv2/cudaimgproc.hpp>
-#include <random>
-#include <set>
+
+#include <cmath>
+#include <filesystem>
 
 using KFMatD = cv::Mat_<double>;
 using KFMatF = cv::Mat_<float>;
 
+namespace fs = std::filesystem;
+
 namespace et {
 
-void FeatureDetector::initialize(int camera_id) {
+void FeatureDetector::initialize(const std::string &settings_path,
+                                 bool kalman_filtering_enabled, int camera_id) {
     pupil_kalman_ = makePxKalmanFilter(
         et::Settings::parameters.camera_params[camera_id].region_of_interest,
         et::Settings::parameters.camera_params[camera_id].framerate);
-    leds_kalman_ = makePxKalmanFilter(
+    glints_kalman_ = makePxKalmanFilter(
         et::Settings::parameters.camera_params[camera_id].region_of_interest,
         et::Settings::parameters.camera_params[camera_id].framerate);
     pupil_radius_kalman_ = makeRadiusKalmanFilter(
-        et::Settings::parameters.detection_params.min_pupil_radius[camera_id],
-        et::Settings::parameters.detection_params.max_pupil_radius[camera_id],
+        et::Settings::parameters.detection_params[camera_id].min_pupil_radius,
+        et::Settings::parameters.detection_params[camera_id].max_pupil_radius,
         et::Settings::parameters.camera_params[camera_id].framerate);
     glint_ellipse_kalman_ = makeEllipseKalmanFilter(
         et::Settings::parameters.camera_params[camera_id].region_of_interest,
-        et::Settings::parameters.detection_params.min_pupil_radius[camera_id],
-        et::Settings::parameters.detection_params.max_pupil_radius[camera_id],
         et::Settings::parameters.camera_params[camera_id].framerate);
     glint_locations_.resize(
         Settings::parameters.leds_positions[camera_id].size());
 
-    region_if_interest_ = &Settings::parameters.camera_params[camera_id].region_of_interest;
-    pupil_threshold_ = &Settings::parameters.user_params->pupil_threshold[camera_id];
-    glint_threshold_ = &Settings::parameters.user_params->glint_threshold[camera_id];
+    region_of_interest_ =
+        &Settings::parameters.camera_params[camera_id].region_of_interest;
+    pupil_threshold_ =
+        &Settings::parameters.user_params[camera_id]->pupil_threshold;
+    glint_threshold_ =
+        &Settings::parameters.user_params[camera_id]->glint_threshold;
     pupil_search_centre_ =
-        &Settings::parameters.detection_params.pupil_search_centre[camera_id];
+        &Settings::parameters.detection_params[camera_id].pupil_search_centre;
     pupil_search_radius_ =
-        &Settings::parameters.detection_params.pupil_search_radius[camera_id];
+        &Settings::parameters.detection_params[camera_id].pupil_search_radius;
     min_pupil_radius_ =
-        &Settings::parameters.detection_params.min_pupil_radius[camera_id];
+        &Settings::parameters.detection_params[camera_id].min_pupil_radius;
     max_pupil_radius_ =
-        &Settings::parameters.detection_params.max_pupil_radius[camera_id];
+        &Settings::parameters.detection_params[camera_id].max_pupil_radius;
+    min_glint_radius_ =
+        &Settings::parameters.detection_params[camera_id].min_glint_radius;
+    max_glint_radius_ =
+        &Settings::parameters.detection_params[camera_id].max_glint_radius;
+
+    detection_params_ = &Settings::parameters.detection_params[camera_id];
+
+    kalman_filtering_enabled_ = kalman_filtering_enabled;
+
+    bound_ellipse_semi_major_ =
+        &Settings::parameters.detection_params[camera_id]
+             .max_hor_glint_pupil_distance;
+    bound_ellipse_semi_minor_ =
+        &Settings::parameters.detection_params[camera_id]
+             .max_vert_glint_pupil_distance;
 
     bayes_minimizer_ = new BayesMinimizer();
     bayes_minimizer_func_ =
@@ -56,58 +70,18 @@ void FeatureDetector::initialize(int camera_id) {
     cv::Mat step = (cv::Mat_<double>(1, 3) << 100, 100, 100);
     bayes_solver_->setInitStep(step);
 
-    cv::Mat morphology_element{};
-    int size{};
+    auto template_path = fs::path(settings_path)
+        / ("template_" + std::to_string(camera_id) + ".png");
 
-    size = Settings::parameters.detection_params.pupil_close_size;
-    if (size) {
-        morphology_element =
-            cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
-        pupil_close_filter_ = cv::cuda::createMorphologyFilter(
-            cv::MORPH_CLOSE, CV_8UC1, morphology_element);
-    }
-    size = Settings::parameters.detection_params.pupil_dilate_size;
-    if (size) {
-        morphology_element =
-            cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
-        pupil_dilate_filter_ = cv::cuda::createMorphologyFilter(
-            cv::MORPH_DILATE, CV_8UC1, morphology_element);
-    }
-    size = Settings::parameters.detection_params.pupil_erode_size;
-    if (size) {
-        morphology_element =
-            cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
-        pupil_erode_filter_ = cv::cuda::createMorphologyFilter(
-            cv::MORPH_ERODE, CV_8UC1, morphology_element);
-    }
-
-    size = Settings::parameters.detection_params.glint_close_size;
-    if (size) {
-        morphology_element =
-            cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
-        glints_close_filter_ = cv::cuda::createMorphologyFilter(
-            cv::MORPH_CLOSE, CV_8UC1, morphology_element);
-    }
-    size = Settings::parameters.detection_params.glint_dilate_size;
-    if (size) {
-        morphology_element =
-            cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
-        glints_dilate_filter_ = cv::cuda::createMorphologyFilter(
-            cv::MORPH_DILATE, CV_8UC1, morphology_element);
-    }
-    size = Settings::parameters.detection_params.glint_erode_size;
-    if (size) {
-        morphology_element =
-            cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(size, size));
-        glints_erode_filter_ = cv::cuda::createMorphologyFilter(
-            cv::MORPH_ERODE, CV_8UC1, morphology_element);
-    }
-
-    cv::Mat glints_template_cpu = cv::imread("template.png", cv::IMREAD_GRAYSCALE);
+    cv::Mat glints_template_cpu =
+        cv::imread(template_path, cv::IMREAD_GRAYSCALE);
     glints_template_.upload(glints_template_cpu);
-    template_matcher_ = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF);
-    template_crop_ = (KFMatF(2, 3) << 1, 0, glints_template_.cols / 2,
-                         0, 1, glints_template_.rows / 2);
+    template_matcher_ =
+        cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF);
+    template_crop_ = (KFMatF(2, 3) << 1, 0, glints_template_.cols / 2, 0, 1,
+                      glints_template_.rows / 2);
+
+    led_count_ = (int) Settings::parameters.leds_positions[camera_id].size();
 }
 
 cv::Point2f FeatureDetector::getPupil() {
@@ -134,72 +108,68 @@ std::vector<cv::Point2f> *FeatureDetector::getGlints() {
     return &glint_locations_;
 }
 
-void FeatureDetector::getGlints(std::vector<cv::Point2f> &glint_locations) {
-    mtx_features_.lock();
-    glint_locations = glint_locations_;
-    mtx_features_.unlock();
-}
-
-void FeatureDetector::preprocessGlintEllipse(const cv::Mat& image) {
+void FeatureDetector::preprocessGlintEllipse(const cv::Mat &image) {
     gpu_image_.upload(image);
 
-    cv::cuda::threshold(
-        gpu_image_, pupil_thresholded_image_gpu_, *pupil_threshold_, 255,
-        cv::THRESH_BINARY_INV);
+    cv::cuda::threshold(gpu_image_, pupil_thresholded_image_gpu_,
+                        *pupil_threshold_, 255, cv::THRESH_BINARY_INV);
 
-    template_matcher_->match(gpu_image_, glints_template_, glints_thresholded_image_gpu_);
+    // Finds the correlation of the glint template to every area in the image.
+    template_matcher_->match(gpu_image_, glints_template_,
+                             glints_thresholded_image_gpu_);
 
-    cv::cuda::threshold(glints_thresholded_image_gpu_, glints_thresholded_image_gpu_, *glint_threshold_ * 2e3, 255, cv::THRESH_BINARY);    
-    glints_thresholded_image_gpu_.convertTo(
-        glints_thresholded_image_gpu_, CV_8UC1);
+    cv::cuda::threshold(glints_thresholded_image_gpu_,
+                        glints_thresholded_image_gpu_, *glint_threshold_ * 2e3,
+                        255, cv::THRESH_BINARY);
+    glints_thresholded_image_gpu_.convertTo(glints_thresholded_image_gpu_,
+                                            CV_8UC1);
 
     pupil_thresholded_image_gpu_.download(pupil_thresholded_image_);
     glints_thresholded_image_gpu_.download(glints_thresholded_image_);
 }
 
-void FeatureDetector::preprocessIndivGlints(const cv::Mat& image) {
+void FeatureDetector::preprocessSingleGlints(const cv::Mat &image) {
     gpu_image_.upload(image);
 
-    cv::cuda::threshold(
-        gpu_image_, pupil_thresholded_image_gpu_, *pupil_threshold_, 255,
-        cv::THRESH_BINARY_INV);
-    
-    cv::cuda::threshold(
-        gpu_image_, glints_thresholded_image_gpu_,
-        *glint_threshold_, 255,
-        cv::THRESH_BINARY);
+    cv::cuda::threshold(gpu_image_, pupil_thresholded_image_gpu_,
+                        *pupil_threshold_, 255, cv::THRESH_BINARY_INV);
 
+    cv::cuda::threshold(gpu_image_, glints_thresholded_image_gpu_,
+                        *glint_threshold_, 255, cv::THRESH_BINARY);
 
     pupil_thresholded_image_gpu_.download(pupil_thresholded_image_);
     glints_thresholded_image_gpu_.download(glints_thresholded_image_);
 }
 
 bool FeatureDetector::findPupil() {
-    cv::findContours(pupil_thresholded_image_, contours_, hierarchy_,
-                     cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    cv::findContours(pupil_thresholded_image_, contours_, cv::RETR_EXTERNAL,
+                     cv::CHAIN_APPROX_SIMPLE);
     cv::Point2f best_centre{};
     float best_radius{};
     float best_rating{0};
 
     cv::Point2f image_centre{*pupil_search_centre_};
-    int max_distance{*pupil_search_radius_};
+    auto max_distance = (float) (*pupil_search_radius_);
 
+    // All the contours are analyzed
     for (const std::vector<cv::Point> &contour : contours_) {
         cv::Point2f centre;
         float radius;
 
         cv::Rect bound_rect = cv::boundingRect(contour);
         centre = 0.5 * (bound_rect.tl() + bound_rect.br());
-        radius = std::max(bound_rect.width, bound_rect.height) / 2;
+        radius = (float) std::max(bound_rect.width, bound_rect.height) / 2;
 
-        if (radius < *min_pupil_radius_
-            or radius > *max_pupil_radius_)
+        // Contours forming too small or too large pupils are rejected.
+        if (radius < *min_pupil_radius_ or radius > *max_pupil_radius_)
             continue;
 
+        // Contours outside the hole in the view piece are rejected.
         float distance = euclideanDistance(centre, image_centre);
         if (distance > max_distance)
             continue;
 
+        // Contours are rated according to their similarity to the circle.
         const float contour_area = static_cast<float>(cv::contourArea(contour));
         const float circle_area = 3.1415926f * powf(radius, 2);
         float rating = contour_area / circle_area;
@@ -214,60 +184,65 @@ bool FeatureDetector::findPupil() {
         return false;
     }
 
-    pupil_kalman_.correct(
-        (KFMatD(2, 1) << best_centre.x, best_centre.y));
-    pupil_radius_kalman_.correct((KFMatD(1, 1) << best_radius));
-    mtx_features_.lock();
-    pupil_location_ = toPoint(pupil_kalman_.predict());
-    pupil_radius_ =
-        (int) toValue(pupil_radius_kalman_.predict());
-    //    pupil_location_[camera_id] = best_centre; // Disables Kalman filtering
-    //    pupil_radius_[camera_id] = best_radius;   // Disables Kalman filtering
-    mtx_features_.unlock();
+    if (kalman_filtering_enabled_) {
+        pupil_kalman_.correct((KFMatD(2, 1) << best_centre.x, best_centre.y));
+        pupil_radius_kalman_.correct((KFMatD(1, 1) << best_radius));
+        mtx_features_.lock();
+        pupil_location_ = toPoint(pupil_kalman_.predict());
+        pupil_radius_ = (int) toValue(pupil_radius_kalman_.predict());
+        mtx_features_.unlock();
+    } else {
+        mtx_features_.lock();
+        pupil_location_ = best_centre;
+        pupil_radius_ = (int) best_radius;
+        mtx_features_.unlock();
+    }
+
     return true;
 }
 
 bool FeatureDetector::findGlints() {
 
-
-    cv::findContours(glints_thresholded_image_, contours_,
-                     hierarchy_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    cv::findContours(glints_thresholded_image_, contours_, cv::RETR_EXTERNAL,
+                     cv::CHAIN_APPROX_SIMPLE);
 
     cv::Point2f image_centre{*pupil_search_centre_};
-    int max_distance{*pupil_search_radius_};
+    auto max_distance = (float) (*pupil_search_radius_);
 
     std::vector<GlintCandidate> glint_candidates{};
     glint_candidates.reserve(contours_.size());
 
+    // All the contours are analyzed
     for (const std::vector<cv::Point> &contour : contours_) {
         cv::Point2f centre;
         float radius;
         cv::Rect bound_rect = cv::boundingRect(contour);
         centre = 0.5 * (bound_rect.tl() + bound_rect.br());
-        radius = std::max(bound_rect.width, bound_rect.height) / 2;
+        radius = (float) std::max(bound_rect.width, bound_rect.height) / 2;
 
-        if (radius > Settings::parameters.detection_params.max_glint_radius
-            || radius < Settings::parameters.detection_params.min_glint_radius)
+        // Contours forming too small or too large glints are rejected.
+        if (radius > *max_glint_radius_ || radius < *min_glint_radius_)
             continue;
 
+        // Contours outside the hole in the view piece are rejected.
         float distance = euclideanDistance(centre, image_centre);
         if (distance > max_distance)
             continue;
 
+        // Contours outside the expected eye area are rejected.
         if (!isInEllipse(centre, pupil_location_)) {
             continue;
         }
 
+        // Contours are rated according to their similarity to the circle.
         const float contour_area = static_cast<float>(cv::contourArea(contour));
         const float circle_area = 3.1415926f * powf(radius, 2);
         float rating = contour_area / circle_area;
         GlintCandidate glint_candidate{};
         glint_candidate.location = centre;
         glint_candidate.rating = rating;
-        glint_candidate.found = false;
         glint_candidate.right_neighbour = nullptr;
         glint_candidate.bottom_neighbour = nullptr;
-        glint_candidate.neighbour_count = 0;
         glint_candidates.push_back(glint_candidate);
     }
 
@@ -275,19 +250,27 @@ bool FeatureDetector::findGlints() {
         return false;
     }
 
+    // Glints are sorted according to their rating.
     std::sort(glint_candidates.begin(), glint_candidates.end(),
               [](const GlintCandidate &a, const GlintCandidate &b) {
                   return a.rating > b.rating;
               });
-    findBestGlintPair(glint_candidates);
+
+    // Determines neighbouring glints of every glint
+    findPotentialNeighbours(glint_candidates);
+    // Depending on the available neighbours, determines the potential glint
+    // position in the 3x2 reflection grid.
     determineGlintTypes(glint_candidates);
 
-    for (int i = 0; i < 6; i++) {
-        selected_glints_[i].found = false;
+    for (auto &found_glint : found_glints_) {
+        found_glint = false;
     }
 
     cv::Point2f distance{};
     bool glint_found{false};
+    // Selects final set of candidates. Glints are added as correct from the highest
+    // rating to the lowest along with their neighbours. If any glint in the grid
+    // has already been chosen, any further changes to it are rejected.
     for (int i = 0; i < 2; i++) {
         for (auto &glint : glint_candidates) {
             // In the first iteration (i = 0) we check only for centre LEDs, as they are the most reliable
@@ -300,7 +283,7 @@ bool FeatureDetector::findGlints() {
             }
 
             if (glint_found) {
-                if (selected_glints_[glint.glint_type].found
+                if (found_glints_[glint.glint_type]
                     && selected_glints_[glint.glint_type].rating
                         >= glint.rating) {
                     continue;
@@ -308,78 +291,87 @@ bool FeatureDetector::findGlints() {
 
                 if (glint.glint_type % 3 != 0
                     && !isLeftNeighbour(
-                        glint,
-                        selected_glints_[glint.glint_type - 1])) {
+                        glint, selected_glints_[glint.glint_type - 1])) {
                     continue;
                 }
                 if (glint.glint_type % 3 != 2
                     && !isRightNeighbour(
-                        glint,
-                        selected_glints_[glint.glint_type + 1])) {
+                        glint, selected_glints_[glint.glint_type + 1])) {
                     continue;
                 }
                 if (glint.glint_type / 3 == 0
                     && !isBottomNeighbour(
-                        glint,
-                        selected_glints_[glint.glint_type + 3])) {
+                        glint, selected_glints_[glint.glint_type + 3])) {
                     continue;
                 }
                 if (glint.glint_type / 3 == 1
                     && !isUpperNeighbour(
-                        glint,
-                        selected_glints_[glint.glint_type - 3])) {
+                        glint, selected_glints_[glint.glint_type - 3])) {
                     continue;
                 }
             }
 
             glint_found = true;
             selected_glints_[glint.glint_type] = glint;
-            selected_glints_[glint.glint_type].found = true;
+            found_glints_[glint.glint_type] = true;
+            // Adds glint neighbours as well.
             identifyNeighbours(&glint);
+            // Approximates the positions of all glints that have not been found yet.
             approximatePositions();
         }
     }
 
-    int found_glints{0};
-    for (int i = 0; i < 6; i++) {
-        if (selected_glints_[i].found) {
-            found_glints++;
+    int found_glints_count{0};
+    for (auto &found_glint : found_glints_) {
+        if (found_glint) {
+            found_glints_count++;
         }
     }
 
-    if (found_glints == 0) {
+    if (found_glints_count == 0) {
         return false;
     }
 
-    if (!selected_glints_[0].found
-        && !selected_glints_[3].found) {
+    // If left most glints are not detected, all other glints are moved
+    // one spot to the left. This is needed due to lower brightness of left most
+    // glints.
+    if (!found_glints_[0] && !found_glints_[3]) {
         selected_glints_[0] = selected_glints_[1];
         selected_glints_[1] = selected_glints_[2];
         selected_glints_[3] = selected_glints_[4];
         selected_glints_[4] = selected_glints_[5];
-        selected_glints_[2].found = false;
-        selected_glints_[5].found = false;
+        found_glints_[2] = false;
+        found_glints_[5] = false;
         approximatePositions();
     }
 
     cv::Point2f glints_centre{};
     cv::Point2f new_glints_centre{};
 
-    for (int i = 0; i < 6; i++) {
-        glints_centre += selected_glints_[i].location;
+    for (auto &selected_glint : selected_glints_) {
+        glints_centre += selected_glint.location;
     }
 
-    glints_centre.x /= led_count_;
-    glints_centre.y /= led_count_;
+    // Calculates the glints centre.
+    glints_centre.x /= (float) led_count_;
+    glints_centre.y /= (float) led_count_;
 
-    leds_kalman_.correct(
-        (KFMatD(2, 1) << glints_centre.x, glints_centre.y));
-    new_glints_centre = toPoint(leds_kalman_.predict());
-    for (int i = 0; i < led_count_; i++) {
-        mtx_features_.lock();
-        glint_locations_[i] = selected_glints_[i].location
-            + (new_glints_centre - glints_centre);
-        mtx_features_.unlock();
+    if (kalman_filtering_enabled_) {
+        glints_kalman_.correct(
+            (KFMatD(2, 1) << glints_centre.x, glints_centre.y));
+        new_glints_centre = toPoint(glints_kalman_.predict());
+        for (int i = 0; i < led_count_; i++) {
+            mtx_features_.lock();
+            glint_locations_[i] = selected_glints_[i].location
+                + (new_glints_centre - glints_centre);
+            mtx_features_.unlock();
+        }
+    } else {
+        for (int i = 0; i < led_count_; i++) {
+            mtx_features_.lock();
+            glint_locations_[i] = selected_glints_[i].location;
+            mtx_features_.unlock();
+        }
     }
 
     return true;
@@ -387,33 +379,33 @@ bool FeatureDetector::findGlints() {
 
 bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
 
+    // Moves the correlation map so that it is centered in the image.
+    cv::warpAffine(glints_thresholded_image_, glints_thresholded_image_,
+                   template_crop_, *region_of_interest_);
 
-    cv::warpAffine(glints_thresholded_image_,
-               glints_thresholded_image_,
-               template_crop_,
-               *region_if_interest_);
-
-    cv::findContours(glints_thresholded_image_, contours_,
-                     hierarchy_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    cv::findContours(glints_thresholded_image_, contours_, cv::RETR_EXTERNAL,
+                     cv::CHAIN_APPROX_SIMPLE);
 
     std::vector<cv::Point2f> ellipse_points{};
-    cv::Point2f im_centre{
-        *region_if_interest_ / 2};
+    cv::Point2f im_centre{*region_of_interest_ / 2};
 
     static unsigned seed =
         std::chrono::system_clock::now().time_since_epoch().count();
 
+    // Calculates the central point of each contour.
     for (const auto &contour : contours_) {
         cv::Point2d mean_point{};
         for (const auto &point : contour) {
             mean_point.x += point.x;
             mean_point.y += point.y;
         }
-        mean_point.x /= contour.size();
-        mean_point.y /= contour.size();
+        mean_point.x /= (double) contour.size();
+        mean_point.y /= (double) contour.size();
         ellipse_points.push_back(mean_point);
     }
 
+    // Removes all contours from the vector that are too far from the image
+    // centre or the pupil.
     ellipse_points.erase(
         std::remove_if(ellipse_points.begin(), ellipse_points.end(),
                        [&pupil, &im_centre](auto const &p) {
@@ -423,12 +415,12 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
                        }),
         ellipse_points.end());
 
+    // Limits the number of glints to 20 which are the closest to the previously
+    // estimated circle.
     std::sort(ellipse_points.begin(), ellipse_points.end(),
               [this](auto const &a, auto const &b) {
-                  float distance_a =
-                      euclideanDistance(a, ellipse_centre_);
-                  float distance_b =
-                      euclideanDistance(b, ellipse_centre_);
+                  float distance_a = euclideanDistance(a, circle_centre_);
+                  float distance_b = euclideanDistance(b, circle_centre_);
                   return distance_a < distance_b;
               });
 
@@ -449,7 +441,8 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
     double best_circle_radius{};
     bitmask.resize(ellipse_points.size() - 3, 0);
     cv::Point2d ellipse_centre{};
-    double ellipse_radius{};
+    double ellipse_radius;
+    // Loop on every possible triplet of glints.
     do {
         int counter = 0;
         for (int i = 0; counter < 3; i++) {
@@ -458,18 +451,20 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
                 counter++;
             }
         }
-        bayes_minimizer_->setParameters(circle_points,
-                                        ellipse_centre_,
-                                        ellipse_radius_);
+        bayes_minimizer_->setParameters(circle_points, circle_centre_,
+                                        circle_radius_);
 
         cv::Mat x = (cv::Mat_<double>(1, 3) << im_centre.x, im_centre.y,
-                     ellipse_radius_);
+                     circle_radius_);
+        // Find the most likely position of the circle based on the previous
+        // circle position and triplet of glints that should lie on it.
         bayes_solver_->minimize(x);
         ellipse_centre.x = x.at<double>(0, 0);
         ellipse_centre.y = x.at<double>(0, 1);
         ellipse_radius = x.at<double>(0, 2);
 
         counter = 0;
+        // Counts all glints that lie close to the circle
         for (auto &ellipse_point : ellipse_points) {
             double value{0.0};
             value += (ellipse_centre.x - ellipse_point.x)
@@ -480,6 +475,7 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
                 counter++;
             }
         }
+        // Finds the circle which contains the most glints.
         if (counter > best_counter) {
             best_counter = counter;
             best_circle_centre = ellipse_centre;
@@ -487,44 +483,46 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
         }
     } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
 
-    ellipse_centre_ = best_circle_centre;
-    ellipse_radius_ = best_circle_radius;
+    circle_centre_ = best_circle_centre;
+    circle_radius_ = best_circle_radius;
 
+    // Remove all glints that are too far from the estimated circle.
     ellipse_points.erase(
-        std::remove_if(ellipse_points.begin(), ellipse_points.end(),
-                       [this](auto const &p) {
-                           double value{0.0};
-                           value += (ellipse_centre_.x - p.x)
-                               * (ellipse_centre_.x - p.x);
-                           value += (ellipse_centre_.y - p.y)
-                               * (ellipse_centre_.y - p.y);
-                           return std::abs(std::sqrt(value)
-                                           - ellipse_radius_)
-                               > 3.0;
-                       }),
+        std::remove_if(
+            ellipse_points.begin(), ellipse_points.end(),
+            [this](auto const &p) {
+                double value{0.0};
+                value += (circle_centre_.x - p.x) * (circle_centre_.x - p.x);
+                value += (circle_centre_.y - p.y) * (circle_centre_.y - p.y);
+                return std::abs(std::sqrt(value) - circle_radius_) > 3.0;
+            }),
         ellipse_points.end());
 
     if (ellipse_points.size() < 5) {
         return false;
     }
 
+    // All the remaining points are used to estimate the ellipse.
     cv::RotatedRect ellipse = cv::fitEllipse(ellipse_points);
 
+    if (kalman_filtering_enabled_) {
+        glint_ellipse_kalman_.correct((KFMatF(5, 1) << ellipse.center.x,
+                                       ellipse.center.y, ellipse.size.width,
+                                       ellipse.size.height, ellipse.angle));
+
+        cv::Mat predicted_ellipse = glint_ellipse_kalman_.predict();
+        glint_ellipse_.center.x = predicted_ellipse.at<float>(0, 0);
+        glint_ellipse_.center.y = predicted_ellipse.at<float>(1, 0);
+        glint_ellipse_.size.width = predicted_ellipse.at<float>(2, 0);
+        glint_ellipse_.size.height = predicted_ellipse.at<float>(3, 0);
+        glint_ellipse_.angle = predicted_ellipse.at<float>(4, 0);
+    } else {
+        glint_ellipse_ = ellipse;
+    }
+
     mtx_features_.lock();
-    glint_locations_[0] = ellipse.center;
+    glint_locations_[0] = glint_ellipse_.center;
     mtx_features_.unlock();
-
-    glint_ellipse_kalman_.correct(
-        (KFMatF(5, 1) << ellipse.center.x, ellipse.center.y, ellipse.size.width,
-         ellipse.size.height, ellipse.angle));
-
-    cv::Mat predicted_ellipse = glint_ellipse_kalman_.predict();
-    glint_ellipse_.center.x = predicted_ellipse.at<float>(0, 0);
-    glint_ellipse_.center.y = predicted_ellipse.at<float>(1, 0);
-    glint_ellipse_.size.width = predicted_ellipse.at<float>(2, 0);
-    glint_ellipse_.size.height = predicted_ellipse.at<float>(3, 0);
-    glint_ellipse_.angle = predicted_ellipse.at<float>(4, 0);
-//    glint_ellipse_[camera_id] = ellipse; // Disables Kalman filtering
 
     return true;
 }
@@ -532,8 +530,8 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
 cv::KalmanFilter
 FeatureDetector::makePxKalmanFilter(const cv::Size2i &resolution,
                                     float framerate) {
-
-    double saccade_length_sec = 0.1; // expected average time
+    // Expected average saccade time.
+    double saccade_length_sec = 0.1;
     double saccade_per_frame =
         std::fmin(saccade_length_sec / (1.0f / framerate), 1.0f);
     double velocity_decay = 1.0f - saccade_per_frame;
@@ -554,7 +552,8 @@ FeatureDetector::makePxKalmanFilter(const cv::Size2i &resolution,
     KF.measurementNoiseCov = measurement_noise_cov;
     KF.errorCovPost = error_cov_post;
     KF.statePost = state_post;
-    KF.predict(); // Without this line, OpenCV complains about incorrect matrix dimensions
+    // Without this line, OpenCV complains about incorrect matrix dimensions.
+    KF.predict();
     return KF;
 }
 
@@ -580,14 +579,16 @@ cv::KalmanFilter FeatureDetector::makeRadiusKalmanFilter(
     KF.measurementNoiseCov = measurement_noise_cov;
     KF.errorCovPost = error_cov_post;
     KF.statePost = state_post;
-    KF.predict(); // Without this line, OpenCV complains about incorrect matrix dimensions
+    // Without this line, OpenCV complains about incorrect matrix dimensions.
+    KF.predict();
     return KF;
 }
 
-cv::KalmanFilter FeatureDetector::makeEllipseKalmanFilter(
-    const cv::Size2i &resolution, const float &min_axis, const float &max_axis,
-    float framerate) {
-    double saccade_length_sec = 0.1; // expected average time
+cv::KalmanFilter
+FeatureDetector::makeEllipseKalmanFilter(const cv::Size2i &resolution,
+                                         float framerate) {
+    // Expected average saccade time.
+    double saccade_length_sec = 0.1;
     double saccade_per_frame =
         std::fmin(saccade_length_sec / (1.0f / framerate), 1.0f);
     double velocity_decay = 1.0f - saccade_per_frame;
@@ -617,7 +618,6 @@ cv::KalmanFilter FeatureDetector::makeEllipseKalmanFilter(
     KF.measurementNoiseCov = measurement_noise_cov;
     KF.errorCovPost = error_cov_post;
     KF.statePost = state_post;
-    //    KF.predict(); // Without this line, OpenCV complains about incorrect matrix dimensions
     return KF;
 }
 
@@ -631,8 +631,10 @@ cv::Mat FeatureDetector::getThresholdedGlintsImage() {
     return image_;
 }
 
-void FeatureDetector::findBestGlintPair(
+void FeatureDetector::findPotentialNeighbours(
     std::vector<GlintCandidate> &glint_candidates) {
+    // Checks every pair of glints if there are at the distance making them
+    // neighbours.
     for (auto &first : glint_candidates) {
         for (auto &second : glint_candidates) {
             if (&first == &second) {
@@ -674,6 +676,7 @@ void FeatureDetector::findBestGlintPair(
 
 void FeatureDetector::determineGlintTypes(
     std::vector<GlintCandidate> &glint_candidates) {
+    // Glint position in the 3x2 grid is determined based on the neighbours it has.
     for (auto &glint_candidate : glint_candidates) {
         int mask = 0;
         mask |= (glint_candidate.right_neighbour != nullptr);
@@ -714,12 +717,11 @@ bool FeatureDetector::isLeftNeighbour(GlintCandidate &reference,
 bool FeatureDetector::isRightNeighbour(GlintCandidate &reference,
                                        GlintCandidate &compared) {
     cv::Point2f distance{compared.location - reference.location};
-    DetectionParams *params{&Settings::parameters.detection_params};
 
-    return (distance.y < params->glint_right_vert_distance[1]
-            && distance.y > params->glint_right_vert_distance[0]
-            && distance.x < params->glint_right_hor_distance[1]
-            && distance.x > params->glint_right_hor_distance[0]);
+    return (distance.y < detection_params_->max_glint_right_vert_distance
+            && distance.y > detection_params_->min_glint_right_vert_distance
+            && distance.x < detection_params_->max_glint_right_hor_distance
+            && distance.x > detection_params_->min_glint_right_hor_distance);
 }
 
 bool FeatureDetector::isUpperNeighbour(GlintCandidate &reference,
@@ -730,15 +732,15 @@ bool FeatureDetector::isUpperNeighbour(GlintCandidate &reference,
 bool FeatureDetector::isBottomNeighbour(GlintCandidate &reference,
                                         GlintCandidate &compared) {
     cv::Point2f distance{compared.location - reference.location};
-    DetectionParams *params{&Settings::parameters.detection_params};
 
-    return (distance.y < params->glint_bottom_vert_distance[1]
-            && distance.y > params->glint_bottom_vert_distance[0]
-            && distance.x < params->glint_bottom_hor_distance[1]
-            && distance.x > params->glint_bottom_hor_distance[0]);
+    return (distance.y < detection_params_->max_glint_bottom_vert_distance
+            && distance.y > detection_params_->min_glint_bottom_vert_distance
+            && distance.x < detection_params_->max_glint_bottom_hor_distance
+            && distance.x > detection_params_->min_glint_bottom_hor_distance);
 }
 
 void FeatureDetector::approximatePositions() {
+    // Computes relative positions of all glints to fill the missing spots.
     cv::Point2f mean_right_move{15, 0};
     cv::Point2f mean_down_move{0, 40};
     cv::Point2f total_right_move{0};
@@ -748,20 +750,17 @@ void FeatureDetector::approximatePositions() {
 
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
-            if (selected_glints_[i * 3 + j].found
-                && selected_glints_[i * 3 + j + 1].found) {
-                total_right_move +=
-                    selected_glints_[i * 3 + j + 1].location
+            if (found_glints_[i * 3 + j] && found_glints_[i * 3 + j + 1]) {
+                total_right_move += selected_glints_[i * 3 + j + 1].location
                     - selected_glints_[i * 3 + j].location;
                 total_right_found++;
             }
         }
     }
     for (int i = 0; i < 3; i++) {
-        if (selected_glints_[i].found
-            && selected_glints_[i + 3].found) {
-            total_down_move += selected_glints_[i + 3].location
-                - selected_glints_[i].location;
+        if (found_glints_[i] && found_glints_[i + 3]) {
+            total_down_move +=
+                selected_glints_[i + 3].location - selected_glints_[i].location;
             total_down_found++;
         }
     }
@@ -774,11 +773,10 @@ void FeatureDetector::approximatePositions() {
     }
 
     for (int i = 0; i < 6; i++) {
-        if (!selected_glints_[i].found) {
+        if (!found_glints_[i]) {
             for (int j = 0; j < 6; j++) {
-                if (selected_glints_[j].found) {
-                    selected_glints_[i].location =
-                        selected_glints_[j].location
+                if (found_glints_[j]) {
+                    selected_glints_[i].location = selected_glints_[j].location
                         - (j % 3 - i % 3) * mean_right_move
                         - (j / 3 - i / 3) * mean_down_move;
                     selected_glints_[i].rating = 0;
@@ -791,15 +789,14 @@ void FeatureDetector::approximatePositions() {
 
 void FeatureDetector::getPupilGlintVector(cv::Vec2f &pupil_glint_vector) {
     mtx_features_.lock();
-    pupil_glint_vector =
-        pupil_location_ - glint_locations_[0];
+    pupil_glint_vector = pupil_location_ - glint_locations_[0];
     mtx_features_.unlock();
 }
 
-void FeatureDetector::getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector) {
+void FeatureDetector::getPupilGlintVectorFiltered(
+    cv::Vec2f &pupil_glint_vector) {
     mtx_features_.lock();
-    pupil_glint_vector = pupil_location_filtered_
-        - glint_location_filtered_;
+    pupil_glint_vector = pupil_location_filtered_ - glint_location_filtered_;
     mtx_features_.unlock();
 }
 
@@ -839,10 +836,8 @@ void FeatureDetector::updateGazeBuffer() {
     }
 
     mtx_features_.lock();
-    pupil_location_filtered_ =
-        pupil_location_summed_ / buffer_summed_count_;
-    glint_location_filtered_ =
-        glint_location_summed_ / buffer_summed_count_;
+    pupil_location_filtered_ = pupil_location_summed_ / buffer_summed_count_;
+    glint_location_filtered_ = glint_location_summed_ / buffer_summed_count_;
     mtx_features_.unlock();
 
     buffer_idx_ = (buffer_idx_ + 1) % buffer_size_;
@@ -850,45 +845,37 @@ void FeatureDetector::updateGazeBuffer() {
 
 void FeatureDetector::identifyNeighbours(GlintCandidate *glint_candidate) {
     if (glint_candidate->upper_neighbour && glint_candidate->glint_type >= 3
-        && !selected_glints_[glint_candidate->glint_type - 3]
-                .found) {
+        && !found_glints_[glint_candidate->glint_type - 3]) {
         selected_glints_[glint_candidate->glint_type - 3] =
             *glint_candidate->upper_neighbour;
-        selected_glints_[glint_candidate->glint_type - 3].found =
-            true;
+        found_glints_[glint_candidate->glint_type - 3] = true;
         glint_candidate->upper_neighbour->glint_type =
             (GlintType) (glint_candidate->glint_type - 3);
         identifyNeighbours(glint_candidate->upper_neighbour);
     }
     if (glint_candidate->bottom_neighbour && glint_candidate->glint_type < 3
-        && !selected_glints_[glint_candidate->glint_type + 3]
-                .found) {
+        && !found_glints_[glint_candidate->glint_type + 3]) {
         selected_glints_[glint_candidate->glint_type + 3] =
             *glint_candidate->bottom_neighbour;
-        selected_glints_[glint_candidate->glint_type + 3].found =
-            true;
+        found_glints_[glint_candidate->glint_type + 3] = true;
         glint_candidate->bottom_neighbour->glint_type =
             (GlintType) (glint_candidate->glint_type + 3);
         identifyNeighbours(glint_candidate->bottom_neighbour);
     }
     if (glint_candidate->right_neighbour && glint_candidate->glint_type % 3 < 2
-        && !selected_glints_[glint_candidate->glint_type + 1]
-                .found) {
+        && !found_glints_[glint_candidate->glint_type + 1]) {
         selected_glints_[glint_candidate->glint_type + 1] =
             *glint_candidate->right_neighbour;
-        selected_glints_[glint_candidate->glint_type + 1].found =
-            true;
+        found_glints_[glint_candidate->glint_type + 1] = true;
         glint_candidate->right_neighbour->glint_type =
             (GlintType) (glint_candidate->glint_type + 1);
         identifyNeighbours(glint_candidate->right_neighbour);
     }
     if (glint_candidate->left_neighbour && glint_candidate->glint_type % 3 > 0
-        && !selected_glints_[glint_candidate->glint_type - 1]
-                .found) {
+        && !found_glints_[glint_candidate->glint_type - 1]) {
         selected_glints_[glint_candidate->glint_type - 1] =
             *glint_candidate->left_neighbour;
-        selected_glints_[glint_candidate->glint_type - 1].found =
-            true;
+        found_glints_[glint_candidate->glint_type - 1] = true;
         glint_candidate->left_neighbour->glint_type =
             (GlintType) (glint_candidate->glint_type - 1);
         identifyNeighbours(glint_candidate->left_neighbour);
@@ -896,7 +883,11 @@ void FeatureDetector::identifyNeighbours(GlintCandidate *glint_candidate) {
 }
 
 FeatureDetector::~FeatureDetector() {
-    bayes_solver_.release();
-    bayes_minimizer_func_.release();
+    if (!bayes_solver_->empty()) {
+        bayes_solver_.release();
+    }
+    if (!bayes_minimizer_func_.empty()) {
+        bayes_minimizer_func_.release();
+    }
 }
 } // namespace et

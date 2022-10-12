@@ -18,6 +18,8 @@ double RayPointMinimizer::calc(const double *x) const {
 
     double error{0};
 
+    // Finds the difference between reflecting and reflected LED vectors which
+    // should be as low as possible.
     for (int i = 0; i < lp_.size(); i++) {
         bool intersected{EyeEstimator::getRaySphereIntersection(
             screen_glint_[i], ray_dir_[i], c,

@@ -4,7 +4,10 @@
 
 namespace et {
 void EyeTracker::initialize(ImageProvider *image_provider,
-                            bool enabled_cameras[], bool ellipse_fitting[]) {
+                            const std::string &settings_path,
+                            const bool enabled_cameras[],
+                            const bool ellipse_fitting[],
+                            const bool enabled_kalman[]) {
     image_provider_ = image_provider;
     image_provider_->initialize();
 
@@ -12,13 +15,14 @@ void EyeTracker::initialize(ImageProvider *image_provider,
         if (enabled_cameras[i]) {
             camera_ids_.push_back(i);
         }
-        feature_detectors_[i].initialize(i);
-        eye_estimators_[i].initialize(i);
+        feature_detectors_[i].initialize(settings_path, enabled_kalman[i], i);
+        eye_estimators_[i].initialize(settings_path, enabled_kalman[i], i);
         ellipse_fitting_[i] = ellipse_fitting[i];
     }
     for (auto &i : camera_ids_) {
         visualizer_[i].initialize(i);
     }
+    // Initial shown image is raw camera feed.
     visualization_type_ = VisualizationType::CAMERA_IMAGE;
     initialized_ = true;
 }
@@ -33,24 +37,36 @@ bool EyeTracker::analyzeNextFrame() {
             return false;
         }
         if (ellipse_fitting_[i]) {
+            // Polynomial-based approach: ellipse fitting does not look for
+            // individual glints but for the pattern they form.
             feature_detectors_[i].preprocessGlintEllipse(analyzed_frame_[i]);
             bool features_found = feature_detectors_[i].findPupil();
             cv::Point2f pupil = feature_detectors_[i].getPupil();
             features_found &= feature_detectors_[i].findEllipse(pupil);
+            int pupil_radius = feature_detectors_[i].getPupilRadius();
             cv::RotatedRect ellipse = feature_detectors_[i].getEllipse();
             if (features_found) {
                 eye_estimators_[i].getEyeFromPolynomial(pupil, ellipse);
+                cv::Vec3d cornea_centre{};
+                eye_estimators_[i].getCorneaCurvaturePosition(cornea_centre);
+                eye_estimators_[i].calculatePupilDiameter(pupil, pupil_radius,
+                                                          cornea_centre);
             }
 
         } else {
-            feature_detectors_[i].preprocessIndivGlints(analyzed_frame_[i]);
+            // Model-based approach: position of every glint needs to found.
+            feature_detectors_[i].preprocessSingleGlints(analyzed_frame_[i]);
             bool features_found = feature_detectors_[i].findPupil();
             cv::Point2f pupil = feature_detectors_[i].getPupil();
             features_found &= feature_detectors_[i].findGlints();
             auto glints = feature_detectors_[i].getGlints();
             int pupil_radius = feature_detectors_[i].getPupilRadius();
             if (features_found) {
-                eye_estimators_[i].getEyeFromModel(pupil, glints, pupil_radius);
+                eye_estimators_[i].getEyeFromModel(pupil, glints);
+                cv::Vec3d cornea_centre{};
+                eye_estimators_[i].getCorneaCurvaturePosition(cornea_centre);
+                eye_estimators_[i].calculatePupilDiameter(pupil, pupil_radius,
+                                                          cornea_centre);
             }
         }
         if (output_video_[i].isOpened()) {
@@ -99,12 +115,12 @@ void EyeTracker::getEyeCentrePosition(cv::Vec3d &eye_centre, int camera_id) {
     eye_estimators_[camera_id].getEyeCentrePosition(eye_centre);
 }
 
-void EyeTracker::getCorneaCurvaturePosition(cv::Vec3d &cornea_centre,
-                                            int camera_id) {
+void EyeTracker::getCorneaCentrePosition(cv::Vec3d &cornea_centre,
+                                         int camera_id) {
     eye_estimators_[camera_id].getCorneaCurvaturePosition(cornea_centre);
 }
 
-void EyeTracker::logEyeFeatures(std::ostream &output) {
+void EyeTracker::logDetectedFeatures(std::ostream &output) {
     for (auto &i : camera_ids_) {
         cv::Point2f pupil = feature_detectors_[i].getPupil();
         output << i << "," << frame_counter_ << "," << pupil.x << ","
@@ -171,6 +187,9 @@ void EyeTracker::captureCameraImage() {
 
 void EyeTracker::updateUi() {
     Visualizer::calculateFramerate();
+    if (visualization_type_ == VisualizationType::DISABLED) {
+        et::Visualizer::printFramerateInterval();
+    }
     for (auto &i : camera_ids_) {
         switch (visualization_type_) {
         case VisualizationType::CAMERA_IMAGE:
@@ -184,14 +203,13 @@ void EyeTracker::updateUi() {
             visualizer_[i].prepareImage(
                 feature_detectors_[i].getThresholdedGlintsImage());
             break;
-        case VisualizationType::DISABLED:
-            visualizer_[i].printFramerateInterval();
+        default:
             break;
         }
         if (visualization_type_ != VisualizationType::DISABLED) {
             visualizer_[i].drawBoundingCircle(
-                Settings::parameters.detection_params.pupil_search_centre[i],
-                Settings::parameters.detection_params.pupil_search_radius[i]);
+                Settings::parameters.detection_params[i].pupil_search_centre,
+                Settings::parameters.detection_params[i].pupil_search_radius);
             visualizer_[i].drawPupil(feature_detectors_[i].getPupil(),
                                      feature_detectors_[i].getPupilRadius());
             visualizer_[i].drawEyeCentre(

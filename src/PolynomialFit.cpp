@@ -1,9 +1,6 @@
 #include "PolynomialFit.hpp"
-#include "Utils.hpp"
 
 #include <opencv2/opencv.hpp>
-
-#include <fstream>
 
 namespace et {
 void PolynomialFit::fit(std::vector<std::vector<float> *> &variables,
@@ -13,6 +10,7 @@ void PolynomialFit::fit(std::vector<std::vector<float> *> &variables,
         return std::abs(a) < std::abs(b);
     };
 
+    // Finds the maximum data point for each variable.
     std::vector<float> maximum{};
     for (const auto &variable : variables) {
         maximum.push_back(std::abs(*std::max_element(
@@ -22,11 +20,13 @@ void PolynomialFit::fit(std::vector<std::vector<float> *> &variables,
     float maximum_output = std::abs(
         *std::max_element(outputs->begin(), outputs->end(), max_abs_func));
 
-    int n_data_points = variables[0]->size();
-    int n_coeffs = monomial_sets_.size();
+
+    auto n_data_points = (int) variables[0]->size();
+    auto n_coeffs = (int) monomial_sets_.size();
     cv::Mat A{cv::Size(n_coeffs, n_data_points), CV_32FC1};
     cv::Mat scaled_output{cv::Size(1, n_data_points), CV_32FC1};
 
+    // Computes all exponents scaled by max values.
     for (int i = 0; i < n_coeffs; i++) {
         for (int j = 0; j < n_data_points; j++) {
             double val{1};
@@ -34,7 +34,7 @@ void PolynomialFit::fit(std::vector<std::vector<float> *> &variables,
                 val *= std::pow((*variables[k])[j] / maximum[k],
                                 monomial_sets_[i][k]);
             }
-            A.at<float>(j, i) = val;
+            A.at<float>(j, i) = (float) val;
         }
     }
 
@@ -53,6 +53,7 @@ void PolynomialFit::fit(std::vector<std::vector<float> *> &variables,
     }
 
     cv::Mat scaled_coeffs = vt.t() * qqs.t() * u.t() * scaled_output;
+    // Rescales the coefficients back.
     for (int i = 0; i < n_coeffs; i++) {
         double val{1};
         for (int j = 0; j < n_variables_; j++) {
@@ -63,7 +64,7 @@ void PolynomialFit::fit(std::vector<std::vector<float> *> &variables,
     }
 }
 
-float PolynomialFit::getEstimation(const std::vector<float>& input) {
+float PolynomialFit::getEstimation(const std::vector<float> &input) {
     double total{0};
     for (int i = 0; i < monomial_sets_.size(); i++) {
         double val{coefficients_[i]};
@@ -72,11 +73,11 @@ float PolynomialFit::getEstimation(const std::vector<float>& input) {
         }
         total += val;
     }
-    return (float)total;
+    return (float) total;
 }
 
 std::vector<std::vector<int>> PolynomialFit::generateMonomials(int order,
-                                                          int dimension) {
+                                                               int dimension) {
     std::vector<std::vector<int>> output{};
     if (dimension == 1) {
         for (int i = 0; i <= order; i++) {
@@ -95,7 +96,7 @@ std::vector<std::vector<int>> PolynomialFit::generateMonomials(int order,
     return output;
 }
 
-void PolynomialFit::setCoefficients(std::vector<float>& coefficients) {
+void PolynomialFit::setCoefficients(std::vector<float> &coefficients) {
     coefficients_ = coefficients;
 }
 

@@ -9,9 +9,10 @@ using namespace std::chrono_literals;
 
 namespace et {
 
-std::ostringstream Visualizer:: fps_text_{};
+std::ostringstream Visualizer::fps_text_{};
 int Visualizer::frame_index_{};
-std::chrono::time_point<std::chrono::steady_clock> Visualizer::last_frame_time_{};
+std::chrono::time_point<std::chrono::steady_clock>
+    Visualizer::last_frame_time_{};
 int Visualizer::total_frames_{0};
 float Visualizer::total_framerate_{0};
 
@@ -22,18 +23,17 @@ void Visualizer::initialize(int camera_id) {
     full_output_window_name_ = SIDE_NAMES[camera_id].begin();
     full_output_window_name_ += WINDOW_NAME.begin();
 
-    full_parameters_window_name_ = SIDE_NAMES[camera_id].begin();
-    full_parameters_window_name_ += SLIDER_WINDOW_NAME.begin();
-
     typedef void (*TrackerPointer)(int, void *);
 
     TrackerPointer trackers[] = {&Visualizer::onPupilThresholdUpdate,
-                                      &Visualizer::onGlintThresholdUpdate,
-                                    &Visualizer::onExposureUpdate};
+                                 &Visualizer::onGlintThresholdUpdate,
+                                 &Visualizer::onExposureUpdate};
 
-    pupil_threshold_ = &Settings::parameters.user_params->pupil_threshold[camera_id];
-    glint_threshold_ = &Settings::parameters.user_params->glint_threshold[camera_id];
-    camera_params_ = &Settings::parameters.camera_params[camera_id];
+    pupil_threshold_ =
+        &Settings::parameters.user_params[camera_id]->pupil_threshold;
+    glint_threshold_ =
+        &Settings::parameters.user_params[camera_id]->glint_threshold;
+    user_params_ = Settings::parameters.user_params[camera_id];
     namedWindow(full_output_window_name_, cv::WINDOW_AUTOSIZE);
 
     cv::createTrackbar(PUPIL_THRESHOLD_NAME.begin(), full_output_window_name_,
@@ -46,15 +46,16 @@ void Visualizer::initialize(int camera_id) {
     cv::setTrackbarPos(GLINT_THRESHOLD_NAME.begin(), full_output_window_name_,
                        *glint_threshold_);
 
-    cv::createTrackbar(PUPIL_EXPOSURE_NAME.begin(), full_output_window_name_,
-                       nullptr, PUPIL_EXPOSURE_MAX - PUPIL_EXPOSURE_MIN,
+    cv::createTrackbar(EXPOSURE_NAME.begin(), full_output_window_name_,
+                       nullptr,
+                       EXPOSURE_MAX - EXPOSURE_MIN,
                        trackers[2], this);
-    cv::setTrackbarMin(PUPIL_EXPOSURE_NAME.begin(), full_output_window_name_,
-                       PUPIL_EXPOSURE_MIN);
-    cv::setTrackbarMax(PUPIL_EXPOSURE_NAME.begin(), full_output_window_name_,
-                       PUPIL_EXPOSURE_MAX);
-    cv::setTrackbarPos(PUPIL_EXPOSURE_NAME.begin(), full_output_window_name_,
-                       (int) round(100.0 * camera_params_->pupil_exposure));
+    cv::setTrackbarMin(EXPOSURE_NAME.begin(), full_output_window_name_,
+                       EXPOSURE_MIN);
+    cv::setTrackbarMax(EXPOSURE_NAME.begin(), full_output_window_name_,
+                       EXPOSURE_MAX);
+    cv::setTrackbarPos(EXPOSURE_NAME.begin(), full_output_window_name_,
+                       (int) round(100.0 * user_params_->exposure));
 }
 
 void Visualizer::prepareImage(const cv::Mat &image) {
@@ -69,7 +70,8 @@ void Visualizer::show() {
 
 bool Visualizer::isWindowOpen() {
     if (!image_.empty()
-        && cv::getWindowProperty(full_output_window_name_, cv::WND_PROP_AUTOSIZE)
+        && cv::getWindowProperty(full_output_window_name_,
+                                 cv::WND_PROP_AUTOSIZE)
             < 0) {
         return false;
     }
@@ -104,11 +106,11 @@ cv::Mat Visualizer::getUiImage() {
 }
 
 float Visualizer::getAvgFramerate() {
-    return total_framerate_ / total_frames_;
+    return total_framerate_ / (float) total_frames_;
 }
 
 void Visualizer::onPupilThresholdUpdate(int value, void *ptr) {
-    auto *visualizer = (Visualizer*) ptr;
+    auto *visualizer = (Visualizer *) ptr;
     visualizer->onPupilThresholdUpdate(value);
 }
 
@@ -117,20 +119,22 @@ void Visualizer::onPupilThresholdUpdate(int value) {
 }
 
 void Visualizer::onGlintThresholdUpdate(int value, void *ptr) {
-    auto *visualizer = (Visualizer*) ptr;
+    auto *visualizer = (Visualizer *) ptr;
     visualizer->onGlintThresholdUpdate(value);
 }
+
 void Visualizer::onGlintThresholdUpdate(int value) {
     *glint_threshold_ = value;
 }
 
 void Visualizer::onExposureUpdate(int value, void *ptr) {
-    auto *visualizer = (Visualizer*) ptr;
+    auto *visualizer = (Visualizer *) ptr;
     visualizer->onExposureUpdate(value);
 }
 
 void Visualizer::onExposureUpdate(int value) {
-    camera_params_->pupil_exposure = (float) value / 100.0f;
+    // Scales exposure to millimeters
+    user_params_->exposure = (float) value / 100.0f;
 }
 
 void Visualizer::drawPupil(cv::Point2f pupil, int radius) {
@@ -148,18 +152,15 @@ void Visualizer::drawBoundingCircle(cv::Point2f centre, int radius) {
 }
 
 void Visualizer::drawEyeCentre(cv::Point2f eye_centre) {
-    cv::circle(image_, eye_centre, 2,
-               cv::Scalar(0x00, 0x80, 0x00), 5);
+    cv::circle(image_, eye_centre, 2, cv::Scalar(0x00, 0x80, 0x00), 5);
 }
 
 void Visualizer::drawCorneaCentre(cv::Point2f cornea_centre) {
-    cv::circle(image_, cornea_centre,
-               2, cv::Scalar(0x00, 0xFF, 0xFF), 5);
+    cv::circle(image_, cornea_centre, 2, cv::Scalar(0x00, 0xFF, 0xFF), 5);
 }
 
 void Visualizer::drawGlintEllipse(cv::RotatedRect ellipse) {
-    cv::ellipse(image_, ellipse,
-                cv::Scalar(0xFF, 0xFF, 0x00), 1);
+    cv::ellipse(image_, ellipse, cv::Scalar(0xFF, 0xFF, 0x00), 1);
 }
 
 void Visualizer::drawFps() {
