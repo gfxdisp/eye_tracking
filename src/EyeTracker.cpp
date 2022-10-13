@@ -1,5 +1,7 @@
 #include "EyeTracker.hpp"
 #include "Utils.hpp"
+
+#include <filesystem>
 #include <iostream>
 
 namespace et {
@@ -7,7 +9,8 @@ void EyeTracker::initialize(ImageProvider *image_provider,
                             const std::string &settings_path,
                             const bool enabled_cameras[],
                             const bool ellipse_fitting[],
-                            const bool enabled_kalman[]) {
+                            const bool enabled_kalman[],
+                            const bool enabled_template_matching[]) {
     image_provider_ = image_provider;
     image_provider_->initialize();
 
@@ -15,7 +18,8 @@ void EyeTracker::initialize(ImageProvider *image_provider,
         if (enabled_cameras[i]) {
             camera_ids_.push_back(i);
         }
-        feature_detectors_[i].initialize(settings_path, enabled_kalman[i], i);
+        feature_detectors_[i].initialize(settings_path, enabled_kalman[i],
+                                         enabled_template_matching[i], i);
         eye_estimators_[i].initialize(settings_path, enabled_kalman[i], i);
         ellipse_fitting_[i] = ellipse_fitting[i];
     }
@@ -39,7 +43,7 @@ bool EyeTracker::analyzeNextFrame() {
         if (ellipse_fitting_[i]) {
             // Polynomial-based approach: ellipse fitting does not look for
             // individual glints but for the pattern they form.
-            feature_detectors_[i].preprocessGlintEllipse(analyzed_frame_[i]);
+            feature_detectors_[i].preprocessImage(analyzed_frame_[i]);
             bool features_found = feature_detectors_[i].findPupil();
             cv::Point2f pupil = feature_detectors_[i].getPupil();
             features_found &= feature_detectors_[i].findEllipse(pupil);
@@ -55,7 +59,7 @@ bool EyeTracker::analyzeNextFrame() {
 
         } else {
             // Model-based approach: position of every glint needs to found.
-            feature_detectors_[i].preprocessSingleGlints(analyzed_frame_[i]);
+            feature_detectors_[i].preprocessImage(analyzed_frame_[i]);
             bool features_found = feature_detectors_[i].findPupil();
             cv::Point2f pupil = feature_detectors_[i].getPupil();
             features_found &= feature_detectors_[i].findGlints();
@@ -123,7 +127,7 @@ void EyeTracker::getCorneaCentrePosition(cv::Vec3d &cornea_centre,
 void EyeTracker::logDetectedFeatures(std::ostream &output) {
     for (auto &i : camera_ids_) {
         cv::Point2f pupil = feature_detectors_[i].getPupil();
-        output << i << "," << frame_counter_ << "," << pupil.x << ","
+        output << i << "," << frame_counter_ - 1 << "," << pupil.x << ","
                << pupil.y;
 
         if (ellipse_fitting_[i]) {
@@ -146,6 +150,9 @@ void EyeTracker::switchVideoRecordingState() {
     if (!camera_ids_.empty() && output_video_[camera_ids_[0]].isOpened()) {
         stopVideoRecording();
     } else {
+        if (!std::filesystem::is_directory("videos")) {
+            std::filesystem::create_directory("videos");
+        }
         for (auto &i : camera_ids_) {
             auto current_time = Utils::getCurrentTimeText();
             std::string filename =
@@ -178,6 +185,9 @@ void EyeTracker::stopVideoRecording() {
 }
 
 void EyeTracker::captureCameraImage() {
+    if (!std::filesystem::is_directory("images")) {
+        std::filesystem::create_directory("images");
+    }
     for (auto &i : camera_ids_) {
         std::string filename{"images/" + Utils::getCurrentTimeText() + "_"
                              + std::to_string(i) + ".png"};

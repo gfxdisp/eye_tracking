@@ -41,13 +41,14 @@ void EyeEstimator::initialize(const std::string &settings_path,
 
     auto coeffs_path = fs::path(settings_path)
         / ("ellipse_fitting_coeffs_" + std::to_string(camera_id) + ".csv");
-    auto eye_data_path = fs::path(settings_path)
-        / ("eye_data_" + std::to_string(camera_id) + ".csv");
+    auto eye_features_path = fs::path(settings_path)
+        / ("eye_features_" + std::to_string(camera_id) + ".csv");
 
-    auto detected_data_path = fs::path(settings_path)
-        / ("detected_data_" + std::to_string(camera_id) + ".csv");
+    auto image_features_path = fs::path(settings_path)
+        / ("image_features_" + std::to_string(camera_id) + ".csv");
 
-    loadPolynomialCoefficients(coeffs_path, eye_data_path, detected_data_path);
+    loadPolynomialCoefficients(coeffs_path, eye_features_path,
+                               image_features_path);
 
     leds_positions_ = &Settings::parameters.leds_positions[camera_id];
     gaze_shift_ = &Settings::parameters.camera_params[camera_id].gaze_shift;

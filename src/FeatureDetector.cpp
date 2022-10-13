@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <filesystem>
+#include <iostream>
 
 using KFMatD = cv::Mat_<double>;
 using KFMatF = cv::Mat_<float>;
@@ -15,7 +16,9 @@ namespace fs = std::filesystem;
 namespace et {
 
 void FeatureDetector::initialize(const std::string &settings_path,
-                                 bool kalman_filtering_enabled, int camera_id) {
+                                 bool kalman_filtering_enabled,
+                                 bool template_matching_enabled,
+                                 int camera_id) {
     pupil_kalman_ = makePxKalmanFilter(
         et::Settings::parameters.camera_params[camera_id].region_of_interest,
         et::Settings::parameters.camera_params[camera_id].framerate);
@@ -54,6 +57,7 @@ void FeatureDetector::initialize(const std::string &settings_path,
     detection_params_ = &Settings::parameters.detection_params[camera_id];
 
     kalman_filtering_enabled_ = kalman_filtering_enabled;
+    template_matching_enabled_ = template_matching_enabled;
 
     bound_ellipse_semi_major_ =
         &Settings::parameters.detection_params[camera_id]
@@ -108,37 +112,35 @@ std::vector<cv::Point2f> *FeatureDetector::getGlints() {
     return &glint_locations_;
 }
 
-void FeatureDetector::preprocessGlintEllipse(const cv::Mat &image) {
+void FeatureDetector::preprocessImage(const cv::Mat &image) {
     gpu_image_.upload(image);
 
     cv::cuda::threshold(gpu_image_, pupil_thresholded_image_gpu_,
                         *pupil_threshold_, 255, cv::THRESH_BINARY_INV);
 
-    // Finds the correlation of the glint template to every area in the image.
-    template_matcher_->match(gpu_image_, glints_template_,
-                             glints_thresholded_image_gpu_);
+    if (template_matching_enabled_) {
+        // Finds the correlation of the glint template to every area in the image.
+        template_matcher_->match(gpu_image_, glints_template_,
+                                 glints_thresholded_image_gpu_);
 
-    cv::cuda::threshold(glints_thresholded_image_gpu_,
-                        glints_thresholded_image_gpu_, *glint_threshold_ * 2e3,
-                        255, cv::THRESH_BINARY);
-    glints_thresholded_image_gpu_.convertTo(glints_thresholded_image_gpu_,
-                                            CV_8UC1);
-
-    pupil_thresholded_image_gpu_.download(pupil_thresholded_image_);
-    glints_thresholded_image_gpu_.download(glints_thresholded_image_);
-}
-
-void FeatureDetector::preprocessSingleGlints(const cv::Mat &image) {
-    gpu_image_.upload(image);
-
-    cv::cuda::threshold(gpu_image_, pupil_thresholded_image_gpu_,
-                        *pupil_threshold_, 255, cv::THRESH_BINARY_INV);
-
-    cv::cuda::threshold(gpu_image_, glints_thresholded_image_gpu_,
-                        *glint_threshold_, 255, cv::THRESH_BINARY);
+        cv::cuda::threshold(glints_thresholded_image_gpu_,
+                            glints_thresholded_image_gpu_,
+                            *glint_threshold_ * 2e3, 255, cv::THRESH_BINARY);
+        glints_thresholded_image_gpu_.convertTo(glints_thresholded_image_gpu_,
+                                                CV_8UC1);
+    } else {
+        cv::cuda::threshold(gpu_image_, glints_thresholded_image_gpu_,
+                            *glint_threshold_, 255, cv::THRESH_BINARY);
+    }
 
     pupil_thresholded_image_gpu_.download(pupil_thresholded_image_);
     glints_thresholded_image_gpu_.download(glints_thresholded_image_);
+
+    if (template_matching_enabled_) {
+        // Moves the correlation map so that it is centered in the image.
+        cv::warpAffine(glints_thresholded_image_, glints_thresholded_image_,
+                       template_crop_, *region_of_interest_);
+    }
 }
 
 bool FeatureDetector::findPupil() {
@@ -378,11 +380,6 @@ bool FeatureDetector::findGlints() {
 }
 
 bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
-
-    // Moves the correlation map so that it is centered in the image.
-    cv::warpAffine(glints_thresholded_image_, glints_thresholded_image_,
-                   template_crop_, *region_of_interest_);
-
     cv::findContours(glints_thresholded_image_, contours_, cv::RETR_EXTERNAL,
                      cv::CHAIN_APPROX_SIMPLE);
 
@@ -403,17 +400,6 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
         mean_point.y /= (double) contour.size();
         ellipse_points.push_back(mean_point);
     }
-
-    // Removes all contours from the vector that are too far from the image
-    // centre or the pupil.
-    ellipse_points.erase(
-        std::remove_if(ellipse_points.begin(), ellipse_points.end(),
-                       [&pupil, &im_centre](auto const &p) {
-                           float distance_a = euclideanDistance(p, pupil);
-                           float distance_b = euclideanDistance(p, im_centre);
-                           return distance_a > 300 || distance_b > 300;
-                       }),
-        ellipse_points.end());
 
     // Limits the number of glints to 20 which are the closest to the previously
     // estimated circle.
@@ -442,64 +428,68 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
     bitmask.resize(ellipse_points.size() - 3, 0);
     cv::Point2d ellipse_centre{};
     double ellipse_radius;
-    // Loop on every possible triplet of glints.
-    do {
-        int counter = 0;
-        for (int i = 0; counter < 3; i++) {
-            if (bitmask[i]) {
-                circle_points[counter] = ellipse_points[i];
-                counter++;
+    if (kalman_filtering_enabled_) {
+        // Loop on every possible triplet of glints.
+        do {
+            int counter = 0;
+            for (int i = 0; counter < 3; i++) {
+                if (bitmask[i]) {
+                    circle_points[counter] = ellipse_points[i];
+                    counter++;
+                }
             }
-        }
-        bayes_minimizer_->setParameters(circle_points, circle_centre_,
-                                        circle_radius_);
+            bayes_minimizer_->setParameters(circle_points, circle_centre_,
+                                            circle_radius_);
 
-        cv::Mat x = (cv::Mat_<double>(1, 3) << im_centre.x, im_centre.y,
-                     circle_radius_);
-        // Find the most likely position of the circle based on the previous
-        // circle position and triplet of glints that should lie on it.
-        bayes_solver_->minimize(x);
-        ellipse_centre.x = x.at<double>(0, 0);
-        ellipse_centre.y = x.at<double>(0, 1);
-        ellipse_radius = x.at<double>(0, 2);
+            cv::Mat x = (cv::Mat_<double>(1, 3) << im_centre.x, im_centre.y,
+                         circle_radius_);
+            // Find the most likely position of the circle based on the previous
+            // circle position and triplet of glints that should lie on it.
+            bayes_solver_->minimize(x);
+            ellipse_centre.x = x.at<double>(0, 0);
+            ellipse_centre.y = x.at<double>(0, 1);
+            ellipse_radius = x.at<double>(0, 2);
 
-        counter = 0;
-        // Counts all glints that lie close to the circle
-        for (auto &ellipse_point : ellipse_points) {
-            double value{0.0};
-            value += (ellipse_centre.x - ellipse_point.x)
-                * (ellipse_centre.x - ellipse_point.x);
-            value += (ellipse_centre.y - ellipse_point.y)
-                * (ellipse_centre.y - ellipse_point.y);
-            if (std::abs(std::sqrt(value) - ellipse_radius) <= 3.0) {
-                counter++;
-            }
-        }
-        // Finds the circle which contains the most glints.
-        if (counter > best_counter) {
-            best_counter = counter;
-            best_circle_centre = ellipse_centre;
-            best_circle_radius = ellipse_radius;
-        }
-    } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
-
-    circle_centre_ = best_circle_centre;
-    circle_radius_ = best_circle_radius;
-
-    // Remove all glints that are too far from the estimated circle.
-    ellipse_points.erase(
-        std::remove_if(
-            ellipse_points.begin(), ellipse_points.end(),
-            [this](auto const &p) {
+            counter = 0;
+            // Counts all glints that lie close to the circle
+            for (auto &ellipse_point : ellipse_points) {
                 double value{0.0};
-                value += (circle_centre_.x - p.x) * (circle_centre_.x - p.x);
-                value += (circle_centre_.y - p.y) * (circle_centre_.y - p.y);
-                return std::abs(std::sqrt(value) - circle_radius_) > 3.0;
-            }),
-        ellipse_points.end());
+                value += (ellipse_centre.x - ellipse_point.x)
+                    * (ellipse_centre.x - ellipse_point.x);
+                value += (ellipse_centre.y - ellipse_point.y)
+                    * (ellipse_centre.y - ellipse_point.y);
+                if (std::abs(std::sqrt(value) - ellipse_radius) <= 3.0) {
+                    counter++;
+                }
+            }
+            // Finds the circle which contains the most glints.
+            if (counter > best_counter) {
+                best_counter = counter;
+                best_circle_centre = ellipse_centre;
+                best_circle_radius = ellipse_radius;
+            }
+        } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
 
-    if (ellipse_points.size() < 5) {
-        return false;
+        circle_centre_ = best_circle_centre;
+        circle_radius_ = best_circle_radius;
+
+        // Remove all glints that are too far from the estimated circle.
+        ellipse_points.erase(
+            std::remove_if(
+                ellipse_points.begin(), ellipse_points.end(),
+                [this](auto const &p) {
+                    double value{0.0};
+                    value +=
+                        (circle_centre_.x - p.x) * (circle_centre_.x - p.x);
+                    value +=
+                        (circle_centre_.y - p.y) * (circle_centre_.y - p.y);
+                    return std::abs(std::sqrt(value) - circle_radius_) > 3.0;
+                }),
+            ellipse_points.end());
+
+        if (ellipse_points.size() < 5) {
+            return false;
+        }
     }
 
     // All the remaining points are used to estimate the ellipse.

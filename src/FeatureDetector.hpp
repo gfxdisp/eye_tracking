@@ -67,41 +67,36 @@ public:
      * @param settings_path Path to a folder containing all settings files.
      * @param kalman_filtering_enabled True if kalman filtering is enabled,
      * false otherwise.
+     * @param template_matching_enabled True if glints are detected using
+     * template matching, false otherwise.
      * @param camera_id An id of the camera to which the object corresponds.
      */
-    void initialize(const std::string &settings_path, bool kalman_filtering_enabled, int camera_id);
-
-    /**
-     * Uploads an image to GPU, computes its correlation to the glint template,
-     * thresholds the correlation map, and copies the result to CPU.
-     * Also thresholds pupil image on the GPU and saves to CPU.
-     * @param image Image to be preprocessed.
-     */
-    void preprocessGlintEllipse(const cv::Mat &image);
+    void initialize(const std::string &settings_path,
+                    bool kalman_filtering_enabled,
+                    bool template_matching_enabled, int camera_id);
 
     /**
      * Uploads an image to GPU, thresholds it for glints and pupil detection,
      * and saves to CPU.
      * @param image Image to be preprocessed.
      */
-    void preprocessSingleGlints(const cv::Mat &image);
+    void preprocessImage(const cv::Mat &image);
 
     /**
-     * Detects a pupil in the image preprocessed using preprocessGlintEllipse()
-     * or preprocessSingleGlints().
+     * Detects a pupil in the image preprocessed using preprocessImage().
      * @return True if the pupil was found. False otherwise.
      */
     bool findPupil();
 
     /**
-     * Detects all glints in the image preprocessed using preprocessSingleGlints().
+     * Detects all glints in the image preprocessed using preprocessImage().
      * @return True if the glints were found. False otherwise.
      */
     bool findGlints();
 
     /**
-     * Detects an ellipse form from glints in the image preprocessed using
-     * preprocessGlintEllipse().
+     * Detects an ellipse formed from glints in the image preprocessed using
+     * preprocessImage().
      * @param pupil Pupil position estimated using findPupil().
      * @return True if the glint ellipse was found. False otherwise.
      */
@@ -168,15 +163,15 @@ public:
     cv::RotatedRect getEllipse();
 
     /**
-     * Retrieves a thresholded image generated using preprocessGlintEllipse()
-     * or preprocessSingleGlints() used for pupil detection.
+     * Retrieves a thresholded image generated using preprocessImage()
+     * used for pupil detection.
      * @return A thresholded image.
      */
     cv::Mat getThresholdedPupilImage();
 
     /**
-     * Retrieves a thresholded image generated using preprocessGlintEllipse()
-     * or preprocessSingleGlints()used for glint detection.
+     * Retrieves a thresholded image generated using preprocessImage()
+     * used for glint detection.
      * @return A thresholded image.
      */
     cv::Mat getThresholdedGlintsImage();
@@ -284,14 +279,14 @@ private:
 
     // True if kalman filtering is enabled, false otherwise.
     bool kalman_filtering_enabled_{};
+    // True if glints are detected using template matching, false otherwise.
+    bool template_matching_enabled_{};
 
     // Size of the region-of-interest extracted from the full image.
     cv::Size2i *region_of_interest_{};
-    // Threshold value for pupil detection used in preprocessGlintEllipse()
-    // and preprocessSingleGlints().
+    // Threshold value for pupil detection used in preprocessImage().
     int *pupil_threshold_{};
-    // Threshold value for glints detection used in preprocessGlintEllipse()
-    // and preprocessSingleGlints().
+    // Threshold value for glints detection used in preprocessImage().
     int *glint_threshold_{};
     // Centre of the circle aligned with the hole in the view piece in the image.
     cv::Point2f *pupil_search_centre_{};
@@ -307,11 +302,9 @@ private:
     float *max_glint_radius_{};
     // Parameters used to increase the eye features detection precision.
     DetectionParams *detection_params_{};
-    // Template uploaded to the GPU used to detect glints with
-    // preprocessGlintEllipse().
+    // Template uploaded to the GPU used to detect glints with preprocessImage().
     cv::cuda::GpuMat glints_template_;
-    // Template matching algorithm used to detect glints with
-    // preprocessGlintEllipse().
+    // Template matching algorithm used to detect glints with preprocessImage().
     cv::Ptr<cv::cuda::TemplateMatching> template_matcher_{};
     // Affine warping matrix used to translate correlation matrix to align with
     // the original image.

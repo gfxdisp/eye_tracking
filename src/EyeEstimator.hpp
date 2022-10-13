@@ -90,8 +90,7 @@ public:
 
     /**
      * Retrieves pupil diameter in millimeters that was previously calculated
-     * using getEyeFromModel() or getEyeFromPolynomial(). Only works for
-     * 2006 Guestrin et al. model-based estimation.
+     * using getEyeFromModel() or getEyeFromPolynomial().
      * @param pupil_diameter Variable that will contain the pupil diameter.
      */
     void getPupilDiameter(float &pupil_diameter);

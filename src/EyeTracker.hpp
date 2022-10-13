@@ -45,11 +45,14 @@ public:
      * on 2006 Guestrin et al. model.
      * @param enabled_kalman 2-element boolean vector signifying, whether to
      * enable Kalman filtering for feature and eye position estimation.
+     * @param enabled_template_matching 2-element boolean vector signifying,
+     * whether to use template matching for finding glints.
      */
     void initialize(ImageProvider *image_provider,
                     const std::string &settings_path,
                     const bool enabled_cameras[], const bool ellipse_fitting[],
-                    const bool enabled_kalman[]);
+                    const bool enabled_kalman[],
+                    const bool enabled_template_matching[]);
 
     /**
      * Takes the next frame from the image provider, find its features, and calculates
@@ -98,8 +101,7 @@ public:
 
     /**
      * Retrieves pupil diameter in millimeters that was previously calculated
-     * in analyzeNextFrame(). Only works for 2006 Guestrin et al. model-based
-     * estimation.
+     * in analyzeNextFrame().
      * @param pupil_diameter Variable that will contain the pupil diameter.
      * @param camera_id An id of the camera for which the value is returned.
      */

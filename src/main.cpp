@@ -19,17 +19,18 @@ namespace fs = std::filesystem;
 int main(int argc, char *argv[]) {
     constexpr option options[]{
         {"settings-path", required_argument, nullptr, 's'},
-        {"input-type", required_argument, nullptr, 't'},
+        {"feed-type", required_argument, nullptr, 'f'},
         {"input-path", required_argument, nullptr, 'p'},
         {"user", required_argument, nullptr, 'u'},
         {"cameras", no_argument, nullptr, 'c'},
         {"glint-ellipse", no_argument, nullptr, 'e'},
+        {"template", no_argument, nullptr, 't'},
         {"log", no_argument, nullptr, 'l'},
         {nullptr, no_argument, nullptr, 0}};
 
     int argument{0};
     std::string settings_path{"."};
-    std::string input_type{"ids"};
+    std::string feed_type{"ids"};
     std::string input_path;
     std::string user{"default"};
 
@@ -37,15 +38,17 @@ int main(int argc, char *argv[]) {
     bool ellipse_fitting[]{true, false};
     bool enabled_cameras[]{true, true};
     bool enabled_kalman[]{true, true};
+    bool enabled_template_matching[]{true, false};
 
     while (argument != -1) {
-        argument = getopt_long(argc, argv, "s:t:p:u:c:e:lk:", options, nullptr);
+        argument =
+            getopt_long(argc, argv, "s:f:p:u:c:e:lk:t:", options, nullptr);
         switch (argument) {
         case 's':
             settings_path = optarg;
             break;
-        case 't':
-            input_type = optarg;
+        case 'f':
+            feed_type = optarg;
             break;
         case 'p':
             input_path = optarg;
@@ -68,6 +71,10 @@ int main(int argc, char *argv[]) {
             enabled_kalman[0] = optarg[0] == '1';
             enabled_kalman[1] = optarg[1] == '1';
             break;
+        case 't':
+            enabled_template_matching[0] = optarg[0] == '1';
+            enabled_template_matching[1] = optarg[1] == '1';
+            break;
         default:
             break;
         }
@@ -75,14 +82,14 @@ int main(int argc, char *argv[]) {
 
     et::Settings settings(fs::path(settings_path) / "parameters.json");
     et::ImageProvider *image_provider;
-    if (input_type == "ids") {
+    if (feed_type == "ids") {
         image_provider = new et::IdsCamera();
-    } else if (input_type == "file") {
+    } else if (feed_type == "file") {
         image_provider =
-            new et::InputVideo(fs::path(settings_path) / input_path);
-    } else if (input_type == "folder") {
+            new et::InputVideo(input_path);
+    } else if (feed_type == "folder") {
         image_provider =
-            new et::InputImages(fs::path(settings_path) / input_path);
+            new et::InputImages(input_path);
     } else {
         return EXIT_FAILURE;
     }
@@ -100,20 +107,21 @@ int main(int argc, char *argv[]) {
 
     et::EyeTracker eye_tracker{};
     eye_tracker.initialize(image_provider, settings_path, enabled_cameras,
-                           ellipse_fitting, enabled_kalman);
+                           ellipse_fitting, enabled_kalman,
+                           enabled_template_matching);
 
     et::SocketServer socket_server{&eye_tracker};
     socket_server.startServer();
     std::thread t{&et::SocketServer::openSocket, &socket_server};
 
-    if (saving_log) {
-        std::ofstream file{};
-        file.open("log.txt");
-        file.close();
-    }
-
     int frame_counter{0};
     bool slow_mode{false};
+
+    if (saving_log) {
+        std::ofstream file{};
+        file.open(fs::path(settings_path) / "image_features.csv");
+        file.close();
+    }
 
     while (!socket_server.finished) {
         if (!eye_tracker.analyzeNextFrame()) {
@@ -124,7 +132,7 @@ int main(int argc, char *argv[]) {
 
         if (saving_log) {
             std::ofstream file{};
-            file.open("log.txt", std::ios::app);
+            file.open(fs::path(settings_path) / "image_features.csv", std::ios::app);
             eye_tracker.logDetectedFeatures(file);
             file.close();
         }
@@ -231,7 +239,7 @@ int main(int argc, char *argv[]) {
     image_provider->close();
     socket_server.closeSocket();
     cv::destroyAllWindows();
-    et::Settings::saveSettings(settings_path);
+    et::Settings::saveSettings(fs::path(settings_path) / "parameters.json");
 
     t.join();
 
