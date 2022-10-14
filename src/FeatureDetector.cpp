@@ -34,6 +34,8 @@ void FeatureDetector::initialize(const std::string &settings_path,
         et::Settings::parameters.camera_params[camera_id].framerate);
     glint_locations_.resize(
         Settings::parameters.leds_positions[camera_id].size());
+    glint_locations_undistorted_.resize(
+        Settings::parameters.leds_positions[camera_id].size());
 
     region_of_interest_ =
         &Settings::parameters.camera_params[camera_id].region_of_interest;
@@ -53,6 +55,13 @@ void FeatureDetector::initialize(const std::string &settings_path,
         &Settings::parameters.detection_params[camera_id].min_glint_radius;
     max_glint_radius_ =
         &Settings::parameters.detection_params[camera_id].max_glint_radius;
+
+    intrinsic_matrix_ =
+        &Settings::parameters.camera_params[camera_id].intrinsic_matrix;
+    capture_offset_ =
+        &Settings::parameters.camera_params[camera_id].capture_offset;
+    distortion_coefficients_ =
+        &Settings::parameters.camera_params[camera_id].distortion_coefficients;
 
     detection_params_ = &Settings::parameters.detection_params[camera_id];
 
@@ -89,12 +98,17 @@ void FeatureDetector::initialize(const std::string &settings_path,
 }
 
 cv::Point2f FeatureDetector::getPupil() {
+    return pupil_location_undistorted_;
+}
+
+cv::Point2f FeatureDetector::getDistortedPupil() {
     return pupil_location_;
 }
 
+
 void FeatureDetector::getPupil(cv::Point2f &pupil) {
     mtx_features_.lock();
-    pupil = pupil_location_;
+    pupil = pupil_location_undistorted_;
     mtx_features_.unlock();
 }
 
@@ -105,10 +119,18 @@ void FeatureDetector::getPupilFiltered(cv::Point2f &pupil) {
 }
 
 int FeatureDetector::getPupilRadius() const {
+    return pupil_radius_undistorted_;
+}
+
+int FeatureDetector::getDistortedPupilRadius() const {
     return pupil_radius_;
 }
 
 std::vector<cv::Point2f> *FeatureDetector::getGlints() {
+    return &glint_locations_undistorted_;
+}
+
+std::vector<cv::Point2f> *FeatureDetector::getDistortedGlints() {
     return &glint_locations_;
 }
 
@@ -189,16 +211,27 @@ bool FeatureDetector::findPupil() {
     if (kalman_filtering_enabled_) {
         pupil_kalman_.correct((KFMatD(2, 1) << best_centre.x, best_centre.y));
         pupil_radius_kalman_.correct((KFMatD(1, 1) << best_radius));
-        mtx_features_.lock();
         pupil_location_ = toPoint(pupil_kalman_.predict());
         pupil_radius_ = (int) toValue(pupil_radius_kalman_.predict());
-        mtx_features_.unlock();
     } else {
-        mtx_features_.lock();
         pupil_location_ = best_centre;
         pupil_radius_ = (int) best_radius;
-        mtx_features_.unlock();
     }
+
+    auto centre_undistorted = undistort(best_centre);
+    cv::Point2f pupil_left_side = best_centre;
+    pupil_left_side.x -= best_radius;
+    cv::Point2f pupil_right_side = best_centre;
+    pupil_right_side.x += best_radius;
+
+    auto left_side_undistorted = undistort(pupil_left_side);
+    auto right_side_undistorted = undistort(pupil_right_side);
+    float radius_undistorted =
+        (right_side_undistorted.x - left_side_undistorted.x) * 0.5f;
+    mtx_features_.lock();
+    pupil_location_undistorted_ = centre_undistorted;
+    pupil_radius_undistorted_ = (int) radius_undistorted;
+    mtx_features_.unlock();
 
     return true;
 }
@@ -363,23 +396,25 @@ bool FeatureDetector::findGlints() {
             (KFMatD(2, 1) << glints_centre.x, glints_centre.y));
         new_glints_centre = toPoint(glints_kalman_.predict());
         for (int i = 0; i < led_count_; i++) {
-            mtx_features_.lock();
             glint_locations_[i] = selected_glints_[i].location
                 + (new_glints_centre - glints_centre);
-            mtx_features_.unlock();
         }
     } else {
         for (int i = 0; i < led_count_; i++) {
-            mtx_features_.lock();
             glint_locations_[i] = selected_glints_[i].location;
-            mtx_features_.unlock();
         }
+    }
+
+    for (int i = 0; i < led_count_; i++) {
+        mtx_features_.lock();
+        glint_locations_undistorted_[i] = undistort(glint_locations_[i]);
+        mtx_features_.unlock();
     }
 
     return true;
 }
 
-bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
+bool FeatureDetector::findEllipse() {
     cv::findContours(glints_thresholded_image_, contours_, cv::RETR_EXTERNAL,
                      cv::CHAIN_APPROX_SIMPLE);
 
@@ -411,7 +446,6 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
               });
 
     ellipse_points.resize(std::min((int) ellipse_points.size(), 20));
-
     if (ellipse_points.size() < 5) {
         return false;
     }
@@ -493,25 +527,34 @@ bool FeatureDetector::findEllipse(const cv::Point2f &pupil) {
     }
 
     // All the remaining points are used to estimate the ellipse.
-    cv::RotatedRect ellipse = cv::fitEllipse(ellipse_points);
+    glint_ellipse_ = cv::fitEllipse(ellipse_points);
 
-    if (kalman_filtering_enabled_) {
-        glint_ellipse_kalman_.correct((KFMatF(5, 1) << ellipse.center.x,
-                                       ellipse.center.y, ellipse.size.width,
-                                       ellipse.size.height, ellipse.angle));
-
-        cv::Mat predicted_ellipse = glint_ellipse_kalman_.predict();
-        glint_ellipse_.center.x = predicted_ellipse.at<float>(0, 0);
-        glint_ellipse_.center.y = predicted_ellipse.at<float>(1, 0);
-        glint_ellipse_.size.width = predicted_ellipse.at<float>(2, 0);
-        glint_ellipse_.size.height = predicted_ellipse.at<float>(3, 0);
-        glint_ellipse_.angle = predicted_ellipse.at<float>(4, 0);
-    } else {
-        glint_ellipse_ = ellipse;
+    for (auto &point : ellipse_points) {
+        point = undistort(point);
     }
 
-    mtx_features_.lock();
+    cv::RotatedRect ellipse_undistorted = cv::fitEllipse(ellipse_points);
+
+    if (kalman_filtering_enabled_) {
+        glint_ellipse_kalman_.correct(
+            (KFMatF(5, 1) << ellipse_undistorted.center.x,
+             ellipse_undistorted.center.y, ellipse_undistorted.size.width,
+             ellipse_undistorted.size.height, ellipse_undistorted.angle));
+
+        cv::Mat predicted_ellipse = glint_ellipse_kalman_.predict();
+        glint_ellipse_undistorted_.center.x = predicted_ellipse.at<float>(0, 0);
+        glint_ellipse_undistorted_.center.y = predicted_ellipse.at<float>(1, 0);
+        glint_ellipse_undistorted_.size.width = predicted_ellipse.at<float>(2, 0);
+        glint_ellipse_undistorted_.size.height = predicted_ellipse.at<float>(3, 0);
+        glint_ellipse_undistorted_.angle = predicted_ellipse.at<float>(4, 0);
+    } else {
+        glint_ellipse_undistorted_ = ellipse_undistorted;
+    }
+
     glint_locations_[0] = glint_ellipse_.center;
+
+    mtx_features_.lock();
+    glint_locations_undistorted_[0] = glint_ellipse_undistorted_.center;
     mtx_features_.unlock();
 
     return true;
@@ -777,9 +820,33 @@ void FeatureDetector::approximatePositions() {
     }
 }
 
+cv::Point2f FeatureDetector::undistort(cv::Point2f point) {
+    float fx{intrinsic_matrix_->at<float>(cv::Point(0, 0))};
+    float fy{intrinsic_matrix_->at<float>(cv::Point(1, 1))};
+    float cx{intrinsic_matrix_->at<float>(cv::Point(0, 2))};
+    float cy{intrinsic_matrix_->at<float>(cv::Point(1, 2))};
+    // Assumes distortions parameters are defined only in the first 2 values.
+    float k1{(*distortion_coefficients_)[0]};
+    float k2{(*distortion_coefficients_)[1]};
+    cv::Point2f new_point{};
+    float x{(float) (point.x + (float) capture_offset_->width - cx) / fx};
+    float y{(float) (point.y + (float) capture_offset_->height - cy) / fy};
+    float x0{x};
+    float y0{y};
+    for (int i = 0; i < 3; i++) {
+        float r2{x * x + y * y};
+        float k_inv{1 / (1 + k1 * r2 + k2 * r2 * r2)};
+        x = x0 * k_inv;
+        y = y0 * k_inv;
+    }
+    new_point.x = x * fx + cx;
+    new_point.y = y * fy + cy;
+    return new_point;
+}
+
 void FeatureDetector::getPupilGlintVector(cv::Vec2f &pupil_glint_vector) {
     mtx_features_.lock();
-    pupil_glint_vector = pupil_location_ - glint_locations_[0];
+    pupil_glint_vector = pupil_location_undistorted_ - glint_locations_undistorted_[0];
     mtx_features_.unlock();
 }
 
@@ -791,6 +858,10 @@ void FeatureDetector::getPupilGlintVectorFiltered(
 }
 
 cv::RotatedRect FeatureDetector::getEllipse() {
+    return glint_ellipse_undistorted_;
+}
+
+cv::RotatedRect FeatureDetector::getDistortedEllipse() {
     return glint_ellipse_;
 }
 
@@ -816,8 +887,8 @@ void FeatureDetector::updateGazeBuffer() {
         glint_location_summed_ -= glint_location_buffer_[buffer_idx_];
     }
 
-    pupil_location_buffer_[buffer_idx_] = pupil_location_;
-    glint_location_buffer_[buffer_idx_] = glint_locations_[0];
+    pupil_location_buffer_[buffer_idx_] = pupil_location_undistorted_;
+    glint_location_buffer_[buffer_idx_] = glint_locations_undistorted_[0];
     pupil_location_summed_ += pupil_location_buffer_[buffer_idx_];
     glint_location_summed_ += glint_location_buffer_[buffer_idx_];
 

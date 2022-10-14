@@ -58,8 +58,6 @@ void EyeEstimator::initialize(const std::string &settings_path,
         &Settings::parameters.camera_params[camera_id].intrinsic_matrix;
     capture_offset_ =
         &Settings::parameters.camera_params[camera_id].capture_offset;
-    distortion_coefficients_ =
-        &Settings::parameters.camera_params[camera_id].distortion_coefficients;
 
     camera_params_ = &et::Settings::parameters.camera_params[camera_id];
 
@@ -69,7 +67,7 @@ void EyeEstimator::initialize(const std::string &settings_path,
 void EyeEstimator::getEyeFromModel(
     cv::Point2f pupil_pix_position,
     std::vector<cv::Point2f> *glint_pix_positions) {
-    cv::Vec3f pupil_position{ICStoCCS(undistort(pupil_pix_position))};
+    cv::Vec3f pupil_position{ICStoCCS(pupil_pix_position)};
 
     std::vector<cv::Vec3f> glint_positions{};
 
@@ -79,7 +77,7 @@ void EyeEstimator::getEyeFromModel(
     for (int i = 0; i < glint_pix_positions->size(); i++) {
         cv::Vec3f v1{(*leds_positions_)[i]};
         cv::normalize(v1, v1);
-        cv::Vec3f v2{ICStoCCS(undistort((*glint_pix_positions)[i]))};
+        cv::Vec3f v2{ICStoCCS((*glint_pix_positions)[i])};
         glint_positions.push_back(v2);
         cv::normalize(v2, v2);
         cv::Vec3d v1v2{v1.cross(v2)};
@@ -323,30 +321,6 @@ cv::Mat EyeEstimator::euler2rot(const float *euler_angles) {
     return rotationMatrix;
 }
 
-cv::Point2f EyeEstimator::undistort(cv::Point2f point) {
-    float fx{intrinsic_matrix_->at<float>(cv::Point(0, 0))};
-    float fy{intrinsic_matrix_->at<float>(cv::Point(1, 1))};
-    float cx{intrinsic_matrix_->at<float>(cv::Point(0, 2))};
-    float cy{intrinsic_matrix_->at<float>(cv::Point(1, 2))};
-    // Assumes distortions parameters are defined only in the first 2 values.
-    float k1{(*distortion_coefficients_)[0]};
-    float k2{(*distortion_coefficients_)[1]};
-    cv::Point2f new_point{};
-    float x{(float) (point.x + (float) capture_offset_->width - cx) / fx};
-    float y{(float) (point.y + (float) capture_offset_->height - cy) / fy};
-    float x0{x};
-    float y0{y};
-    for (int i = 0; i < 3; i++) {
-        float r2{x * x + y * y};
-        float k_inv{1 / (1 + k1 * r2 + k2 * r2 * r2)};
-        x = x0 * k_inv;
-        y = y0 * k_inv;
-    }
-    new_point.x = x * fx + cx;
-    new_point.y = y * fy + cy;
-    return new_point;
-}
-
 void EyeEstimator::createInvProjectionMatrix() {
 
     // Projection matrix created according to the lecture notes:
@@ -471,13 +445,13 @@ void EyeEstimator::loadPolynomialCoefficients(
         if (poly_fit_input_data.empty()) {
             return;
         }
-        auto pupil_x = &poly_fit_input_data[2];
-        auto pupil_y = &poly_fit_input_data[3];
-        auto el_centre_x = &poly_fit_input_data[4];
-        auto el_centre_y = &poly_fit_input_data[5];
-        auto el_width = &poly_fit_input_data[6];
-        auto el_height = &poly_fit_input_data[7];
-        auto el_angle = &poly_fit_input_data[8];
+        auto pupil_x = &poly_fit_input_data[1];
+        auto pupil_y = &poly_fit_input_data[2];
+        auto el_centre_x = &poly_fit_input_data[3];
+        auto el_centre_y = &poly_fit_input_data[4];
+        auto el_width = &poly_fit_input_data[5];
+        auto el_height = &poly_fit_input_data[6];
+        auto el_angle = &poly_fit_input_data[7];
 
         std::vector<std::vector<float>> poly_fit_output_data =
             Utils::readFloatColumnsCsv(eye_data_filename);
@@ -525,26 +499,26 @@ void EyeEstimator::loadPolynomialCoefficients(
 void EyeEstimator::calculatePupilDiameter(
     cv::Point2f pupil_pix_position, int pupil_px_radius,
     const cv::Vec3f &cornea_centre_position) {
-    cv::Vec3f pupil_position{ICStoCCS(undistort(pupil_pix_position))};
+    cv::Vec3f pupil_position{ICStoCCS(pupil_pix_position)};
 
-    cv::Vec3f pupil_top_position = ICStoCCS(undistort(
-        pupil_pix_position + cv::Point2f((float) pupil_px_radius, 0.0f)));
+    cv::Vec3f pupil_right_position = ICStoCCS(
+        pupil_pix_position + cv::Point2f((float) pupil_px_radius, 0.0f));
 
     // Estimates pupil position based on its position in the image and the cornea centre.
     cv::Vec3f pupil =
         calculatePositionOnPupil(pupil_position, cornea_centre_position);
-    // Estimates position of the top part of the pupil.
-    cv::Vec3f pupil_top =
-        calculatePositionOnPupil(pupil_top_position, cornea_centre_position);
+    // Estimates position of the right part of the pupil.
+    cv::Vec3f pupil_right =
+        calculatePositionOnPupil(pupil_right_position, cornea_centre_position);
 
-    if (pupil != cv::Vec3f() && pupil_top != cv::Vec3f()) {
+    if (pupil != cv::Vec3f() && pupil_right != cv::Vec3f()) {
         cv::Vec3f pupil_proj = pupil;
-        cv::Vec3f pupil_top_proj = pupil_top;
+        cv::Vec3f pupil_right_proj = pupil_right;
         pupil_proj(2) = 0.0f;
-        pupil_top_proj(2) = 0.0f;
+        pupil_right_proj(2) = 0.0f;
         // Diameter is estimated as double the distance between pupil's centre
-        // and pupil's top point.
-        pupil_diameter_ = (float) (2 * cv::norm(pupil_proj - pupil_top_proj));
+        // and pupil's right point.
+        pupil_diameter_ = (float) (2 * cv::norm(pupil_proj - pupil_right_proj));
     }
 }
 

@@ -46,7 +46,7 @@ bool EyeTracker::analyzeNextFrame() {
             feature_detectors_[i].preprocessImage(analyzed_frame_[i]);
             bool features_found = feature_detectors_[i].findPupil();
             cv::Point2f pupil = feature_detectors_[i].getPupil();
-            features_found &= feature_detectors_[i].findEllipse(pupil);
+            features_found &= feature_detectors_[i].findEllipse();
             int pupil_radius = feature_detectors_[i].getPupilRadius();
             cv::RotatedRect ellipse = feature_detectors_[i].getEllipse();
             if (features_found) {
@@ -124,26 +124,23 @@ void EyeTracker::getCorneaCentrePosition(cv::Vec3d &cornea_centre,
     eye_estimators_[camera_id].getCorneaCurvaturePosition(cornea_centre);
 }
 
-void EyeTracker::logDetectedFeatures(std::ostream &output) {
-    for (auto &i : camera_ids_) {
-        cv::Point2f pupil = feature_detectors_[i].getPupil();
-        output << i << "," << frame_counter_ - 1 << "," << pupil.x << ","
-               << pupil.y;
+void EyeTracker::logDetectedFeatures(std::ostream &output, int camera_id) {
+    cv::Point2f pupil = feature_detectors_[camera_id].getPupil();
+    output << frame_counter_ - 1 << "," << pupil.x << "," << pupil.y;
 
-        if (ellipse_fitting_[i]) {
-            cv::RotatedRect ellipse = feature_detectors_[i].getEllipse();
-            output << "," << ellipse.center.x << "," << ellipse.center.y << ",";
-            output << ellipse.size.width << "," << ellipse.size.height << ",";
-            output << ellipse.angle;
-        } else {
-            auto glints = feature_detectors_[i].getGlints();
-            output << "," << glints->size() << ",";
-            for (auto &glint : *glints) {
-                output << glint.x << ";" << glint.y << ";";
-            }
+    if (ellipse_fitting_[camera_id]) {
+        cv::RotatedRect ellipse = feature_detectors_[camera_id].getEllipse();
+        output << "," << ellipse.center.x << "," << ellipse.center.y << ",";
+        output << ellipse.size.width << "," << ellipse.size.height << ",";
+        output << ellipse.angle;
+    } else {
+        auto glints = feature_detectors_[camera_id].getGlints();
+        output << "," << glints->size() << ",";
+        for (auto &glint : *glints) {
+            output << glint.x << ";" << glint.y << ";";
         }
-        output << "\n";
     }
+    output << "\n";
 }
 
 void EyeTracker::switchVideoRecordingState() {
@@ -220,8 +217,9 @@ void EyeTracker::updateUi() {
             visualizer_[i].drawBoundingCircle(
                 Settings::parameters.detection_params[i].pupil_search_centre,
                 Settings::parameters.detection_params[i].pupil_search_radius);
-            visualizer_[i].drawPupil(feature_detectors_[i].getPupil(),
-                                     feature_detectors_[i].getPupilRadius());
+            visualizer_[i].drawPupil(
+                feature_detectors_[i].getDistortedPupil(),
+                feature_detectors_[i].getDistortedPupilRadius());
             visualizer_[i].drawEyeCentre(
                 eye_estimators_[i].getEyeCentrePixelPosition());
             visualizer_[i].drawCorneaCentre(
@@ -229,9 +227,10 @@ void EyeTracker::updateUi() {
 
             if (ellipse_fitting_[i]) {
                 visualizer_[i].drawGlintEllipse(
-                    feature_detectors_[i].getEllipse());
+                    feature_detectors_[i].getDistortedEllipse());
             } else {
-                visualizer_[i].drawGlints(feature_detectors_[i].getGlints());
+                visualizer_[i].drawGlints(
+                    feature_detectors_[i].getDistortedGlints());
             }
 
             visualizer_[i].drawFps();

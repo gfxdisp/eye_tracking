@@ -195,8 +195,6 @@ private:
     cv::Size2i *capture_offset_{};
     // All parameters of the camera.
     CameraParams *camera_params_{};
-    // Distortion coefficients of the camera.
-    std::vector<float> *distortion_coefficients_{};
 
     // Cornea centre position in camera space calculated using getEyeFromModel()
     // or getEyeFromPolynomial().
@@ -217,13 +215,6 @@ private:
         return {(float) m.at<double>(0, 0), (float) m.at<double>(0, 1),
                 (float) m.at<double>(0, 2)};
     }
-
-    /**
-     * Computes the location of the pixel after undistorting it.
-     * @param point Position in the region-of-interest image space.
-     * @return Position in image space without distortions.
-     */
-    [[nodiscard]] cv::Point2f undistort(cv::Point2f point);
 
     /**
      * Converts point position from camera space to region-of-interest image space.

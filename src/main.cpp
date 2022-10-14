@@ -85,11 +85,9 @@ int main(int argc, char *argv[]) {
     if (feed_type == "ids") {
         image_provider = new et::IdsCamera();
     } else if (feed_type == "file") {
-        image_provider =
-            new et::InputVideo(input_path);
+        image_provider = new et::InputVideo(input_path);
     } else if (feed_type == "folder") {
-        image_provider =
-            new et::InputImages(input_path);
+        image_provider = new et::InputImages(input_path);
     } else {
         return EXIT_FAILURE;
     }
@@ -118,9 +116,14 @@ int main(int argc, char *argv[]) {
     bool slow_mode{false};
 
     if (saving_log) {
-        std::ofstream file{};
-        file.open(fs::path(settings_path) / "image_features.csv");
-        file.close();
+        for (int i = 0; i < 2; i++) {
+            if (enabled_cameras[i]) {
+                std::ofstream file{};
+                file.open(fs::path(settings_path)
+                          / ("image_features_" + std::to_string(i) + ".csv"));
+                file.close();
+            }
+        }
     }
 
     while (!socket_server.finished) {
@@ -131,10 +134,17 @@ int main(int argc, char *argv[]) {
         }
 
         if (saving_log) {
-            std::ofstream file{};
-            file.open(fs::path(settings_path) / "image_features.csv", std::ios::app);
-            eye_tracker.logDetectedFeatures(file);
-            file.close();
+            for (int i = 0; i < 2; i++) {
+                if (enabled_cameras[i]) {
+                    std::ofstream file{};
+                    file.open(
+                        fs::path(settings_path)
+                            / ("image_features_" + std::to_string(i) + ".csv"),
+                        std::ios::app);
+                    eye_tracker.logDetectedFeatures(file, i);
+                    file.close();
+                }
+            }
         }
 
         eye_tracker.updateUi();

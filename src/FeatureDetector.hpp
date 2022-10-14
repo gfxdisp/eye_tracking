@@ -97,17 +97,9 @@ public:
     /**
      * Detects an ellipse formed from glints in the image preprocessed using
      * preprocessImage().
-     * @param pupil Pupil position estimated using findPupil().
      * @return True if the glint ellipse was found. False otherwise.
      */
-    bool findEllipse(const cv::Point2f &pupil);
-
-    /**
-     * Retrieves pupil position in image space that was previously
-     * calculated in findPupil().
-     * @return Pupil position.
-     */
-    cv::Point2f getPupil();
+    bool findEllipse();
 
     /**
      * Retrieves a vector between a specific glint and pupil position
@@ -145,10 +137,30 @@ public:
     void getPupilFiltered(cv::Point2f &pupil);
 
     /**
+     * Retrieves pupil position in image space that was previously
+     * calculated in findPupil().
+     * @return Pupil position.
+     */
+    cv::Point2f getPupil();
+
+    /**
+     * Retrieves distorted pupil position in image space that was previously
+     * calculated in findPupil().
+     * @return Pupil position.
+     */
+    cv::Point2f getDistortedPupil();
+
+    /**
      * Retrieves a radius of a pupil.
      * @return Pupil radius.
      */
     [[nodiscard]] int getPupilRadius() const;
+
+    /**
+     * Retrieves a radius of a distorted pupil.
+     * @return Pupil radius.
+     */
+    [[nodiscard]] int getDistortedPupilRadius() const;
 
     /**
      * Retrieves a pointer to the vector of glints detected using findGlints().
@@ -157,10 +169,22 @@ public:
     std::vector<cv::Point2f> *getGlints();
 
     /**
+     * Retrieves a pointer to the vector of distorted glints detected using findGlints().
+     * @return A vector of glints.
+     */
+    std::vector<cv::Point2f> *getDistortedGlints();
+
+    /**
      * Retrieves an ellipse detected using findEllipse().
      * @return A detected ellipse.
      */
     cv::RotatedRect getEllipse();
+
+    /**
+     * Retrieves a distorted ellipse detected using findEllipse().
+     * @return A detected ellipse.
+     */
+    cv::RotatedRect getDistortedEllipse();
 
     /**
      * Retrieves a thresholded image generated using preprocessImage()
@@ -247,8 +271,6 @@ private:
     // Synchronization variable between feature detection and socket server.
     std::mutex mtx_features_{};
 
-    // Radius of the pupil in pixels.
-    int pupil_radius_{0};
     // Kalman filter used to correct noisy pupil position.
     cv::KalmanFilter pupil_kalman_{};
     // Kalman filter used to correct noise glint positions.
@@ -258,12 +280,22 @@ private:
     // Kalman filter used to correct noisy glint ellipse parameters.
     cv::KalmanFilter glint_ellipse_kalman_{};
 
-    // Ellipse parameters estimated using findEllipse().
-    cv::RotatedRect glint_ellipse_{};
     // Pupil location estimated using findPupil().
     cv::Point2f pupil_location_{};
-    // Glint locations estimated using findGlints().
+    // Undisorted pupil location estimated using findPupil().
+    cv::Point2f pupil_location_undistorted_{};
+    // Glint locations estimated using findGlints() or findEllipse().
+    // Radius of the pupil in pixels.
+    int pupil_radius_{0};
+    // Radius of the undistorted pupil in pixels.
+    int pupil_radius_undistorted_{0};
     std::vector<cv::Point2f> glint_locations_{};
+    // Undistorted glint locations estimated using findGlints() or findEllipse().
+    std::vector<cv::Point2f> glint_locations_undistorted_{};
+    // Ellipse parameters estimated using findEllipse().
+    cv::RotatedRect glint_ellipse_{};
+    // Undisorted ellipse parameters estimated using findEllipse().
+    cv::RotatedRect glint_ellipse_undistorted_{};
 
     // Function used to find a circle based on a set of glints and its
     // expected position.
@@ -309,6 +341,14 @@ private:
     // Affine warping matrix used to translate correlation matrix to align with
     // the original image.
     cv::Mat template_crop_{};
+
+    // Intrinsic matrix of the camera.
+    cv::Mat *intrinsic_matrix_{};
+    // Distance from top-left corner of the region-of-interest to the top-left
+    // corner of the full image, measured in pixels separately for every axis.
+    cv::Size2i *capture_offset_{};
+    // Distortion coefficients of the camera.
+    std::vector<float> *distortion_coefficients_{};
 
     // Size of the buffer used to average pupil position and pupil-glint vector
     // across multiple frames.
@@ -387,6 +427,13 @@ private:
      * have not been found.
      */
     void approximatePositions();
+
+    /**
+     * Computes the location of the pixel after undistorting it.
+     * @param point Position in the region-of-interest image space.
+     * @return Position in image space without distortions.
+     */
+    [[nodiscard]] cv::Point2f undistort(cv::Point2f point);
 
     // Vectors of all contours that are expected to be pupil or glints in
     // findPupil(), findGlints(), and findEllipse().

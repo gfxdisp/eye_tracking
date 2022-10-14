@@ -142,8 +142,9 @@ public:
     /**
      * Writes detected features (pupil, glints) to output.
      * @param output A stream to which the parameters will be written.
+     * @param camera_id An id of the camera for which the log is saved.
      */
-    void logDetectedFeatures(std::ostream &output);
+    void logDetectedFeatures(std::ostream &output, int camera_id);
 
     /**
      * Enables and disables recording of current feed, along with feed with UI
