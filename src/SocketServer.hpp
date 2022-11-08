@@ -68,6 +68,8 @@ private:
     // Request code to send pupil position in image space from both eyes
     // averaged across multiple frames.
     static constexpr int MSG_GET_PUPIL_FLTR = 9;
+    // Saves current camera image to png file along with the calibrated eye positions.
+    static constexpr int MSG_SAVE_EYE_DATA = 10;
     // Pointer to an EyeTracker object running all eye-tracking algorithms.
     EyeTracker *eye_tracker_{};
 

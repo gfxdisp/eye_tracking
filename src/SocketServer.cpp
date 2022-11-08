@@ -196,6 +196,36 @@ void SocketServer::openSocket() {
                         sent += new_bytes;
                     }
                 }
+            } else if (buffer[0] == MSG_SAVE_EYE_DATA) {
+                uint32_t size_to_read;
+                cv::Point3f left_eye_pos{}, right_eye_pos{};
+
+                read_bytes = 0;
+                size_to_read = sizeof(left_eye_pos);
+                while (read_bytes < size_to_read) {
+                    ssize_t new_bytes{
+                        read(socket_handle_,
+                             (char *) &left_eye_pos + read_bytes,
+                             size_to_read - read_bytes)};
+                    if (new_bytes < 0) {
+                        break;
+                    }
+                    read_bytes += (int) new_bytes;
+                }
+
+                read_bytes = 0;
+                size_to_read = sizeof(right_eye_pos);
+                while (read_bytes < size_to_read) {
+                    ssize_t new_bytes{
+                        read(socket_handle_,
+                             (char *) &right_eye_pos + read_bytes,
+                             size_to_read - read_bytes)};
+                    if (new_bytes < 0) {
+                        break;
+                    }
+                    read_bytes += (int) new_bytes;
+                }
+                eye_tracker_->saveEyeData(left_eye_pos, right_eye_pos);
             }
         }
         close(socket_handle_);

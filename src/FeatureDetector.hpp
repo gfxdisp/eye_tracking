@@ -284,11 +284,14 @@ private:
     cv::Point2f pupil_location_{};
     // Undisorted pupil location estimated using findPupil().
     cv::Point2f pupil_location_undistorted_{};
-    // Glint locations estimated using findGlints() or findEllipse().
+    // Undistorted location of the representative glint estimated using findGlints() or findEllipse().
+    cv::Point2f glint_represent_undistorted_{};
+
     // Radius of the pupil in pixels.
     int pupil_radius_{0};
     // Radius of the undistorted pupil in pixels.
     int pupil_radius_undistorted_{0};
+    // Glint locations estimated using findGlints() or findEllipse().
     std::vector<cv::Point2f> glint_locations_{};
     // Undistorted glint locations estimated using findGlints() or findEllipse().
     std::vector<cv::Point2f> glint_locations_undistorted_{};

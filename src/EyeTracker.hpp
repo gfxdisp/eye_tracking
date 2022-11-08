@@ -147,6 +147,13 @@ public:
     void logDetectedFeatures(std::ostream &output, int camera_id);
 
     /**
+     * Writes detected eye centre and cornea centre positions to output.
+     * @param output A stream to which the parameters will be written.
+     * @param camera_id An id of the camera for which the log is saved.
+     */
+    void logEyePosition(std::ostream &output, int camera_id);
+
+    /**
      * Enables and disables recording of current feed, along with feed with UI
      * elements added to it (fps counter, eye position, etc.). Videos will be
      * saved to the videos/ directory at the location from which the app was run.
@@ -205,6 +212,13 @@ public:
      */
     static float getAvgFramerate();
 
+    /**
+     * Saves the most recent camera output to the png file.
+     * @param left_eye_pos Calibrated left eye position in world coordinates.
+     * @param right_eye_pos Calibrated right eye position in world coordinates.
+     */
+    void saveEyeData(cv::Point3f left_eye_pos, cv::Point3f right_eye_pos);
+
 private:
     // Object serving as a video feed.
     ImageProvider *image_provider_{};
@@ -214,6 +228,9 @@ private:
     EyeEstimator eye_estimators_[2]{};
     // Objects showing windows with output. One object per window of one eye.
     Visualizer visualizer_[2]{};
+
+    // Path to a folder with all configuration files.
+    std::string settings_path_{};
 
     // Raw images retrieved directly from image_provider_. One image per eye.
     cv::Mat analyzed_frame_[2]{};

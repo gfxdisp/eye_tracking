@@ -122,6 +122,9 @@ int main(int argc, char *argv[]) {
                 file.open(fs::path(settings_path)
                           / ("image_features_" + std::to_string(i) + ".csv"));
                 file.close();
+                file.open(fs::path(settings_path)
+                          / ("eye_estimates_" + std::to_string(i) + ".csv"));
+                file.close();
             }
         }
     }
@@ -142,6 +145,13 @@ int main(int argc, char *argv[]) {
                             / ("image_features_" + std::to_string(i) + ".csv"),
                         std::ios::app);
                     eye_tracker.logDetectedFeatures(file, i);
+                    file.close();
+
+                    file.open(
+                        fs::path(settings_path)
+                            / ("eye_estimates_" + std::to_string(i) + ".csv"),
+                        std::ios::app);
+                    eye_tracker.logEyePosition(file, i);
                     file.close();
                 }
             }

@@ -4,6 +4,7 @@
 #include "Utils.hpp"
 
 #include <filesystem>
+#include <iostream>
 
 using KFMatD = cv::Mat_<double>;
 
@@ -115,7 +116,7 @@ void EyeEstimator::getEyeFromModel(
         ray_point_minimizer_->setParameters(
             avg_np2c_dir, glint_positions.data(), *leds_positions_);
     }
-    cv::Mat x = (cv::Mat_<double>(1, 2) << 400, 400);
+    cv::Mat x = (cv::Mat_<double>(1, 2) << 300, 300);
     // Finds the best candidate for cornea centre.
     solver_->minimize(x);
     double k = x.at<double>(0, 0);
