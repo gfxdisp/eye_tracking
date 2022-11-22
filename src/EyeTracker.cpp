@@ -283,7 +283,8 @@ float EyeTracker::getAvgFramerate() {
 }
 
 void EyeTracker::saveEyeData(cv::Point3f left_eye_pos,
-                            cv::Point3f right_eye_pos) {
+                             cv::Point3f right_eye_pos,
+                             cv::Point3f marker_pos) {
     fs::path eye_data_path = fs::path(settings_path_) / "eye_data";
     std::string timestamp = Utils::getCurrentTimeText();
     if (!std::filesystem::is_directory(eye_data_path)) {
@@ -298,7 +299,9 @@ void EyeTracker::saveEyeData(cv::Point3f left_eye_pos,
     std::ofstream eye_pos_file{eye_data_path / "eye_pos.csv", std::ios::app};
     eye_pos_file << timestamp << "," << left_eye_pos.x << "," << left_eye_pos.y
                  << "," << left_eye_pos.z << "," << right_eye_pos.x << ","
-                 << right_eye_pos.y << "," << right_eye_pos.z << "\n";
+                 << right_eye_pos.y << "," << right_eye_pos.z << ","
+                 << marker_pos.x << "," << marker_pos.y << "," << marker_pos.z
+                 << "\n";
     eye_pos_file.close();
 }
 

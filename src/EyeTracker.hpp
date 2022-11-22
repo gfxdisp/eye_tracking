@@ -216,8 +216,10 @@ public:
      * Saves the most recent camera output to the png file.
      * @param left_eye_pos Calibrated left eye position in world coordinates.
      * @param right_eye_pos Calibrated right eye position in world coordinates.
+     * @param marker_pos The position of the observed marker in world coordinates.
      */
-    void saveEyeData(cv::Point3f left_eye_pos, cv::Point3f right_eye_pos);
+    void saveEyeData(cv::Point3f left_eye_pos, cv::Point3f right_eye_pos,
+                     cv::Point3f marker_pos);
 
 private:
     // Object serving as a video feed.

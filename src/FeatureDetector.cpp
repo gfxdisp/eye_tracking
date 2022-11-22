@@ -212,6 +212,8 @@ bool FeatureDetector::findPupil() {
         pupil_radius_kalman_.correct((KFMatD(1, 1) << best_radius));
         pupil_location_ = toPoint(pupil_kalman_.predict());
         pupil_radius_ = (int) toValue(pupil_radius_kalman_.predict());
+//        pupil_location_ = best_centre;
+//        pupil_radius_ = (int) best_radius;
     } else {
         pupil_location_ = best_centre;
         pupil_radius_ = (int) best_radius;
@@ -563,6 +565,7 @@ bool FeatureDetector::findEllipse() {
         glint_ellipse_undistorted_.size.height =
             predicted_ellipse.at<float>(3, 0);
         glint_ellipse_undistorted_.angle = predicted_ellipse.at<float>(4, 0);
+//        glint_ellipse_undistorted_ = ellipse_undistorted;
     } else {
         glint_ellipse_undistorted_ = ellipse_undistorted;
     }

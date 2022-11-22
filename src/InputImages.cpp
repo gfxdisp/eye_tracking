@@ -9,6 +9,7 @@ cv::Mat InputImages::grabImage(int camera_id) {
     if (image_count_ >= filenames_.size()) {
         // Once all images have been processed, empty image is returned.
         return {};
+//        image_count_ = 0;
     }
 
     image_ = cv::imread(filenames_[image_count_]);
