@@ -237,6 +237,28 @@ void SocketServer::openSocket() {
                 }
                 eye_tracker_->saveEyeData(left_eye_pos, right_eye_pos,
                                           marker_pos);
+            } else if (buffer[0] == MSG_SAVE_GAZE_DATA) {
+                uint32_t size_to_read;
+                cv::Point3f marker_pos{};
+
+                read_bytes = 0;
+                size_to_read = sizeof(marker_pos);
+                while (read_bytes < size_to_read) {
+                    ssize_t new_bytes{read(socket_handle_,
+                                           (char *) &marker_pos + read_bytes,
+                                           size_to_read - read_bytes)};
+                    if (new_bytes < 0) {
+                        break;
+                    }
+                    read_bytes += (int) new_bytes;
+                }
+                eye_tracker_->saveGazeData(marker_pos);
+            } else if (buffer[0] == MSG_START_GAZE_RECORDING) {
+                eye_tracker_->startGazeRecording();
+            } else if (buffer[0] == MSG_STOP_GAZE_RECORDING) {
+                eye_tracker_->stopGazeRecording();
+            } else if (buffer[0] == MSG_UPDATE_MARKER_FRAME) {
+                eye_tracker_->updateMarkerFrame();
             }
         }
         close(socket_handle_);

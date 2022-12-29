@@ -165,6 +165,7 @@ public:
      */
     void stopVideoRecording();
 
+
     /**
      * Captures the image from the current video feed. It will be
      * saved to the images/ directory at the location from which the app was run.
@@ -221,6 +222,30 @@ public:
     void saveEyeData(cv::Point3f left_eye_pos, cv::Point3f right_eye_pos,
                      cv::Point3f marker_pos);
 
+
+    /**
+     * Saves the camera output captured during plane calibration.
+     * @param marker_pos The position of the marker in world coordinates.
+     */
+    void saveGazeData(cv::Point3f marker_pos);
+
+    /**
+     * Updates the current_marker_gaze_frame_ variable to the number of the frame
+     * that was saved to the gaze_video_ most recently.
+     */
+    void updateMarkerFrame();
+
+    /**
+     * Starts recording of the video captured during gaze calibration.
+     */
+    void startGazeRecording();
+
+    /**
+     * Stops recording of the video captured during gaze calibration, started
+     * using startGazeRecording() method.
+     */
+    void stopGazeRecording();
+
 private:
     // Object serving as a video feed.
     ImageProvider *image_provider_{};
@@ -246,6 +271,14 @@ private:
     cv::VideoWriter output_video_[2]{};
     // Objects writing images with UI features to video output. One per eye.
     cv::VideoWriter output_video_ui_[2]{};
+    // Objects writing raw camera images to video output during gaze calibration.
+    // One per eye.
+    cv::VideoWriter gaze_video_[2]{};
+    // Counts the number of frames saved to the gaze_video_ variable. One per eye.
+    int gaze_frame_counter_[2]{};
+    // The number of the first frame in the gaze_video_ that contained the marker
+    // in its current position. One per eye.
+    int current_marker_gaze_frame_[2]{};
     // Type of visualization currently shown in the window.
     VisualizationType visualization_type_{};
     // The ids of the enabled cameras (0 - left, 1 - right).

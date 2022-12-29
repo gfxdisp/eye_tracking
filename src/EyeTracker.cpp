@@ -76,6 +76,12 @@ bool EyeTracker::analyzeNextFrame() {
         if (output_video_[i].isOpened()) {
             output_video_[i].write(analyzed_frame_[i]);
         }
+
+        if (gaze_video_[i].isOpened()) {
+            gaze_video_[i].write(analyzed_frame_[i]);
+            gaze_frame_counter_[i]++;
+        }
+
         feature_detectors_[i].updateGazeBuffer();
     }
     frame_counter_++;
@@ -291,18 +297,77 @@ void EyeTracker::saveEyeData(cv::Point3f left_eye_pos,
         std::filesystem::create_directory(eye_data_path);
     }
     for (auto &i : camera_ids_) {
-        std::string filename{eye_data_path
-                             / (timestamp + "_" + std::to_string(i) + ".png")};
+        std::string filename{
+            eye_data_path
+            / ("gaze_marker_" + timestamp + "_" + std::to_string(i) + ".png")};
         imwrite(filename, analyzed_frame_[i]);
     }
 
-    std::ofstream eye_pos_file{eye_data_path / "eye_pos.csv", std::ios::app};
+    std::ofstream eye_pos_file{eye_data_path / "gaze_marker_eye_pos.csv",
+                               std::ios::app};
     eye_pos_file << timestamp << "," << left_eye_pos.x << "," << left_eye_pos.y
                  << "," << left_eye_pos.z << "," << right_eye_pos.x << ","
                  << right_eye_pos.y << "," << right_eye_pos.z << ","
-                 << marker_pos.x << "," << marker_pos.y << "," << marker_pos.z
-                 << "\n";
+                 << marker_pos.x << "," << marker_pos.y << "," << marker_pos.z;
+    for (auto &i : camera_ids_) {
+        eye_pos_file << "," << current_marker_gaze_frame_[i];
+    }
+    eye_pos_file << "\n";
     eye_pos_file.close();
+}
+
+void EyeTracker::saveGazeData(cv::Point3f marker_pos) {
+    fs::path eye_data_path = fs::path(settings_path_) / "eye_data";
+    std::string timestamp = Utils::getCurrentTimeText();
+    if (!std::filesystem::is_directory(eye_data_path)) {
+        std::filesystem::create_directory(eye_data_path);
+    }
+    for (auto &i : camera_ids_) {
+        std::string filename{
+            eye_data_path
+            / ("plane_calib_" + timestamp + "_" + std::to_string(i) + ".png")};
+        imwrite(filename, analyzed_frame_[i]);
+    }
+
+    std::ofstream eye_pos_file{eye_data_path / "plane_calib_eye_pos.csv",
+                               std::ios::app};
+    eye_pos_file << timestamp << "," << marker_pos.x << "," << marker_pos.y
+                 << "," << marker_pos.z << "\n";
+    eye_pos_file.close();
+}
+
+void EyeTracker::updateMarkerFrame() {
+    for (auto &i : camera_ids_) {
+        current_marker_gaze_frame_[i] = gaze_frame_counter_[i];
+    }
+}
+
+void EyeTracker::startGazeRecording() {
+    fs::path eye_data_path = fs::path(settings_path_) / "eye_data";
+    std::string timestamp = Utils::getCurrentTimeText();
+    if (!std::filesystem::is_directory(eye_data_path)) {
+        std::filesystem::create_directory(eye_data_path);
+    }
+
+    for (auto &i : camera_ids_) {
+        std::string filename = eye_data_path
+            / ("gaze_marker_" + timestamp + "_" + std::to_string(i) + ".mp4");
+        if (!gaze_video_[i].isOpened()) {
+            gaze_frame_counter_[i] = 0;
+            gaze_video_[i].open(
+                filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+                et::Settings::parameters.camera_params[i].region_of_interest,
+                false);
+        }
+    }
+}
+
+void EyeTracker::stopGazeRecording() {
+    for (auto &i : camera_ids_) {
+        if (gaze_video_[i].isOpened()) {
+            gaze_video_[i].release();
+        }
+    }
 }
 
 } // namespace et

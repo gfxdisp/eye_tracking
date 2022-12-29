@@ -70,6 +70,15 @@ private:
     static constexpr int MSG_GET_PUPIL_FLTR = 9;
     // Saves current camera image to png file along with the calibrated eye positions.
     static constexpr int MSG_SAVE_EYE_DATA = 10;
+    // Starts recording of the video during gaze calibration.
+    static constexpr int MSG_START_GAZE_RECORDING = 11;
+    // Stops recording of the video during gaze calibration.
+    static constexpr int MSG_STOP_GAZE_RECORDING = 12;
+    // Process the information about changing gaze marker to the new one.
+    static constexpr int MSG_UPDATE_MARKER_FRAME = 13;
+    // Saves current camera image to png captured during plane calibration along
+    // with the observed grid corner.
+    static constexpr int MSG_SAVE_GAZE_DATA = 14;
     // Pointer to an EyeTracker object running all eye-tracking algorithms.
     EyeTracker *eye_tracker_{};
 
