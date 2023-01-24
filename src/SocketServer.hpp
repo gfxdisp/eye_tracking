@@ -46,6 +46,10 @@ public:
     bool finished{false};
 
 private:
+    bool sendAll(void *input, size_t bytes_count) const;
+
+    bool readAll(void *output, size_t bytes_count) const;
+
     // Request code to close connection and the application.
     static constexpr int MSG_CLOSE_CONNECTION = 0;
     // Request code to send cornea centre position in camera space from both eyes.
@@ -68,18 +72,12 @@ private:
     // Request code to send pupil position in image space from both eyes
     // averaged across multiple frames.
     static constexpr int MSG_GET_PUPIL_FLTR = 9;
-    // Saves current camera image to png file along with the calibrated eye positions.
-    static constexpr int MSG_SAVE_EYE_DATA = 10;
     // Starts recording of the video during gaze calibration.
-    static constexpr int MSG_START_GAZE_RECORDING = 11;
+    static constexpr int MSG_START_EYE_VIDEO = 10;
     // Stops recording of the video during gaze calibration.
-    static constexpr int MSG_STOP_GAZE_RECORDING = 12;
-    // Process the information about changing gaze marker to the new one.
-    static constexpr int MSG_UPDATE_MARKER_FRAME = 13;
-    // Saves current camera image to png captured during plane calibration along
-    // with the observed grid corner.
-    static constexpr int MSG_SAVE_GAZE_DATA = 14;
-    // Pointer to an EyeTracker object running all eye-tracking algorithms.
+    static constexpr int MSG_STOP_EYE_VIDEO = 11;
+    // Saves current camera image to png file along with the calibrated eye positions.
+    static constexpr int MSG_SAVE_EYE_DATA = 12;
     EyeTracker *eye_tracker_{};
 
     // Eye position to be sent.
@@ -102,6 +100,7 @@ private:
     int server_handle_{};
     // Handle of the opened socket.
     int socket_handle_{-1};
+    char message_buffer_[10000]{};
 };
 } // namespace et
 

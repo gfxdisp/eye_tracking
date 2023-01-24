@@ -5,6 +5,7 @@
 #include "FeatureDetector.hpp"
 #include "Visualizer.hpp"
 
+#include <fstream>
 #include <vector>
 
 namespace et {
@@ -214,37 +215,22 @@ public:
     static float getAvgFramerate();
 
     /**
-     * Saves the most recent camera output to the png file.
-     * @param left_eye_pos Calibrated left eye position in world coordinates.
-     * @param right_eye_pos Calibrated right eye position in world coordinates.
-     * @param marker_pos The position of the observed marker in world coordinates.
+     * Starts a recording of eyes through a remote application.
+     * @param folder_name Folder to which the videos will be saved.
      */
-    void saveEyeData(cv::Point3f left_eye_pos, cv::Point3f right_eye_pos,
-                     cv::Point3f marker_pos);
-
+    void startEyeVideoRecording(const std::string& folder_name);
 
     /**
-     * Saves the camera output captured during plane calibration.
-     * @param marker_pos The position of the marker in world coordinates.
+     * Stops a video recording started through startEyeVideoRecording().
      */
-    void saveGazeData(cv::Point3f marker_pos);
+    void stopEyeVideoRecording();
 
     /**
-     * Updates the current_marker_gaze_frame_ variable to the number of the frame
-     * that was saved to the gaze_video_ most recently.
+     * Saves current frame along with external data initialized by
+     * startEyeVideoRecording().
+     * @param eye_data External string with all the information that is saved.
      */
-    void updateMarkerFrame();
-
-    /**
-     * Starts recording of the video captured during gaze calibration.
-     */
-    void startGazeRecording();
-
-    /**
-     * Stops recording of the video captured during gaze calibration, started
-     * using startGazeRecording() method.
-     */
-    void stopGazeRecording();
+    void saveEyeData(const std::string& eye_data);
 
 private:
     // Object serving as a video feed.
@@ -271,18 +257,19 @@ private:
     cv::VideoWriter output_video_[2]{};
     // Objects writing images with UI features to video output. One per eye.
     cv::VideoWriter output_video_ui_[2]{};
-    // Objects writing raw camera images to video output during gaze calibration.
-    // One per eye.
-    cv::VideoWriter gaze_video_[2]{};
-    // Counts the number of frames saved to the gaze_video_ variable. One per eye.
-    int gaze_frame_counter_[2]{};
-    // The number of the first frame in the gaze_video_ that contained the marker
-    // in its current position. One per eye.
-    int current_marker_gaze_frame_[2]{};
+
     // Type of visualization currently shown in the window.
     VisualizationType visualization_type_{};
     // The ids of the enabled cameras (0 - left, 1 - right).
     std::vector<int> camera_ids_{};
+
+    // Objects writing raw camera images to output, captured through a remote app.
+    cv::VideoWriter eye_video_[2]{};
+    // Objects for writing external data to file, synchronized with eye_video_.
+    std::ofstream eye_data_{};
+    // Counts number of frames and rows written to eye_video_ and eye_data_.
+    int eye_frame_counter_{};
+
 };
 
 } // namespace et

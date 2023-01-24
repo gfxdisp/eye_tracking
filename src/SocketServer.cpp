@@ -58,8 +58,7 @@ void SocketServer::openSocket() {
         }
 
         while (!finished) {
-            auto read_bytes = (int) read(socket_handle_, buffer, 1);
-            if (read_bytes != 1) {
+            if (!readAll(buffer, 1)) {
                 break;
             }
             if (buffer[0] == MSG_CLOSE_CONNECTION) {
@@ -67,85 +66,44 @@ void SocketServer::openSocket() {
             } else if (buffer[0] == MSG_GET_CORNEA_CENTRE_POS) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getCorneaCentrePosition(eye_position_, i);
-                    uint32_t sent{0};
-                    uint32_t size_to_send{sizeof(eye_position_)};
-                    while (sent < size_to_send) {
-                        ssize_t new_bytes{send(socket_handle_,
-                                               (char *) &eye_position_ + sent,
-                                               size_to_send - sent, 0)};
-                        if (new_bytes < 0) {
-                            break;
-                        }
-                        sent += new_bytes;
+                    if (!sendAll(&eye_position_, sizeof(eye_position_))) {
+                        break;
                     }
                 }
             } else if (buffer[0] == MSG_GET_EYE_CENTRE_POS) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getEyeCentrePosition(eye_position_, i);
-                    uint32_t sent{0};
-                    uint32_t size_to_send{sizeof(eye_position_)};
-                    while (sent < size_to_send) {
-                        ssize_t new_bytes{send(socket_handle_,
-                                               (char *) &eye_position_ + sent,
-                                               size_to_send - sent, 0)};
-                        if (new_bytes < 0) {
-                            break;
-                        }
-                        sent += new_bytes;
+                    if (!sendAll(&eye_position_, sizeof(eye_position_))) {
+                        break;
                     }
                 }
             } else if (buffer[0] == MSG_GET_PUPIL_GLINT_VEC) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupilGlintVector(pupil_glint_vector_, i);
-                    uint32_t sent{0};
-                    uint32_t size_to_send{sizeof(pupil_glint_vector_)};
-                    while (sent < size_to_send) {
-                        ssize_t new_bytes{
-                            send(socket_handle_,
-                                 (char *) &pupil_glint_vector_ + sent,
-                                 size_to_send - sent, 0)};
-                        if (new_bytes < 0) {
-                            break;
-                        }
-                        sent += new_bytes;
+                    if (!sendAll(&pupil_glint_vector_,
+                                 sizeof(pupil_glint_vector_))) {
+                        break;
                     }
                 }
             } else if (buffer[0] == MSG_GET_PUPIL_DIAM) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupilDiameter(pupil_diameter_, i);
-                    uint32_t sent{0};
-                    uint32_t size_to_send{sizeof(pupil_diameter_)};
-                    while (sent < size_to_send) {
-                        ssize_t new_bytes{send(socket_handle_,
-                                               (char *) &pupil_diameter_ + sent,
-                                               size_to_send - sent, 0)};
-                        if (new_bytes < 0) {
-                            break;
-                        }
-                        sent += new_bytes;
+                    if (!sendAll(&pupil_diameter_, sizeof(pupil_diameter_))) {
+                        break;
                     }
                 }
             } else if (buffer[0] == MSG_GET_GAZE_DIR) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getGazeDirection(gaze_direction_, i);
-                    uint32_t sent{0};
-                    uint32_t size_to_send{sizeof(gaze_direction_)};
-                    while (sent < size_to_send) {
-                        ssize_t new_bytes{send(socket_handle_,
-                                               (char *) &gaze_direction_ + sent,
-                                               size_to_send - sent, 0)};
-                        if (new_bytes < 0) {
-                            break;
-                        }
-                        sent += new_bytes;
+                    if (!sendAll(&gaze_direction_, sizeof(gaze_direction_))) {
+                        break;
                     }
                 }
 
             } else if (buffer[0] == MSG_SET_MOVING_AVG_SIZE) {
                 uint8_t moving_average_size{};
-                read_bytes =
-                    (int) read(socket_handle_, &moving_average_size, 1);
-                if (read_bytes != 1) {
+                if (!readAll(&moving_average_size,
+                             sizeof(moving_average_size))) {
                     break;
                 }
                 eye_tracker_->setGazeBufferSize(moving_average_size);
@@ -153,112 +111,47 @@ void SocketServer::openSocket() {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupilGlintVectorFiltered(
                         pupil_glint_vector_, i);
-                    uint32_t sent{0};
-                    uint32_t size_to_send{sizeof(pupil_glint_vector_)};
-                    while (sent < size_to_send) {
-                        ssize_t new_bytes{
-                            send(socket_handle_,
-                                 (char *) &pupil_glint_vector_ + sent,
-                                 size_to_send - sent, 0)};
-                        if (new_bytes < 0) {
-                            break;
-                        }
-                        sent += new_bytes;
+                    if (!sendAll(&pupil_glint_vector_,
+                                 sizeof(pupil_glint_vector_))) {
+                        break;
                     }
                 }
             } else if (buffer[0] == MSG_GET_PUPIL) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupil(pupil_location_, i);
-                    uint32_t sent{0};
-                    uint32_t size_to_send{sizeof(pupil_location_)};
-                    while (sent < size_to_send) {
-                        ssize_t new_bytes{send(socket_handle_,
-                                               (char *) &pupil_location_ + sent,
-                                               size_to_send - sent, 0)};
-                        if (new_bytes < 0) {
-                            break;
-                        }
-                        sent += new_bytes;
+                    if (!sendAll(&pupil_location_, sizeof(pupil_location_))) {
+                        break;
                     }
                 }
             } else if (buffer[0] == MSG_GET_PUPIL_FLTR) {
                 for (int i = 0; i < 2; i++) {
                     eye_tracker_->getPupilFiltered(pupil_location_, i);
-                    uint32_t sent{0};
-                    uint32_t size_to_send{sizeof(pupil_location_)};
-                    while (sent < size_to_send) {
-                        ssize_t new_bytes{send(socket_handle_,
-                                               (char *) &pupil_location_ + sent,
-                                               size_to_send - sent, 0)};
-                        if (new_bytes < 0) {
-                            break;
-                        }
-                        sent += new_bytes;
+                    if (!sendAll(&pupil_location_, sizeof(pupil_location_))) {
+                        break;
                     }
                 }
+            } else if (buffer[0] == MSG_START_EYE_VIDEO) {
+                int path_length{};
+                if (!readAll(&path_length, sizeof(path_length))) {
+                    break;
+                }
+                if (!readAll(message_buffer_, path_length)) {
+                    break;
+                }
+                message_buffer_[path_length] = '\0';
+                eye_tracker_->startEyeVideoRecording(message_buffer_);
+            } else if (buffer[0] == MSG_STOP_EYE_VIDEO) {
+                eye_tracker_->stopEyeVideoRecording();
             } else if (buffer[0] == MSG_SAVE_EYE_DATA) {
-                uint32_t size_to_read;
-                cv::Point3f left_eye_pos{}, right_eye_pos{}, marker_pos{};
-
-                read_bytes = 0;
-                size_to_read = sizeof(left_eye_pos);
-                while (read_bytes < size_to_read) {
-                    ssize_t new_bytes{read(socket_handle_,
-                                           (char *) &left_eye_pos + read_bytes,
-                                           size_to_read - read_bytes)};
-                    if (new_bytes < 0) {
-                        break;
-                    }
-                    read_bytes += (int) new_bytes;
+                int message_length{};
+                if (!readAll(&message_length, sizeof(message_length))) {
+                    break;
                 }
-
-                read_bytes = 0;
-                size_to_read = sizeof(right_eye_pos);
-                while (read_bytes < size_to_read) {
-                    ssize_t new_bytes{read(socket_handle_,
-                                           (char *) &right_eye_pos + read_bytes,
-                                           size_to_read - read_bytes)};
-                    if (new_bytes < 0) {
-                        break;
-                    }
-                    read_bytes += (int) new_bytes;
+                if (!readAll(message_buffer_, message_length)) {
+                    break;
                 }
-
-                read_bytes = 0;
-                size_to_read = sizeof(marker_pos);
-                while (read_bytes < size_to_read) {
-                    ssize_t new_bytes{read(socket_handle_,
-                                           (char *) &marker_pos + read_bytes,
-                                           size_to_read - read_bytes)};
-                    if (new_bytes < 0) {
-                        break;
-                    }
-                    read_bytes += (int) new_bytes;
-                }
-                eye_tracker_->saveEyeData(left_eye_pos, right_eye_pos,
-                                          marker_pos);
-            } else if (buffer[0] == MSG_SAVE_GAZE_DATA) {
-                uint32_t size_to_read;
-                cv::Point3f marker_pos{};
-
-                read_bytes = 0;
-                size_to_read = sizeof(marker_pos);
-                while (read_bytes < size_to_read) {
-                    ssize_t new_bytes{read(socket_handle_,
-                                           (char *) &marker_pos + read_bytes,
-                                           size_to_read - read_bytes)};
-                    if (new_bytes < 0) {
-                        break;
-                    }
-                    read_bytes += (int) new_bytes;
-                }
-                eye_tracker_->saveGazeData(marker_pos);
-            } else if (buffer[0] == MSG_START_GAZE_RECORDING) {
-                eye_tracker_->startGazeRecording();
-            } else if (buffer[0] == MSG_STOP_GAZE_RECORDING) {
-                eye_tracker_->stopGazeRecording();
-            } else if (buffer[0] == MSG_UPDATE_MARKER_FRAME) {
-                eye_tracker_->updateMarkerFrame();
+                message_buffer_[message_length] = '\0';
+                eye_tracker_->saveEyeData(message_buffer_);
             }
         }
         close(socket_handle_);
@@ -274,4 +167,33 @@ void SocketServer::closeSocket() const {
 bool SocketServer::isClientConnected() const {
     return socket_handle_ > -1 && !finished;
 }
+
+bool SocketServer::sendAll(void *input, size_t bytes_count) const {
+    size_t size_to_send = bytes_count;
+    size_t sent_bytes = 0;
+    while (sent_bytes < size_to_send) {
+        ssize_t new_bytes = send(socket_handle_, (char *) input + sent_bytes,
+                                 size_to_send - sent_bytes, 0);
+        if (new_bytes < 0) {
+            return false;
+        }
+        sent_bytes += new_bytes;
+    }
+    return true;
+}
+
+bool SocketServer::readAll(void *output, size_t bytes_count) const {
+    size_t size_to_read = bytes_count;
+    size_t read_bytes = 0;
+    while (read_bytes < size_to_read) {
+        ssize_t new_bytes = read(socket_handle_, (char *) output + read_bytes,
+                                 size_to_read - read_bytes);
+        if (new_bytes < 0) {
+            return false;
+        }
+        read_bytes += new_bytes;
+    }
+    return true;
+}
+
 } // namespace et
