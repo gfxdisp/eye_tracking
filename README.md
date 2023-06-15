@@ -26,7 +26,9 @@ OpenCV has to be installed with CUDA and uEye support, so it cannot be simply do
 ## Building
 
     cd /path/to/eye_tracking
-    cmake -DCMAKE_PREFIX_PATH=/path/to/libraries .
+    mkdir build
+    cd build/
+    cmake ..
     make -j8
 
 To install the application on the machine, run the `sudo make install` command. 
