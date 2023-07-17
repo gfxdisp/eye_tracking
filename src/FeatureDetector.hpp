@@ -214,6 +214,8 @@ public:
      */
     void updateGazeBuffer();
 
+    bool setKalmanFiltering(bool enable);
+
 private:
     /**
      * Creates a 4x4 Kalman Filter assuming its input vector consists of

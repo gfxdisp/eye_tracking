@@ -78,6 +78,8 @@ private:
     static constexpr int MSG_STOP_EYE_VIDEO = 11;
     // Saves current camera image to png file along with the calibrated eye positions.
     static constexpr int MSG_SAVE_EYE_DATA = 12;
+    // Calibrates the transformation between Blender and real data.
+    static constexpr int MSG_CALIBRATE_TRANSFORM = 13;
     EyeTracker *eye_tracker_{};
 
     // Eye position to be sent.

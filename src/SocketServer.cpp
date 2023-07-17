@@ -139,7 +139,14 @@ void SocketServer::openSocket() {
                     break;
                 }
                 message_buffer_[path_length] = '\0';
-                eye_tracker_->startEyeVideoRecording(message_buffer_);
+                std::string video_name = eye_tracker_->startEyeVideoRecording(message_buffer_);
+                int video_name_length = video_name.length();
+                if (!sendAll(&video_name_length, sizeof(video_name_length))) {
+                    break;
+                }
+                if (!sendAll((void *) video_name.c_str(), video_name_length)) {
+                    break;
+                }
             } else if (buffer[0] == MSG_STOP_EYE_VIDEO) {
                 eye_tracker_->stopEyeVideoRecording();
             } else if (buffer[0] == MSG_SAVE_EYE_DATA) {
@@ -152,6 +159,42 @@ void SocketServer::openSocket() {
                 }
                 message_buffer_[message_length] = '\0';
                 eye_tracker_->saveEyeData(message_buffer_);
+            } else if (buffer[0] == MSG_CALIBRATE_TRANSFORM) {
+                std::string plane_calibration_path{};
+                std::string gaze_calibration_path{};
+                int plane_calibration_path_length{};
+                int gaze_calibration_path_length{};
+
+                cv::Mat M_et_left{4, 4, CV_64F};
+                cv::Mat M_et_right{4, 4, CV_64F};
+
+                if (!readAll(M_et_left.data, sizeof(double) * 16)) {
+                    break;
+                }
+
+                if (!readAll(M_et_right.data, sizeof(double) * 16)) {
+                    break;
+                }
+
+                if (!readAll(&plane_calibration_path_length, sizeof(plane_calibration_path_length))) {
+                    break;
+                }
+                if (!readAll(message_buffer_, plane_calibration_path_length)) {
+                    break;
+                }
+                message_buffer_[plane_calibration_path_length] = '\0';
+                plane_calibration_path = message_buffer_;
+
+                if (!readAll(&gaze_calibration_path_length, sizeof(gaze_calibration_path_length))) {
+                    break;
+                }
+                if (!readAll(message_buffer_, gaze_calibration_path_length)) {
+                    break;
+                }
+                message_buffer_[gaze_calibration_path_length] = '\0';
+                gaze_calibration_path = message_buffer_;
+
+                eye_tracker_->calibrateTransform(M_et_left, M_et_right, plane_calibration_path, gaze_calibration_path);
             }
         }
         close(socket_handle_);

@@ -973,4 +973,10 @@ FeatureDetector::~FeatureDetector() {
         bayes_minimizer_func_.release();
     }
 }
+
+bool FeatureDetector::setKalmanFiltering(bool enable) {
+    bool previous_state = kalman_filtering_enabled_;
+    kalman_filtering_enabled_ = enable;
+    return previous_state;
+}
 } // namespace et

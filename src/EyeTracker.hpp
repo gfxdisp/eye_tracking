@@ -218,7 +218,7 @@ public:
      * Starts a recording of eyes through a remote application.
      * @param folder_name Folder to which the videos will be saved.
      */
-    void startEyeVideoRecording(const std::string& folder_name);
+    std::string startEyeVideoRecording(const std::string& folder_name);
 
     /**
      * Stops a video recording started through startEyeVideoRecording().
@@ -231,6 +231,10 @@ public:
      * @param eye_data External string with all the information that is saved.
      */
     void saveEyeData(const std::string& eye_data);
+
+    void calibrateTransform(const cv::Mat& M_et_left, const cv::Mat& M_et_right,
+                            const std::string &plane_calibration_path,
+                            const std::string &gaze_calibration_path);
 
 private:
     // Object serving as a video feed.
@@ -270,6 +274,11 @@ private:
     // Counts number of frames and rows written to eye_video_ and eye_data_.
     int eye_frame_counter_{};
 
+    // Disables access to eye-tracking components during transformation calibration.
+    std::mutex per_user_transformation_blocker_{};
+
+    cv::Mat M_left_{};
+    cv::Mat M_right_{};
 };
 
 } // namespace et
