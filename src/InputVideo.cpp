@@ -40,15 +40,16 @@ void InputVideo::initialize() {
     }
 }
 
-cv::Mat InputVideo::grabImage(int camera_id) {
-    bool successful{video_capture_[camera_id].read(image_)};
+ImageToProcess InputVideo::grabImage(int camera_id) {
+    bool successful{video_capture_[camera_id].read(pupil_image_)};
     if (!successful) {
         video_capture_[camera_id].set(cv::CAP_PROP_POS_FRAMES, 0);
-        video_capture_[camera_id].read(image_);
+        video_capture_[camera_id].read(pupil_image_);
     }
 
-    cv::cvtColor(image_, image_, cv::COLOR_BGR2GRAY);
-    return image_;
+    cv::cvtColor(pupil_image_, pupil_image_, cv::COLOR_BGR2GRAY);
+    glints_image_ = pupil_image_;
+    return {pupil_image_, glints_image_};
 }
 
 void InputVideo::close() {

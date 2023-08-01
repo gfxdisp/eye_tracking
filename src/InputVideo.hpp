@@ -24,9 +24,9 @@ public:
      * Returns next image from the video feed. If the whole video has been
      * analyzed, it loops back to the beginning.
      * @param camera_id An id of the camera for which the value is returned.
-     * @return Camera image.
+     * @return A pair of images: one for detecting pupil and one for detecting glints.
      */
-    cv::Mat grabImage(int camera_id) override;
+    ImageToProcess grabImage(int camera_id) override;
     /**
      * Releases all opened video files.
      */

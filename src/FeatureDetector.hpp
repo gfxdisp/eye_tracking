@@ -2,6 +2,7 @@
 #define HDRMFS_EYE_TRACKER_FEATURE_DETECTOR_HPP
 
 #include "BayesMinimizer.hpp"
+#include "ImageProvider.hpp"
 #include "PolynomialFit.hpp"
 #include "Settings.hpp"
 
@@ -18,15 +19,7 @@ namespace et {
 /**
  * Location of glint in 3x2 setup.
  */
-enum GlintType {
-    UpperLeft = 0,
-    UpperCentre,
-    UpperRight,
-    BottomLeft,
-    BottomCentre,
-    BottomRight,
-    Unknown
-};
+enum GlintType { UpperLeft = 0, UpperCentre, UpperRight, BottomLeft, BottomCentre, BottomRight, Unknown };
 
 /**
  * All gathered information about a specific glint.
@@ -69,18 +62,18 @@ public:
      * false otherwise.
      * @param template_matching_enabled True if glints are detected using
      * template matching, false otherwise.
+     * @param distorted True if the image is distorted, false otherwise.
      * @param camera_id An id of the camera to which the object corresponds.
      */
-    void initialize(const std::string &settings_path,
-                    bool kalman_filtering_enabled,
-                    bool template_matching_enabled, int camera_id);
+    void initialize(const std::string &settings_path, bool kalman_filtering_enabled, bool template_matching_enabled,
+                    bool distorted, int camera_id);
 
     /**
      * Uploads an image to GPU, thresholds it for glints and pupil detection,
      * and saves to CPU.
-     * @param image Image to be preprocessed.
+     * @param image A struct with two images: one for detecting pupil and one for detecting glints.
      */
-    void preprocessImage(const cv::Mat &image);
+    void preprocessImage(const ImageToProcess &image);
 
     /**
      * Detects a pupil in the image preprocessed using preprocessImage().
@@ -224,8 +217,7 @@ private:
      * @param framerate Estimated system framerate used to calculate velocity.
      * @return Kalman filter.
      */
-    static cv::KalmanFilter makePxKalmanFilter(const cv::Size2i &resolution,
-                                               float framerate);
+    static cv::KalmanFilter makePxKalmanFilter(const cv::Size2i &resolution, float framerate);
 
     /**
      * Creates a 2x2 Kalman Filter assuming its input vector consists of
@@ -235,9 +227,7 @@ private:
      * @param framerate Estimated system framerate used to calculate velocity.
      * @return Kalman filter.
      */
-    static cv::KalmanFilter makeRadiusKalmanFilter(const float &min_radius,
-                                                   const float &max_radius,
-                                                   float framerate);
+    static cv::KalmanFilter makeRadiusKalmanFilter(const float &min_radius, const float &max_radius, float framerate);
 
     /**
      * Creates a 10x10 Kalman Filter assuming its input vector consists of
@@ -247,8 +237,7 @@ private:
      * @param framerate Estimated system framerate used to calculate velocity.
      * @return Kalman filter.
      */
-    static cv::KalmanFilter
-    makeEllipseKalmanFilter(const cv::Size2i &resolution, float framerate);
+    static cv::KalmanFilter makeEllipseKalmanFilter(const cv::Size2i &resolution, float framerate);
 
     /**
      * Finds bottom, upper, left, and right neighbours of all glints.
@@ -261,8 +250,7 @@ private:
      * @param glint_candidates A vector of all glints that are expected to be
      * primary reflections from LEDs.
      */
-    static void
-    determineGlintTypes(std::vector<GlintCandidate> &glint_candidates);
+    static void determineGlintTypes(std::vector<GlintCandidate> &glint_candidates);
     /**
      * Finds all known neighbours of the selected glint.
      * @param glint_candidate A pointer to a glint that is known to be primary
@@ -318,6 +306,8 @@ private:
     bool kalman_filtering_enabled_{};
     // True if glints are detected using template matching, false otherwise.
     bool template_matching_enabled_{};
+    // True if image is distorted, false otherwise.
+    bool distorted_{};
 
     // Size of the region-of-interest extracted from the full image.
     cv::Size2i *region_of_interest_{};
@@ -476,8 +466,7 @@ private:
      * @param q Second point.
      * @return The distance.
      */
-    static inline float euclideanDistance(const cv::Point2f &p,
-                                          const cv::Point2f &q) {
+    static inline float euclideanDistance(const cv::Point2f &p, const cv::Point2f &q) {
         cv::Point2f diff = p - q;
         return cv::sqrt(diff.x * diff.x + diff.y * diff.y);
     }
@@ -490,10 +479,10 @@ private:
      * @return True if the point is in the expected area. False otherwise.
      */
     inline bool isInEllipse(cv::Point2f &point, cv::Point2f &centre) {
-        float major = ((point.x - centre.x) * (point.x - centre.x))
-            / (*bound_ellipse_semi_major_ * *bound_ellipse_semi_major_);
-        float minor = ((point.y - centre.y) * (point.y - centre.y))
-            / (*bound_ellipse_semi_minor_ * *bound_ellipse_semi_minor_);
+        float major =
+            ((point.x - centre.x) * (point.x - centre.x)) / (*bound_ellipse_semi_major_ * *bound_ellipse_semi_major_);
+        float minor =
+            ((point.y - centre.y) * (point.y - centre.y)) / (*bound_ellipse_semi_minor_ * *bound_ellipse_semi_minor_);
         return major + minor <= 1;
     }
 };

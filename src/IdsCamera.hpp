@@ -24,9 +24,9 @@ public:
     /**
      * Returns the newest image obtained by the camera.
      * @param camera_id An id of the camera for which the value is returned.
-     * @return Camera image.
+     * @return A pair of images: one for detecting pupil and one for detecting glints.
      */
-    cv::Mat grabImage(int camera_id) override;
+    ImageToProcess grabImage(int camera_id) override;
     /**
      * Shuts down image gathering thread, closes the camera and frees images.
      */

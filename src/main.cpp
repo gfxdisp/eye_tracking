@@ -5,6 +5,7 @@
 #include "Settings.hpp"
 #include "SocketServer.hpp"
 
+#include <opencv2/calib3d.hpp>
 #include <opencv2/opencv.hpp>
 
 #include <filesystem>
@@ -17,16 +18,17 @@
 namespace fs = std::filesystem;
 
 int main(int argc, char *argv[]) {
-    constexpr option options[]{
-        {"settings-path", required_argument, nullptr, 's'},
-        {"feed-type", required_argument, nullptr, 'f'},
-        {"input-path", required_argument, nullptr, 'p'},
-        {"user", required_argument, nullptr, 'u'},
-        {"cameras", no_argument, nullptr, 'c'},
-        {"glint-ellipse", no_argument, nullptr, 'e'},
-        {"template", no_argument, nullptr, 't'},
-        {"log", no_argument, nullptr, 'l'},
-        {nullptr, no_argument, nullptr, 0}};
+    constexpr option options[]{{"settings-path", required_argument, nullptr, 's'},
+                               {"feed-type", required_argument, nullptr, 'f'},
+                               {"input-path", required_argument, nullptr, 'p'},
+                               {"user", required_argument, nullptr, 'u'},
+                               {"cameras", required_argument, nullptr, 'c'},
+                               {"glint-ellipse", required_argument, nullptr, 'e'},
+                               {"template", required_argument, nullptr, 't'},
+                               {"log", no_argument, nullptr, 'l'},
+                               {"distorted", required_argument, nullptr, 'd'},
+                               {"kalman", required_argument, nullptr, 'k'},
+                               {nullptr, no_argument, nullptr, 0}};
 
     int argument{0};
     std::string settings_path{"."};
@@ -39,10 +41,10 @@ int main(int argc, char *argv[]) {
     bool enabled_cameras[]{true, true};
     bool enabled_kalman[]{true, true};
     bool enabled_template_matching[]{true, false};
+    bool distorted[]{true, true};
 
     while (argument != -1) {
-        argument =
-            getopt_long(argc, argv, "s:f:p:u:c:e:lk:t:", options, nullptr);
+        argument = getopt_long(argc, argv, "s:f:p:u:c:e:ldk:t:", options, nullptr);
         switch (argument) {
         case 's':
             settings_path = optarg;
@@ -75,6 +77,10 @@ int main(int argc, char *argv[]) {
             enabled_template_matching[0] = optarg[0] == '1';
             enabled_template_matching[1] = optarg[1] == '1';
             break;
+        case 'd':
+            distorted[0] = optarg[0] == '1';
+            distorted[1] = optarg[1] == '1';
+            break;
         default:
             break;
         }
@@ -93,19 +99,14 @@ int main(int argc, char *argv[]) {
     }
     std::cout << "Starting eye-tracking for user: \"" << user << "\"\n";
     if (!et::Settings::parameters.features_params[0].contains(user)) {
-        et::Settings::parameters.features_params[0][user] =
-            et::Settings::parameters.features_params[0]["default"];
-        et::Settings::parameters.features_params[1][user] =
-            et::Settings::parameters.features_params[1]["default"];
+        et::Settings::parameters.features_params[0][user] = et::Settings::parameters.features_params[0]["default"];
+        et::Settings::parameters.features_params[1][user] = et::Settings::parameters.features_params[1]["default"];
     }
-    et::Settings::parameters.user_params[0] =
-        &et::Settings::parameters.features_params[0][user];
-    et::Settings::parameters.user_params[1] =
-        &et::Settings::parameters.features_params[1][user];
+    et::Settings::parameters.user_params[0] = &et::Settings::parameters.features_params[0][user];
+    et::Settings::parameters.user_params[1] = &et::Settings::parameters.features_params[1][user];
 
     et::EyeTracker eye_tracker{};
-    eye_tracker.initialize(image_provider, settings_path, enabled_cameras,
-                           ellipse_fitting, enabled_kalman,
+    eye_tracker.initialize(image_provider, settings_path, enabled_cameras, ellipse_fitting, enabled_kalman, distorted,
                            enabled_template_matching);
 
     et::SocketServer socket_server{&eye_tracker};
@@ -119,11 +120,9 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < 2; i++) {
             if (enabled_cameras[i]) {
                 std::ofstream file{};
-                file.open(fs::path(settings_path)
-                          / ("image_features_" + std::to_string(i) + ".csv"));
+                file.open(fs::path(settings_path) / ("image_features_" + std::to_string(i) + ".csv"));
                 file.close();
-                file.open(fs::path(settings_path)
-                          / ("eye_estimates_" + std::to_string(i) + ".csv"));
+                file.open(fs::path(settings_path) / ("eye_estimates_" + std::to_string(i) + ".csv"));
                 file.close();
             }
         }
@@ -140,17 +139,12 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < 2; i++) {
                 if (enabled_cameras[i]) {
                     std::ofstream file{};
-                    file.open(
-                        fs::path(settings_path)
-                            / ("image_features_" + std::to_string(i) + ".csv"),
-                        std::ios::app);
+                    file.open(fs::path(settings_path) / ("image_features_" + std::to_string(i) + ".csv"),
+                              std::ios::app);
                     eye_tracker.logDetectedFeatures(file, i);
                     file.close();
 
-                    file.open(
-                        fs::path(settings_path)
-                            / ("eye_estimates_" + std::to_string(i) + ".csv"),
-                        std::ios::app);
+                    file.open(fs::path(settings_path) / ("eye_estimates_" + std::to_string(i) + ".csv"), std::ios::app);
                     eye_tracker.logEyePosition(file, i);
                     file.close();
                 }
@@ -202,20 +196,16 @@ int main(int argc, char *argv[]) {
             et::Settings::parameters.detection_params[0].pupil_search_radius--;
             break;
         case 'g': // ← left
-            et::Settings::parameters.detection_params[0]
-                .pupil_search_centre.x--;
+            et::Settings::parameters.detection_params[0].pupil_search_centre.x--;
             break;
         case 'y': // ↑ left
-            et::Settings::parameters.detection_params[0]
-                .pupil_search_centre.y--;
+            et::Settings::parameters.detection_params[0].pupil_search_centre.y--;
             break;
         case 'j': // → left
-            et::Settings::parameters.detection_params[0]
-                .pupil_search_centre.x++;
+            et::Settings::parameters.detection_params[0].pupil_search_centre.x++;
             break;
         case 'h': // ↓ left
-            et::Settings::parameters.detection_params[0]
-                .pupil_search_centre.y++;
+            et::Settings::parameters.detection_params[0].pupil_search_centre.y++;
             break;
         case 'I': // + right
             et::Settings::parameters.detection_params[1].pupil_search_radius++;
@@ -224,20 +214,16 @@ int main(int argc, char *argv[]) {
             et::Settings::parameters.detection_params[1].pupil_search_radius--;
             break;
         case 'G': // ← right
-            et::Settings::parameters.detection_params[1]
-                .pupil_search_centre.x--;
+            et::Settings::parameters.detection_params[1].pupil_search_centre.x--;
             break;
         case 'Y': // ↑ right
-            et::Settings::parameters.detection_params[1]
-                .pupil_search_centre.y--;
+            et::Settings::parameters.detection_params[1].pupil_search_centre.y--;
             break;
         case 'J': // → right
-            et::Settings::parameters.detection_params[1]
-                .pupil_search_centre.x++;
+            et::Settings::parameters.detection_params[1].pupil_search_centre.x++;
             break;
         case 'H': // ↓ right
-            et::Settings::parameters.detection_params[1]
-                .pupil_search_centre.y++;
+            et::Settings::parameters.detection_params[1].pupil_search_centre.y++;
             break;
         default:
             break;
@@ -251,8 +237,7 @@ int main(int argc, char *argv[]) {
     }
     socket_server.finished = true;
 
-    std::cout << "Average framerate: " << et::EyeTracker::getAvgFramerate()
-              << " fps\n";
+    std::cout << "Average framerate: " << et::EyeTracker::getAvgFramerate() << " fps\n";
 
     eye_tracker.stopVideoRecording();
 

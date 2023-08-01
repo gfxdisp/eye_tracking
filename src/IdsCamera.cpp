@@ -88,7 +88,7 @@ void IdsCamera::initializeCamera() {
         is_SetImageMem(camera_handles_[camera_id], image_handles_[camera_id],
                        image_ids_[camera_id]);
 
-        image_.create(area_of_interest.s32Height, area_of_interest.s32Width,
+        pupil_image_.create(area_of_interest.s32Height, area_of_interest.s32Width,
                       CV_8UC1);
         for (auto &j : image_queues_) {
             j[camera_id].create(area_of_interest.s32Height,
@@ -120,9 +120,10 @@ void IdsCamera::imageGatheringThread() {
     }
 }
 
-cv::Mat IdsCamera::grabImage(int camera_id) {
-    image_ = image_queues_[image_index_][camera_id];
-    return image_;
+ImageToProcess IdsCamera::grabImage(int camera_id) {
+    pupil_image_ = image_queues_[image_index_][camera_id];
+    glints_image_ = pupil_image_;
+    return {pupil_image_, glints_image_};
 }
 
 void IdsCamera::close() {

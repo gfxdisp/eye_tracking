@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 namespace et {
 void EyeTracker::initialize(ImageProvider *image_provider, const std::string &settings_path,
                             const bool enabled_cameras[], const bool ellipse_fitting[], const bool enabled_kalman[],
-                            const bool enabled_template_matching[]) {
+                            const bool enabled_template_matching[], const bool distorted[]) {
     image_provider_ = image_provider;
     image_provider_->initialize();
     settings_path_ = settings_path;
@@ -19,7 +19,8 @@ void EyeTracker::initialize(ImageProvider *image_provider, const std::string &se
         if (enabled_cameras[i]) {
             camera_ids_.push_back(i);
         }
-        feature_detectors_[i].initialize(settings_path_, enabled_kalman[i], enabled_template_matching[i], i);
+        feature_detectors_[i].initialize(settings_path_, enabled_kalman[i], enabled_template_matching[i], distorted[i],
+                                         i);
         eye_estimators_[i].initialize(settings_path_, enabled_kalman[i], i);
         ellipse_fitting_[i] = ellipse_fitting[i];
     }
@@ -43,7 +44,7 @@ bool EyeTracker::analyzeNextFrame() {
     per_user_transformation_blocker_.lock();
     for (auto &i : camera_ids_) {
         analyzed_frame_[i] = image_provider_->grabImage(i);
-        if (analyzed_frame_[i].empty()) {
+        if (analyzed_frame_[i].pupil.empty() || analyzed_frame_[i].glints.empty()) {
             return false;
         }
 
@@ -74,7 +75,7 @@ bool EyeTracker::analyzeNextFrame() {
             }
         }
         if (output_video_[i].isOpened()) {
-            output_video_[i].write(analyzed_frame_[i]);
+            output_video_[i].write(analyzed_frame_[i].glints);
         }
 
         feature_detectors_[i].updateGazeBuffer();
@@ -222,7 +223,7 @@ void EyeTracker::captureCameraImage() {
     }
     for (auto &i : camera_ids_) {
         std::string filename{"images/" + Utils::getCurrentTimeText() + "_" + std::to_string(i) + ".png"};
-        imwrite(filename, analyzed_frame_[i]);
+        imwrite(filename, analyzed_frame_[i].glints);
     }
 }
 
@@ -234,7 +235,7 @@ void EyeTracker::updateUi() {
     for (auto &i : camera_ids_) {
         switch (visualization_type_) {
         case VisualizationType::CAMERA_IMAGE:
-            visualizer_[i].prepareImage(analyzed_frame_[i]);
+            visualizer_[i].prepareImage(analyzed_frame_[i].glints);
             break;
         case VisualizationType::THRESHOLD_PUPIL:
             visualizer_[i].prepareImage(feature_detectors_[i].getThresholdedPupilImage());
@@ -334,7 +335,7 @@ void EyeTracker::stopEyeVideoRecording() {
 
 void EyeTracker::saveEyeData(const std::string &eye_data) {
     for (auto &i : camera_ids_) {
-        eye_video_[i].write(analyzed_frame_[i]);
+        eye_video_[i].write(analyzed_frame_[i].glints);
     }
 
     eye_data_ << eye_frame_counter_ << "," << eye_data << "\n";
@@ -441,11 +442,11 @@ void EyeTracker::calibrateTransform(const cv::Mat &M_et_left, const cv::Mat &M_e
             cv::cvtColor(frame_left, frame_left, cv::COLOR_BGR2GRAY);
             cv::cvtColor(frame_right, frame_right, cv::COLOR_BGR2GRAY);
 
-            feature_detectors_[0].preprocessImage(frame_left);
+            feature_detectors_[0].preprocessImage({frame_left, frame_left});
             bool features_found = feature_detectors_[0].findPupil();
             features_found &= feature_detectors_[0].findEllipse();
 
-            feature_detectors_[1].preprocessImage(frame_right);
+            feature_detectors_[1].preprocessImage({frame_right, frame_right});
             features_found &= feature_detectors_[1].findPupil();
             features_found &= feature_detectors_[1].findEllipse();
 

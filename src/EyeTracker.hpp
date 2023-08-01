@@ -48,12 +48,10 @@ public:
      * enable Kalman filtering for feature and eye position estimation.
      * @param enabled_template_matching 2-element boolean vector signifying,
      * whether to use template matching for finding glints.
+     * @param distorted 2-element boolean vector signifying, whether the images require applying undistortion.
      */
-    void initialize(ImageProvider *image_provider,
-                    const std::string &settings_path,
-                    const bool enabled_cameras[], const bool ellipse_fitting[],
-                    const bool enabled_kalman[],
-                    const bool enabled_template_matching[]);
+    void initialize(ImageProvider *image_provider, const std::string &settings_path, const bool enabled_cameras[],
+                    const bool ellipse_fitting[], const bool enabled_kalman[], const bool enabled_template_matching[], const bool distorted[]);
 
     /**
      * Takes the next frame from the image provider, find its features, and calculates
@@ -97,8 +95,7 @@ public:
      * @param pupil_glint_vector Variable that will contain the vector.
      * @param camera_id An id of the camera for which the value is returned.
      */
-    void getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector,
-                                     int camera_id);
+    void getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector, int camera_id);
 
     /**
      * Retrieves pupil diameter in millimeters that was previously calculated
@@ -166,7 +163,6 @@ public:
      */
     void stopVideoRecording();
 
-
     /**
      * Captures the image from the current video feed. It will be
      * saved to the images/ directory at the location from which the app was run.
@@ -218,7 +214,7 @@ public:
      * Starts a recording of eyes through a remote application.
      * @param folder_name Folder to which the videos will be saved.
      */
-    std::string startEyeVideoRecording(const std::string& folder_name);
+    std::string startEyeVideoRecording(const std::string &folder_name);
 
     /**
      * Stops a video recording started through startEyeVideoRecording().
@@ -230,11 +226,10 @@ public:
      * startEyeVideoRecording().
      * @param eye_data External string with all the information that is saved.
      */
-    void saveEyeData(const std::string& eye_data);
+    void saveEyeData(const std::string &eye_data);
 
-    void calibrateTransform(const cv::Mat& M_et_left, const cv::Mat& M_et_right,
-                            const std::string &plane_calibration_path,
-                            const std::string &gaze_calibration_path);
+    void calibrateTransform(const cv::Mat &M_et_left, const cv::Mat &M_et_right,
+                            const std::string &plane_calibration_path, const std::string &gaze_calibration_path);
 
 private:
     // Object serving as a video feed.
@@ -249,8 +244,8 @@ private:
     // Path to a folder with all configuration files.
     std::string settings_path_{};
 
-    // Raw images retrieved directly from image_provider_. One image per eye.
-    cv::Mat analyzed_frame_[2]{};
+    // Raw images retrieved directly from image_provider_. Two images per eye: one for pupil, one for glints.
+    ImageToProcess analyzed_frame_[2]{};
     // Status of ellipse fitting algorithm (enabled/disabled). One value per eye.
     bool ellipse_fitting_[2]{};
     // Set to true if initialize() method was run. False otherwise.

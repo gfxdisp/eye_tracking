@@ -57,6 +57,9 @@ void EyeEstimator::initialize(const std::string &settings_path,
         et::Settings::parameters.camera_params[camera_id].framerate);
     intrinsic_matrix_ =
         &Settings::parameters.camera_params[camera_id].intrinsic_matrix;
+    // Convert Matlab's 1-based indexing to C++'s 0-based indexing.
+    intrinsic_matrix_->at<double>(0, 2) -= 1;
+    intrinsic_matrix_->at<double>(1, 2) -= 1;
     capture_offset_ =
         &Settings::parameters.camera_params[camera_id].capture_offset;
 
@@ -339,7 +342,7 @@ void EyeEstimator::createInvProjectionMatrix() {
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
             intrinsic_matrix_arr[i * 3 + j] =
-                camera_params_->intrinsic_matrix.at<float>(cv::Point(i, j));
+                intrinsic_matrix_->at<float>(cv::Point(i, j));
         }
     }
 

@@ -28,14 +28,15 @@ public:
     /**
      * Retrieves the next image in the folder and converts it to grayscale.
      * @param camera_id An id of the camera for which the value is returned.
-     * @return Matrix with an image from the folder or an empty image if all
-     * images have already been processed.
+     * @return A pair of images from the folder (one for detecting pupil and one for detecting glints) or an empty struct
+     * if all images have already been processed.
      */
-    cv::Mat grabImage(int camera_id) override;
+    ImageToProcess grabImage(int camera_id) override;
 
 private:
     // List of all names of all images in the folder.
-    std::vector<std::string> filenames_{};
+    std::vector<std::string> pupil_filenames_{};
+    std::vector<std::string> glints_filenames_{};
     // Number of already processed images.
     int image_count_{0};
 };
