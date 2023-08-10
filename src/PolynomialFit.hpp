@@ -22,8 +22,9 @@ public:
      * @param variables Vector of variables where each variable is specified
      * as a vector of data points.
      * @param outputs Vector of output data points.
+     * @return True if the fitting was successful.
      */
-    void fit(std::vector<std::vector<float> *> &variables,
+    bool fit(std::vector<std::vector<float> *> &variables,
              std::vector<float> *outputs);
     /**
      * Sets polynomial coefficients directly.

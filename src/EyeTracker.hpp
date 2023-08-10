@@ -38,6 +38,7 @@ public:
      * other class method.
      * @param image_provider pointer to the object used to serve as a video feed.
      * @param settings_path Path to a folder containing all settings files.
+     * @param input_path Path to a folder with csv files.
      * @param enabled_cameras 2-element boolean vector signifying, whether
      * left and right cameras (in this order) are enabled .
      * @param ellipse_fitting 2-element boolean vector signifying, whether
@@ -48,10 +49,12 @@ public:
      * enable Kalman filtering for feature and eye position estimation.
      * @param enabled_template_matching 2-element boolean vector signifying,
      * whether to use template matching for finding glints.
+     * @param headless If true, the application will not show any windows.
      * @param distorted 2-element boolean vector signifying, whether the images require applying undistortion.
      */
-    void initialize(ImageProvider *image_provider, const std::string &settings_path, const bool enabled_cameras[],
-                    const bool ellipse_fitting[], const bool enabled_kalman[], const bool enabled_template_matching[], const bool distorted[]);
+    void initialize(ImageProvider *image_provider, const std::string &settings_path, const std::string &input_path,
+                    const bool enabled_cameras[], const bool ellipse_fitting[], const bool enabled_kalman[],
+                    const bool enabled_template_matching[], const bool distorted[], bool headless);
 
     /**
      * Takes the next frame from the image provider, find its features, and calculates

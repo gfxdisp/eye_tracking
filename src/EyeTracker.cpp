@@ -9,8 +9,9 @@ namespace fs = std::filesystem;
 
 namespace et {
 void EyeTracker::initialize(ImageProvider *image_provider, const std::string &settings_path,
-                            const bool enabled_cameras[], const bool ellipse_fitting[], const bool enabled_kalman[],
-                            const bool enabled_template_matching[], const bool distorted[]) {
+                            const std::string &input_path, const bool enabled_cameras[], const bool ellipse_fitting[],
+                            const bool enabled_kalman[], const bool enabled_template_matching[],
+                            const bool distorted[], bool headless) {
     image_provider_ = image_provider;
     image_provider_->initialize();
     settings_path_ = settings_path;
@@ -21,18 +22,24 @@ void EyeTracker::initialize(ImageProvider *image_provider, const std::string &se
         }
         feature_detectors_[i].initialize(settings_path_, enabled_kalman[i], enabled_template_matching[i], distorted[i],
                                          i);
-        eye_estimators_[i].initialize(settings_path_, enabled_kalman[i], i);
+        eye_estimators_[i].initialize(input_path, enabled_kalman[i], i);
         ellipse_fitting_[i] = ellipse_fitting[i];
     }
-    for (auto &i : camera_ids_) {
-        visualizer_[i].initialize(i);
+    if (!headless) {
+        for (auto &i : camera_ids_) {
+            visualizer_[i].initialize(i);
+        }
     }
 
     M_left_ = cv::Mat::eye(4, 4, CV_64F);
     M_right_ = cv::Mat::eye(4, 4, CV_64F);
 
-    // Initial shown image is raw camera feed.
-    visualization_type_ = VisualizationType::CAMERA_IMAGE;
+    // Initial shown image is raw camera feed, unless headless.
+    if (headless) {
+        visualization_type_ = VisualizationType::DISABLED;
+    } else {
+        visualization_type_ = VisualizationType::CAMERA_IMAGE;
+    }
     initialized_ = true;
 }
 

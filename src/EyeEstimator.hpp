@@ -189,7 +189,7 @@ private:
     // Constant shift needed to be added to the vector between eye and cornea centre.
     cv::Vec3f *gaze_shift_{};
     // Intrinsic matrix of the camera.
-    cv::Mat *intrinsic_matrix_{};
+    cv::Mat intrinsic_matrix_{};
     // Distance from top-left corner of the region-of-interest to the top-left
     // corner of the full image, measured in pixels separately for every axis.
     cv::Size2i *capture_offset_{};

@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
                                {"log", no_argument, nullptr, 'l'},
                                {"distorted", required_argument, nullptr, 'd'},
                                {"kalman", required_argument, nullptr, 'k'},
+                               {"headless", no_argument, nullptr, 'h'},
                                {nullptr, no_argument, nullptr, 0}};
 
     int argument{0};
@@ -42,9 +43,10 @@ int main(int argc, char *argv[]) {
     bool enabled_kalman[]{true, true};
     bool enabled_template_matching[]{true, false};
     bool distorted[]{true, true};
+    bool headless{false};
 
     while (argument != -1) {
-        argument = getopt_long(argc, argv, "s:f:p:u:c:e:ldk:t:", options, nullptr);
+        argument = getopt_long(argc, argv, "s:f:p:u:c:e:ld:k:t:h", options, nullptr);
         switch (argument) {
         case 's':
             settings_path = optarg;
@@ -81,12 +83,15 @@ int main(int argc, char *argv[]) {
             distorted[0] = optarg[0] == '1';
             distorted[1] = optarg[1] == '1';
             break;
+        case 'h':
+            headless = true;
+            break;
         default:
             break;
         }
     }
 
-    et::Settings settings(fs::path(settings_path) / "parameters.json");
+    et::Settings settings{fs::path(settings_path) / "capture_params.json"};
     et::ImageProvider *image_provider;
     if (feed_type == "ids") {
         image_provider = new et::IdsCamera();
@@ -106,8 +111,8 @@ int main(int argc, char *argv[]) {
     et::Settings::parameters.user_params[1] = &et::Settings::parameters.features_params[1][user];
 
     et::EyeTracker eye_tracker{};
-    eye_tracker.initialize(image_provider, settings_path, enabled_cameras, ellipse_fitting, enabled_kalman, distorted,
-                           enabled_template_matching);
+    eye_tracker.initialize(image_provider, settings_path, input_path, enabled_cameras, ellipse_fitting, enabled_kalman,
+                           distorted, enabled_template_matching, headless);
 
     et::SocketServer socket_server{&eye_tracker};
     socket_server.startServer();
@@ -120,9 +125,9 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < 2; i++) {
             if (enabled_cameras[i]) {
                 std::ofstream file{};
-                file.open(fs::path(settings_path) / ("image_features_" + std::to_string(i) + ".csv"));
+                file.open(fs::path(input_path) / ("image_features.csv"));
                 file.close();
-                file.open(fs::path(settings_path) / ("eye_estimates_" + std::to_string(i) + ".csv"));
+                file.open(fs::path(input_path) / ("eye_estimates.csv"));
                 file.close();
             }
         }
@@ -139,12 +144,11 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < 2; i++) {
                 if (enabled_cameras[i]) {
                     std::ofstream file{};
-                    file.open(fs::path(settings_path) / ("image_features_" + std::to_string(i) + ".csv"),
-                              std::ios::app);
+                    file.open(fs::path(input_path) / ("image_features.csv"), std::ios::app);
                     eye_tracker.logDetectedFeatures(file, i);
                     file.close();
 
-                    file.open(fs::path(settings_path) / ("eye_estimates_" + std::to_string(i) + ".csv"), std::ios::app);
+                    file.open(fs::path(input_path) / ("eye_estimates.csv"), std::ios::app);
                     eye_tracker.logEyePosition(file, i);
                     file.close();
                 }
@@ -181,13 +185,19 @@ int main(int argc, char *argv[]) {
             eye_tracker.disableImageUpdate();
             break;
         case 'w':
-            eye_tracker.switchToCameraImage();
+            if (!headless) {
+                eye_tracker.switchToCameraImage();
+            }
             break;
         case 'e':
-            eye_tracker.switchToPupilThreshImage();
+            if (!headless) {
+                eye_tracker.switchToPupilThreshImage();
+            }
             break;
         case 'r':
-            eye_tracker.switchToGlintThreshImage();
+            if (!headless) {
+                eye_tracker.switchToGlintThreshImage();
+            }
             break;
         case 'i': // + left
             et::Settings::parameters.detection_params[0].pupil_search_radius++;
@@ -244,7 +254,7 @@ int main(int argc, char *argv[]) {
     image_provider->close();
     socket_server.closeSocket();
     cv::destroyAllWindows();
-    et::Settings::saveSettings(fs::path(settings_path) / "parameters.json");
+    et::Settings::saveSettings(fs::path(settings_path) / "capture_params.json");
 
     t.join();
 

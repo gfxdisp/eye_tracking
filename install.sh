@@ -1,0 +1,1 @@
+sudo cmake --install cmake-build-release-wsl --config Release

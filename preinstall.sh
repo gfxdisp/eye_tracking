@@ -33,7 +33,7 @@ pip install numpy
 cd opencv-4.6.0
 mkdir build
 cd build/
-cmake -DCMAKE_INSTALL_PREFIX=/usr/local       -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-4.6.0/modules       -DBUILD_LIST=cudaarithm,cudafilters,cudaimgproc,cudev,imgcodecs,highgui,video,videoio       -DENABLE_FAST_MATH=ON -DWITH_CUDA=ON -DCUDA_FAST_MATH=ON -DWITH_FFMPEG=ON -DWITH_LAPACK=ON       -DINSTALL_C_EXAMPLES=OFF -DINSTALL_PYTHON_EXAMPLES=OFF       -DCMAKE_C_COMPILER=/usr/bin/gcc-8 -DCMAKE_CXX_COMPILER=/usr/bin/g++-8 -DWITH_UEYE=ON -DUEYE_ROOT=/opt/ids/ueye ..
+cmake -DCMAKE_INSTALL_PREFIX=/usr/local       -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-4.6.0/modules       -DBUILD_LIST=cudaarithm,cudafilters,cudaimgproc,cudev,imgcodecs,highgui,video,videoio,calib3d       -DENABLE_FAST_MATH=ON -DWITH_CUDA=ON -DCUDA_FAST_MATH=ON -DWITH_FFMPEG=ON -DWITH_LAPACK=ON       -DINSTALL_C_EXAMPLES=OFF -DINSTALL_PYTHON_EXAMPLES=OFF       -DCMAKE_C_COMPILER=/usr/bin/gcc-8 -DCMAKE_CXX_COMPILER=/usr/bin/g++-8 -DWITH_UEYE=ON -DUEYE_ROOT=/opt/ids/ueye ..
 make -j6
 sudo make -j6 install
 rm -rf opencv.zip opencv_contrib.zip opencv-4.6.0 opencv_contrib-4.6.0

@@ -4,8 +4,8 @@
 
 namespace et {
 InputImages::InputImages(const std::string &images_folder_path) {
-    cv::glob(images_folder_path + "/*_lights_off.jpg", pupil_filenames_, false);
-    cv::glob(images_folder_path + "/*_lights_on.jpg", glints_filenames_, false);
+    cv::glob(images_folder_path + "/images/*_lights_off.jpg", pupil_filenames_, false);
+    cv::glob(images_folder_path + "/images/*_lights_on.jpg", glints_filenames_, false);
 }
 
 ImageToProcess InputImages::grabImage(int camera_id) {
