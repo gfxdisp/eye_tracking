@@ -201,7 +201,7 @@ Settings::Settings(const std::string &file_path) {
     json j;
     file >> j;
     parameters = j.get<Parameters>();
-    file
+    file.close();
 }
 
 void Settings::saveSettings(const std::string &file_path) {
