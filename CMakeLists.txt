@@ -3,7 +3,9 @@ project(hdrmfs_eye_tracker)
 set(CMAKE_CXX_STANDARD 20)
 file(GLOB SOURCES src/*.cpp)
 add_executable(hdrmfs_eye_tracker ${SOURCES})
-add_executable(eye_simulator simul_src/main.cpp)
+add_executable(estimator simul_src/estimate.cpp)
+add_executable(meta_model simul_src/meta_model.cpp src/PolynomialFit.cpp src/Utils.cpp)
+
 
 # If linux
 if(UNIX)
@@ -36,4 +38,7 @@ if(UNIX)
     message("Libs: ${OpenCV_LIBS}")
     target_include_directories(hdrmfs_eye_tracker PUBLIC ${OpenCV_INCLUDE_DIRS}/install/include/opencv4 /opt/ids/ueye/include)
     target_link_libraries(hdrmfs_eye_tracker PUBLIC ${OpenCV_LIBS} ueye_api)
+
+    target_include_directories(meta_model PUBLIC ${OpenCV_INCLUDE_DIRS}/install/include/opencv4 /opt/ids/ueye/include)
+    target_link_libraries(meta_model PUBLIC ${OpenCV_LIBS} ueye_api)
 endif ()
