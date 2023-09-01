@@ -1,0 +1,1 @@
+add_executable(blender_renderer main.cpp)

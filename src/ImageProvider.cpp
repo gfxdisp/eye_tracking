@@ -1,1 +1,0 @@
-namespace et {} // namespace et

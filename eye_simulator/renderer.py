@@ -115,13 +115,16 @@ def render_images(setup_params, images_num, folder_path):
     eye.rotation_euler = (0, 0.5 * np.pi, 0)
 
     cornea = bpy.data.objects['Cornea']
-    cornea_size = setup_params.cornea_radius * 2
+    cornea_size = setup_params.cornea_curvature_radius * 2
     cornea_offset = np.array([cornea_size / 2, cornea_size / 2, 0])
     cornea.rotation_mode = 'XYZ'
     cornea.rotation_euler = (0, 0, 0)
     cornea.scale = (cornea_size, cornea_size, cornea_size)
     cornea.matrix_world.translation = np.array(eye.matrix_world.translation) - np.array(
-        [0, 0, setup_params.eyeball_to_cornea_dist])
+        [0, 0, setup_params.cornea_centre_distance])
+
+    bpy.data.materials['Cornea'].node_tree.nodes['Glass BSDF'].inputs[
+        2].default_value = setup_params.cornea_refraction_index
 
     camera = bpy.data.objects['Camera']
     camera.matrix_world.translation = np.array([0, 0, 0])
@@ -165,7 +168,7 @@ def render_images(setup_params, images_num, folder_path):
         focus_point = np.array(
             [random.uniform(min_screen_x, max_screen_x), random.uniform(min_screen_y, max_screen_y), mean_screen_z])
 
-        visual_axis = look_at(focus_point, setup_params.alpha, setup_params.beta, setup_params.eyeball_to_cornea_dist)
+        visual_axis = look_at(focus_point, setup_params.alpha, setup_params.beta, setup_params.cornea_centre_distance)
         bpy.context.view_layer.update()
 
         offset = np.array(eye.matrix_world.translation) - np.array(cornea.matrix_world.translation)
