@@ -9,6 +9,7 @@ from contextlib import redirect_stdout, contextmanager
 import time
 from mathutils import Euler
 from scipy.optimize import minimize
+from mathutils import Vector, Matrix
 
 
 @contextmanager
@@ -33,15 +34,13 @@ def stdout_redirected(to=os.devnull):
 def look_at(focus_point, alpha, beta, eyeball_to_cornea_dist):
     eye = bpy.data.objects.get("Eye")
     eye_world_pos = np.array(eye.matrix_world.translation)
-    x0 = np.array([0, 0, -1])
+    x0 = (focus_point - eye_world_pos) / np.linalg.norm(focus_point - eye_world_pos)
 
-    visual_axis = minimize(find_visual_axis, x0,
-                           args=(eye_world_pos, focus_point, alpha, beta, eyeball_to_cornea_dist)).x
-    visual_axis = visual_axis / np.linalg.norm(visual_axis)
-    optical_axis = get_optical_axis(visual_axis, eye_world_pos, alpha, beta, eyeball_to_cornea_dist)
+    optical_axis = minimize(find_optical_axis, x0,
+                            args=(eye_world_pos, focus_point, alpha, beta, eyeball_to_cornea_dist)).x
+    optical_axis = optical_axis / np.linalg.norm(optical_axis)
 
     point_on_sphere = eye_world_pos + eyeball_to_cornea_dist * optical_axis
-    visual_axis = (focus_point - point_on_sphere) / np.linalg.norm(focus_point - point_on_sphere)
 
     r = np.linalg.norm(point_on_sphere - eye_world_pos)
     theta = np.math.acos((point_on_sphere[2] - eye_world_pos[2]) / r)
@@ -51,25 +50,30 @@ def look_at(focus_point, alpha, beta, eyeball_to_cornea_dist):
     q.rotate(Euler((0, theta, phi), 'XYZ'))
     eye.rotation_mode = 'QUATERNION'
     eye.rotation_quaternion = q
-    return visual_axis
 
 
-def find_visual_axis(visual_axis, eye_pos, focus_point, alpha, beta, eyeball_to_cornea_dist):
-    optical_axis = get_optical_axis(visual_axis, eye_pos, alpha, beta, eyeball_to_cornea_dist)
+def find_optical_axis(optical_axis, eye_pos, focus_point, alpha, beta, eyeball_to_cornea_dist):
+    optical_axis = optical_axis / np.linalg.norm(optical_axis)
+    visual_axis = get_visual_axis(optical_axis, alpha, beta)
     cornea_pos = eye_pos + eyeball_to_cornea_dist * optical_axis
 
     distance = point_to_line_dist(focus_point, cornea_pos, visual_axis)
     return distance
 
 
-def get_optical_axis(visual_axis, eye_pos, alpha, beta, eyeball_to_cornea_dist):
+def get_visual_axis(optical_axis, alpha, beta):
+    optical_axis = optical_axis / np.linalg.norm(optical_axis)
+
+    phi = np.math.asin(optical_axis[1])
+    theta = np.math.asin(optical_axis[0] / np.cos(phi))
+
+    theta += np.deg2rad(alpha)
+    phi += np.deg2rad(beta)
+
+    visual_axis = np.array([np.sin(theta) * np.cos(phi), np.sin(phi), -np.cos(theta) * np.cos(phi)])
     visual_axis = visual_axis / np.linalg.norm(visual_axis)
 
-    rot_y = get_rot_y(alpha)
-    rot_x = get_rot_x(beta)
-
-    optical_axis = rot_x @ rot_y @ visual_axis
-    return optical_axis
+    return visual_axis
 
 
 def point_to_line_dist(line_point, point, line_direction):
@@ -79,7 +83,7 @@ def point_to_line_dist(line_point, point, line_direction):
     return distance
 
 
-def render_images(setup_params, images_num, folder_path):
+def render_images(setup_params, images_num, folder_path, csv_path):
     bpy.context.scene.render.image_settings.file_format = 'JPEG'
     bpy.context.scene.render.image_settings.color_mode = 'BW'
     bpy.context.scene.eevee.taa_render_samples = 1
@@ -87,28 +91,43 @@ def render_images(setup_params, images_num, folder_path):
     bpy.context.scene.eevee.sss_samples = 1
     bpy.context.scene.eevee.volumetric_samples = 1
     bpy.context.scene.eevee.use_gtao = False
+    bpy.data.images["iris.jpg.004"].colorspace_settings.name = 'Raw'
+    bpy.data.objects["Global light"].hide_render = True
+
+    using_file = csv_path != ""
+    eye_centre_poses = []
+    focus_poses = []
+    if using_file:
+        with open(csv_path, "r") as f:
+            lines = f.readlines()
+            for line in lines:
+                values = line.split(",")
+                eye_centre_pos = np.array([float(values[1]), float(values[2]), float(values[3])]) / 1000
+                focus_pos = np.array([float(values[4]), float(values[5]), float(values[6])]) / 1000
+                eye_centre_poses.append(eye_centre_pos)
+                focus_poses.append(focus_pos)
 
     if not os.path.exists(os.path.join(folder_path, "images")):
         os.makedirs(os.path.join(folder_path, "images"))
 
-    images = [f for f in os.listdir(os.path.join(folder_path, "images")) if
-              os.path.isfile(os.path.join(folder_path, "images", f)) and (f.endswith(".jpg") or f.endswith(".png"))]
-    if len(images) > 0:
-        last_image_idx = np.max([int(f.split("_")[1]) for f in images])
-        start_idx = last_image_idx + 1
-        end_idx = start_idx + images_num
-    else:
+    if using_file:
         start_idx = 0
-        end_idx = images_num
+        end_idx = len(eye_centre_poses)
+    else:
+        images = [f for f in os.listdir(os.path.join(folder_path, "images")) if
+                  os.path.isfile(os.path.join(folder_path, "images", f)) and (f.endswith(".jpg") or f.endswith(".png"))]
+        if len(images) > 0:
+            last_image_idx = np.max([int(f.split("_")[1]) for f in images])
+            start_idx = last_image_idx + 1
+            end_idx = start_idx + images_num
+        else:
+            start_idx = 0
+            end_idx = images_num
 
-    leds_camera_pos = np.zeros((setup_params.leds_world_pos.shape[0], 4))
-    for i in range(setup_params.leds_world_pos.shape[0]):
-        leds_camera_pos[i, :] = np.append(setup_params.leds_world_pos[i, :], 1) @ setup_params.M_extr
-    leds_camera_pos = leds_camera_pos[:, :3] / leds_camera_pos[:, 3:] / 1000
-    max_led_depth = np.max(leds_camera_pos[:, 2])
-    for i in range(leds_camera_pos.shape[0]):
+    leds_poses = setup_params.leds_world_pos / 1000
+    for i in range(leds_poses.shape[0]):
         led = bpy.data.objects[f"Light.{i:03d}"]
-        led.location = leds_camera_pos[i, :]
+        led.location = leds_poses[i, :]
 
     eye = bpy.data.objects['Eye']
     eye.rotation_mode = 'XZY'
@@ -116,7 +135,6 @@ def render_images(setup_params, images_num, folder_path):
 
     cornea = bpy.data.objects['Cornea']
     cornea_size = setup_params.cornea_curvature_radius * 2
-    cornea_offset = np.array([cornea_size / 2, cornea_size / 2, 0])
     cornea.rotation_mode = 'XYZ'
     cornea.rotation_euler = (0, 0, 0)
     cornea.scale = (cornea_size, cornea_size, cornea_size)
@@ -126,11 +144,10 @@ def render_images(setup_params, images_num, folder_path):
     bpy.data.materials['Cornea'].node_tree.nodes['Glass BSDF'].inputs[
         2].default_value = setup_params.cornea_refraction_index
 
-    camera = bpy.data.objects['Camera']
-    camera.matrix_world.translation = np.array([0, 0, 0])
-    camera.rotation_mode = 'XYZ'
-    camera.rotation_euler = (0, np.pi, np.pi)
+    bpy.data.materials['Cornea'].roughness = 0.0
 
+    camera = bpy.data.objects['Camera']
+    camera.matrix_world = setup_params.M_extr
     bpy.context.view_layer.update()
 
     camera.data.lens = setup_params.M_intr[0, 0] * setup_params.sx / setup_params.W
@@ -151,60 +168,75 @@ def render_images(setup_params, images_num, folder_path):
                                                   scale_x=bpy.context.scene.render.pixel_aspect_x,
                                                   scale_y=bpy.context.scene.render.pixel_aspect_y)
 
-    projection_matrix_inv = np.linalg.inv(projection_matrix)
-    camera_matrix = np.array(camera.matrix_world)
+    mean_led_pos = np.mean(leds_poses, axis=0)
+    min_eye_pos = mean_led_pos + np.array([0, 0, 0.055]) - np.array([0.015, 0.015, 0.025])
+    max_eye_pos = mean_led_pos + np.array([0, 0, 0.055]) + np.array([0.015, 0.015, 0.025])
 
     d_res = [2160, 3840]
     display_corners = np.array([[1, d_res[0], 0, 1], [d_res[1], d_res[0], 0, 1], [d_res[1], 1, 0, 1], [1, 1, 0, 1]])
-    world_corners = (display_corners @ setup_params.M_disp_rsb @ setup_params.M_extr) / 1000
-    min_screen_x = np.min(world_corners[:, 0])
-    max_screen_x = np.max(world_corners[:, 0])
-    min_screen_y = np.min(world_corners[:, 1])
-    max_screen_y = np.max(world_corners[:, 1])
-    mean_screen_z = np.mean(world_corners[:, 2])
+    min_screen_x = 100000
+    max_screen_x = -100000
+    min_screen_y = 100000
+    max_screen_y = -100000
+    min_screen_z = 100000
+    max_screen_z = -100000
+    for i in range(4):
+        world_corners = (display_corners @ setup_params.M_disp_rsb[i]) / 1000
+
+        min_screen_x = min(np.min(world_corners[:, 0]), min_screen_x)
+        max_screen_x = max(np.max(world_corners[:, 0]), max_screen_x)
+        min_screen_y = min(np.min(world_corners[:, 1]), min_screen_y)
+        max_screen_y = max(np.max(world_corners[:, 1]), max_screen_y)
+        min_screen_z = min(np.min(world_corners[:, 2]), min_screen_z)
+        max_screen_z = max(np.max(world_corners[:, 2]), max_screen_z)
 
     start = time.time()
     for i in range(start_idx, end_idx):
-        focus_point = np.array(
-            [random.uniform(min_screen_x, max_screen_x), random.uniform(min_screen_y, max_screen_y), mean_screen_z])
-
-        visual_axis = look_at(focus_point, setup_params.alpha, setup_params.beta, setup_params.cornea_centre_distance)
+        if using_file:
+            eye.matrix_world.translation = eye_centre_poses[i]
+        else:
+            eye.matrix_world.translation = np.array(
+                [random.uniform(min_eye_pos[0], max_eye_pos[0]), random.uniform(min_eye_pos[1], max_eye_pos[1]),
+                 random.uniform(min_eye_pos[2], max_eye_pos[2])])
         bpy.context.view_layer.update()
 
-        offset = np.array(eye.matrix_world.translation) - np.array(cornea.matrix_world.translation)
-        offset[2] = 0
-        depth = random.uniform(max_led_depth + 0.02, max_led_depth + 0.07)
-        min_px_coords = np.array([min_x * 2 - 1, max_y * 2 - 1, 1, 1]) * depth
-        max_px_coords = np.array([max_x * 2 - 1, min_y * 2 - 1, 1, 1]) * depth
+        if using_file:
+            focus_point = focus_poses[i]# + np.array(
+                # [random.uniform(-7.5, 7.5), random.uniform(-7.5, 7.5), random.uniform(-7.5, 7.5)]) / 1000
+        else:
+            focus_point = np.array(
+                [random.uniform(min_screen_x, max_screen_x), random.uniform(min_screen_y, max_screen_y),
+                 random.uniform(min_screen_z, max_screen_z)])
 
-        min_camera_coords = (camera_matrix @ projection_matrix_inv @ min_px_coords)[:3] + offset + cornea_offset
-        max_camera_coords = (camera_matrix @ projection_matrix_inv @ max_px_coords)[:3] + offset - cornea_offset
-
-        x = random.uniform(min_camera_coords[0], max_camera_coords[0])
-        y = random.uniform(min_camera_coords[1], max_camera_coords[1])
-        eye.matrix_world.translation = [x, y, depth]
+        look_at(focus_point, setup_params.alpha, setup_params.beta, setup_params.cornea_centre_distance)
         bpy.context.view_layer.update()
 
         eye_centre_pos = eye.matrix_world.translation
+        cornea_pos = cornea.matrix_world.translation
 
-        for j in range(leds_camera_pos.shape[0]):
+        for j in range(leds_poses.shape[0]):
             bpy.data.objects[f"Light.{j:03d}"].hide_render = True
+        bpy.data.materials['Cornea'].use_nodes = True
+        bpy.data.materials['Cornea'].roughness = 0.0
 
-        bpy.context.scene.render.filepath = os.path.join(folder_path, "images", f"image_{i:04d}_lights_off.jpg")
+        bpy.context.scene.render.filepath = os.path.join(folder_path, "images", f"image_{i:010d}_lights_off.jpg")
         with stdout_redirected(os.devnull):
             bpy.ops.render.render(write_still=True, use_viewport=True)
 
-        for j in range(leds_camera_pos.shape[0]):
+        for j in range(leds_poses.shape[0]):
             bpy.data.objects[f"Light.{j:03d}"].hide_render = False
+        bpy.data.objects["Global light"].hide_render = True
+        bpy.data.materials['Cornea'].use_nodes = False
+        bpy.data.materials['Cornea'].roughness = 0.0
 
-        bpy.context.scene.render.filepath = os.path.join(folder_path, "images", f"image_{i:04d}_lights_on.jpg")
+        bpy.context.scene.render.filepath = os.path.join(folder_path, "images", f"image_{i:010d}_lights_on.jpg")
         with stdout_redirected(os.devnull):
             bpy.ops.render.render(write_still=True, use_viewport=True)
 
         with open(os.path.join(folder_path, "eye_features.csv"), "a") as f:
             f.write(f"{i}")
-            for j in visual_axis:
-                f.write(f",{j}")
+            for j in cornea_pos:
+                f.write(f",{j * 1000}")
             for j in eye_centre_pos:
                 f.write(f",{j * 1000}")
             f.write("\n")
@@ -212,21 +244,3 @@ def render_images(setup_params, images_num, folder_path):
         if time.time() - start > 5:
             print(f"Progress: {i}/{end_idx}")
             start = time.time()
-
-
-def get_rot_x(angle_deg):
-    angle_r = np.deg2rad(angle_deg)
-    mat = np.array([[1, 0, 0], [0, np.cos(angle_r), -np.sin(angle_r)], [0, np.sin(angle_r), np.cos(angle_r)]])
-    return mat
-
-
-def get_rot_y(angle_deg):
-    angle_r = np.deg2rad(angle_deg)
-    mat = np.array([[np.cos(angle_r), 0, np.sin(angle_r)], [0, 1, 0], [-np.sin(angle_r), 0, np.cos(angle_r)]])
-    return mat
-
-
-def get_rot_z(angle_deg):
-    angle_r = np.deg2rad(angle_deg)
-    mat = np.array([[np.cos(angle_r), -np.sin(angle_r), 0], [np.sin(angle_r), np.cos(angle_r), 0], [0, 0, 1]])
-    return mat

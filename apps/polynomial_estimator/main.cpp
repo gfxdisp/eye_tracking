@@ -5,6 +5,8 @@
 #include "eye_tracker/image/BlenderDiscreteFeatureAnalyser.hpp"
 #include "eye_tracker/Utils.hpp"
 #include "eye_tracker/optimizers/PolynomialFit.hpp"
+#include "eye_tracker/eye/PolynomialEyeEstimator.hpp"
+#include "eye_tracker/optimizers/AggregatedPolynomialOptimizer.hpp"
 
 #include <getopt.h>
 
@@ -16,9 +18,9 @@
 
 std::mutex mutex;
 
-void
-polynomialCalculator(std::string model_path, int model_num, int camera_id, std::vector<std::vector<float>> &setups_params,
-                     std::unordered_map<int, et::PolynomialParams> *polynomial_params, bool headless);
+void polynomialCalculator(std::string model_path, int model_num, int camera_id,
+                          std::vector<std::vector<float>> &setups_params,
+                          std::unordered_map<int, et::PolynomialParams> *polynomial_params, bool headless);
 
 int main(int argc, char *argv[])
 {
@@ -26,6 +28,8 @@ int main(int argc, char *argv[])
                                   {"models-path",   required_argument, nullptr, 'm'},
                                   {"headless",      no_argument,       nullptr, 'h'},
                                   {"threads",       required_argument, nullptr, 't'},
+                                  {"begin",         required_argument, nullptr, 'b'},
+                                  {"end",           required_argument, nullptr, 'e'},
                                   {nullptr,         no_argument,       nullptr, 0}};
 
     int argument{0};
@@ -33,10 +37,12 @@ int main(int argc, char *argv[])
     std::string models_path{"."};
     bool headless{false};
     int num_threads{1};
+    int begin = -1;
+    int end = -1;
 
     while (argument != -1)
     {
-        argument = getopt_long(argc, argv, "s:m:ht:", options, nullptr);
+        argument = getopt_long(argc, argv, "s:m:ht:b:e:", options, nullptr);
         switch (argument)
         {
             case 's':
@@ -54,6 +60,13 @@ int main(int argc, char *argv[])
                 {
                     headless = true;
                 }
+                break;
+            case 'b':
+                begin = std::stoi(optarg);
+                break;
+            case 'e':
+                end = std::stoi(optarg);
+                break;
             default:
                 break;
         }
@@ -65,6 +78,7 @@ int main(int argc, char *argv[])
     std::string camera_names[] = {"left", "right"};
     for (int camera_id = 0; camera_id < 2; camera_id++)
     {
+        et::Settings::parameters.user_params[camera_id] = &et::Settings::parameters.features_params[camera_id]["blender"];
         auto current_eye_path = std::filesystem::path(models_path) / ("setups_" + camera_names[camera_id]);
 
         if (!std::filesystem::exists(current_eye_path))
@@ -90,6 +104,15 @@ int main(int argc, char *argv[])
             }
             int model_num = std::stoi(model_name);
 
+            if (begin != -1 && begin > model_num)
+            {
+                continue;
+            }
+            if (end != -1 && end < model_num)
+            {
+                continue;
+            }
+
 
             while (threads.size() == num_threads)
             {
@@ -104,8 +127,8 @@ int main(int argc, char *argv[])
                 }
             }
 
-            threads.emplace_back(polynomialCalculator, entry.path().string(), model_num, camera_id, std::ref(setups_params),
-                                 polynomial_params, headless);
+            threads.emplace_back(polynomialCalculator, entry.path().string(), model_num, camera_id,
+                                 std::ref(setups_params), polynomial_params, headless);
         }
 
         while (threads.size() != 0)
@@ -125,20 +148,20 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void
-polynomialCalculator(std::string model_path, int model_num, int camera_id, std::vector<std::vector<float>> &setups_params,
-                     std::unordered_map<int, et::PolynomialParams> *polynomial_params, bool headless)
+void polynomialCalculator(std::string model_path, int model_num, int camera_id,
+                          std::vector<std::vector<float>> &setups_params,
+                          std::unordered_map<int, et::PolynomialParams> *polynomial_params, bool headless)
 {
     std::clog << "Loading model " << model_num << " for camera " << camera_id << std::endl;
     // Find row with first column equal to model_num
 
     int setup_row = 0;
-    while (setup_row < setups_params[0].size() && setups_params[setup_row][0] != model_num)
+    while (setup_row < setups_params.size() && setups_params[setup_row][0] != model_num)
     {
         setup_row++;
     }
 
-    if (setup_row == setups_params[0].size())
+    if (setup_row == setups_params.size())
     {
         std::cerr << "Error: model " << model_num << " not found in setups_params.csv" << std::endl;
         return;
@@ -146,36 +169,25 @@ polynomialCalculator(std::string model_path, int model_num, int camera_id, std::
 
     auto setup_params = &setups_params[setup_row];
 
-    et::EyeDataPackage eye_data_package{};
-    std::vector<float> pupil_x{};
-    std::vector<float> pupil_y{};
-    std::vector<float> ellipse_x{};
-    std::vector<float> ellipse_y{};
-    std::vector<float> ellipse_width{};
-    std::vector<float> ellipse_height{};
-    std::vector<float> ellipse_angle{};
+    et::SetupVariables setup_variables{setup_params->at(1), setup_params->at(2), setup_params->at(3),
+                                       setup_params->at(4), setup_params->at(5)};
+
+    et::EyeDataToSend eye_data_package{};
+    std::vector<cv::Point2f> pupils{};
+    std::vector<cv::RotatedRect> ellipses{};
 
     auto eye_features_path = std::filesystem::path(model_path) / "eye_features.csv";
     auto eye_features = et::Utils::readFloatColumnsCsv(eye_features_path);
     int current_row = 0;
-    std::vector<float> eye_centre_x{};
-    std::vector<float> eye_centre_y{};
-    std::vector<float> eye_centre_z{};
-    std::vector<float> visual_axis_x{};
-    std::vector<float> visual_axis_y{};
-    std::vector<float> visual_axis_z{};
-
-    et::PolynomialFit eye_centre_x_fit{5, 3};
-    et::PolynomialFit eye_centre_y_fit{5, 3};
-    et::PolynomialFit eye_centre_z_fit{5, 3};
-    et::PolynomialFit visual_axis_x_fit{5, 3};
-    et::PolynomialFit visual_axis_y_fit{5, 3};
-    et::PolynomialFit visual_axis_z_fit{5, 3};
+    std::vector<cv::Point3f> eye_centres{};
+    std::vector<cv::Point3f> nodal_points{};
+    std::vector<cv::Vec3f> visual_axes{};
 
     auto framework = std::make_shared<et::RandomImagesFramework>(camera_id, headless, model_path);
 
     while (framework->analyzeNextFrame())
     {
+        framework->updateUi();
         if (framework->wereFeaturesFound())
         {
             framework->getEyeDataPackage(eye_data_package);
@@ -190,72 +202,72 @@ polynomialCalculator(std::string model_path, int model_num, int camera_id, std::
                 continue;
             }
 
-            pupil_x.push_back(eye_data_package.pupil.x);
-            pupil_y.push_back(eye_data_package.pupil.y);
-            ellipse_x.push_back(eye_data_package.ellipse.center.x);
-            ellipse_y.push_back(eye_data_package.ellipse.center.y);
-            ellipse_width.push_back(eye_data_package.ellipse.size.width);
-            ellipse_height.push_back(eye_data_package.ellipse.size.height);
-            ellipse_angle.push_back(eye_data_package.ellipse.angle);
+            pupils.push_back(eye_data_package.pupil);
+            ellipses.push_back(eye_data_package.ellipse);
 
-            visual_axis_x.push_back(eye_features[1][current_row]);
-            visual_axis_y.push_back(eye_features[2][current_row]);
-            visual_axis_z.push_back(eye_features[3][current_row]);
-            eye_centre_x.push_back(eye_features[4][current_row]);
-            eye_centre_y.push_back(eye_features[5][current_row]);
-            eye_centre_z.push_back(eye_features[6][current_row]);
+            cv::Point3f nodal_point = {eye_features[1][current_row], eye_features[2][current_row],
+                                       eye_features[3][current_row]};
+            cv::Point3f eye_centre = {eye_features[4][current_row], eye_features[5][current_row],
+                                      eye_features[6][current_row]};
+
+            cv::Vec3f optical_axis = nodal_point - eye_centre;
+            optical_axis = optical_axis / cv::norm(optical_axis);
+            cv::Vec3f visual_axis = et::Utils::opticalToVisualAxis(optical_axis, setup_variables.alpha,
+                                                                   setup_variables.beta);
+
+            nodal_points.push_back(nodal_point);
+            eye_centres.push_back(eye_centre);
+            visual_axes.push_back(visual_axis);
+        }
+
+        if (!headless)
+        {
+            int key_pressed = cv::waitKey() & 0xFFFF;
+            switch (key_pressed)
+            {
+                case 'w':
+                    framework->switchToCameraImage();
+                    break;
+                case 'e':
+                    framework->switchToPupilThreshImage();
+                    break;
+                case 'r':
+                    framework->switchToGlintThreshImage();
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
-    bool result{true};
-    std::vector<std::vector<float> *> input_vars{5};
-    input_vars[0] = &pupil_x;
-    input_vars[1] = &ellipse_x;
-    input_vars[2] = &ellipse_width;
-    input_vars[3] = &ellipse_height;
-    input_vars[4] = &ellipse_angle;
-    result &= eye_centre_x_fit.fit(input_vars, &eye_centre_x);
-    result &= visual_axis_x_fit.fit(input_vars, &visual_axis_x);
-
-    input_vars[0] = &pupil_y;
-    input_vars[1] = &ellipse_y;
-    result &= eye_centre_y_fit.fit(input_vars, &eye_centre_y);
-    result &= visual_axis_y_fit.fit(input_vars, &visual_axis_y);
-
-    input_vars[0] = &ellipse_x;
-    result &= eye_centre_z_fit.fit(input_vars, &eye_centre_z);
-    result &= visual_axis_z_fit.fit(input_vars, &visual_axis_z);
-
-    if (!result)
+    if (nodal_points.size() < 1000)
     {
+        std::cerr << "Error: not enough data for model " << model_num << " for camera " << camera_id << std::endl;
         return;
     }
 
+    std::shared_ptr<et::PolynomialEyeEstimator> polynomial_eye_estimator = std::make_shared<et::PolynomialEyeEstimator>(
+            camera_id);
+
+    bool result = polynomial_eye_estimator->fitModel(pupils, ellipses, eye_centres, nodal_points, visual_axes);
+
+    if (!result)
+    {
+        std::cerr << "Error: polynomial fit failed for model " << model_num << " for camera " << camera_id << std::endl;
+        return;
+    }
 
     mutex.lock();
+    et::Settings::loadSettings();
     if (polynomial_params->contains(model_num))
     {
-        polynomial_params->at(model_num).coefficients = et::Coefficients{eye_centre_x_fit.getCoefficients(),
-                                                                         eye_centre_y_fit.getCoefficients(),
-                                                                         eye_centre_z_fit.getCoefficients(),
-                                                                         visual_axis_x_fit.getCoefficients(),
-                                                                         visual_axis_y_fit.getCoefficients(),
-                                                                         visual_axis_z_fit.getCoefficients()};
-        polynomial_params->at(model_num).setup_variables = et::SetupVariables{
-                cv::Mat{4, 4, CV_32F, setup_params->data() + 1}, cv::Mat{3, 3, CV_32F, setup_params->data() + 17},
-                setup_params->at(26), setup_params->at(27), setup_params->at(28), setup_params->at(29),
-                setup_params->at(30)};
+        polynomial_params->at(model_num).coefficients = polynomial_eye_estimator->getCoefficients();
+        polynomial_params->at(model_num).setup_variables = setup_variables;
     }
     else
     {
-        polynomial_params->emplace(model_num, et::PolynomialParams{
-                et::Coefficients{eye_centre_x_fit.getCoefficients(), eye_centre_y_fit.getCoefficients(),
-                                 eye_centre_z_fit.getCoefficients(), visual_axis_x_fit.getCoefficients(),
-                                 visual_axis_y_fit.getCoefficients(), visual_axis_z_fit.getCoefficients()},
-                et::SetupVariables{cv::Mat{4, 4, CV_32F, setup_params->data() + 1},
-                                   cv::Mat{3, 3, CV_32F, setup_params->data() + 17}, setup_params->at(26),
-                                   setup_params->at(27), setup_params->at(28), setup_params->at(29),
-                                   setup_params->at(30)}});
+        polynomial_params->emplace(model_num,
+                                   et::PolynomialParams{polynomial_eye_estimator->getCoefficients(), setup_variables});
     }
     et::Settings::saveSettings();
     mutex.unlock();
