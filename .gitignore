@@ -177,8 +177,6 @@ data/**
 *.mp4
 frame.png
 output/**
-build_options.hpp
-eye_tracker
 hdrmfs_eye_tracker
 
 .idea/*
@@ -186,3 +184,5 @@ videos/*
 images/*
 renders*/*
 cmake-build-*/*
+**/setups_left
+*.blend1
