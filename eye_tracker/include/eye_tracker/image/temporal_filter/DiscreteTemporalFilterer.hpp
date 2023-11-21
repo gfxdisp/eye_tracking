@@ -11,7 +11,7 @@ namespace et
     public:
         DiscreteTemporalFilterer(int camera_id);
 
-        void filterPupil(cv::Point2f &pupil, float &radius) override;
+        void filterPupil(cv::Point2d &pupil, double &radius) override;
 
         void filterGlints(std::vector<cv::Point2f> &glints) override;
 

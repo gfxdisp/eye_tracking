@@ -207,7 +207,7 @@ namespace et
                         }
                         message_buffer_[path_length] = '\0';
                         std::string meta_model_path = message_buffer_;
-                        cv::Point3f eye_centre = eye_trackers_[camera_id]->setMetaModel(meta_model_path);
+                        cv::Point3d eye_centre = eye_trackers_[camera_id]->setMetaModel(meta_model_path);
                         if (!sendAll(&eye_centre, sizeof(eye_centre)))
                         {
                             goto connect_failure;

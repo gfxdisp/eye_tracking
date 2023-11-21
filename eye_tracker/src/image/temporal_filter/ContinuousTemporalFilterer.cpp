@@ -26,7 +26,7 @@ namespace et
         bayes_solver_->setInitStep(step);
     }
 
-    void ContinuousTemporalFilterer::filterPupil(cv::Point2f &pupil, float &radius)
+    void ContinuousTemporalFilterer::filterPupil(cv::Point2d &pupil, double &radius)
     {
         pupil_kalman_.correct((cv::Mat_<double>(2, 1) << pupil.x, pupil.y));
         pupil_radius_kalman_.correct((cv::Mat_<double>(1, 1) << radius));
@@ -40,16 +40,16 @@ namespace et
         // estimated circle.
         std::sort(glints.begin(), glints.end(), [this](auto const &a, auto const &b)
         {
-            float distance_a = euclideanDistance(a, circle_centre_);
-            float distance_b = euclideanDistance(b, circle_centre_);
+            double distance_a = euclideanDistance(a, circle_centre_);
+            double distance_b = euclideanDistance(b, circle_centre_);
             return distance_a < distance_b;
         });
 
         glints.resize(std::min((int) glints.size(), 20));
 
-        cv::Point2f im_centre{*region_of_interest_ / 2};
+        cv::Point2d im_centre{*region_of_interest_ / 2};
         std::string bitmask(3, 1);
-        std::vector<cv::Point2f> circle_points{};
+        std::vector<cv::Point2d> circle_points{};
         circle_points.resize(3);
         int best_counter = 0;
         cv::Point2d best_circle_centre{};
@@ -115,25 +115,25 @@ namespace et
 
     void ContinuousTemporalFilterer::filterEllipse(cv::RotatedRect &ellipse)
     {
-        glint_ellipse_kalman_.correct((cv::Mat_<float>(5, 1)
+        glint_ellipse_kalman_.correct((cv::Mat_<double>(5, 1)
                 << ellipse.center.x, ellipse.center.y, ellipse.size.width, ellipse.size.height, ellipse.angle));
 
         cv::Mat predicted_ellipse = glint_ellipse_kalman_.predict();
-        ellipse.center.x = predicted_ellipse.at<float>(0, 0);
-        ellipse.center.y = predicted_ellipse.at<float>(1, 0);
-        ellipse.size.width = predicted_ellipse.at<float>(2, 0);
-        ellipse.size.height = predicted_ellipse.at<float>(3, 0);
-        ellipse.angle = predicted_ellipse.at<float>(4, 0);
+        ellipse.center.x = predicted_ellipse.at<double>(0, 0);
+        ellipse.center.y = predicted_ellipse.at<double>(1, 0);
+        ellipse.size.width = predicted_ellipse.at<double>(2, 0);
+        ellipse.size.height = predicted_ellipse.at<double>(3, 0);
+        ellipse.angle = predicted_ellipse.at<double>(4, 0);
     }
 
-    cv::KalmanFilter ContinuousTemporalFilterer::createPixelKalmanFilter(const cv::Size2i &resolution, float framerate)
+    cv::KalmanFilter ContinuousTemporalFilterer::createPixelKalmanFilter(const cv::Size2i &resolution, double framerate)
     {
         // Expected average saccade time.
         double saccade_length_sec = 0.1;
-        double saccade_per_frame = std::fmin(saccade_length_sec / (1.0f / framerate), 1.0f);
+        double saccade_per_frame = std::fmin(saccade_length_sec / (1.0 / framerate), 1.0);
         double velocity_decay = 1.0f - saccade_per_frame;
-        cv::Mat transition_matrix{(cv::Mat_<double>(4, 4) << 1, 0, 1.0f / framerate, 0, 0, 1, 0, 1.0f /
-                                                                                                 framerate, 0, velocity_decay, 0, 0, 0, 0, 0, velocity_decay)};
+        cv::Mat transition_matrix{(cv::Mat_<double>(4, 4) << 1, 0, 1.0 / framerate, 0, 0, 1, 0, 1.0 /
+                                                                                                framerate, 0, velocity_decay, 0, 0, 0, 0, 0, velocity_decay)};
         cv::Mat measurement_matrix{(cv::Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 1, 0, 0)};
         cv::Mat process_noise_cov{cv::Mat::eye(4, 4, CV_64F) * 2};
         cv::Mat measurement_noise_cov{cv::Mat::eye(2, 2, CV_64F) * 5};
@@ -153,13 +153,13 @@ namespace et
     }
 
     cv::KalmanFilter
-    ContinuousTemporalFilterer::createRadiusKalmanFilter(const float &min_radius, const float &max_radius,
-                                                         float framerate)
+    ContinuousTemporalFilterer::createRadiusKalmanFilter(const double &min_radius, const double &max_radius,
+                                                         double framerate)
     {
         double radius_change_time_sec = 1.0;
-        double radius_change_per_frame = std::fmin(radius_change_time_sec / (1.0f / framerate), 1.0f);
-        double velocity_decay = 1.0f - radius_change_per_frame;
-        cv::Mat transition_matrix{(cv::Mat_<double>(2, 2) << 1, 1.0f / framerate, 0, velocity_decay)};
+        double radius_change_per_frame = std::fmin(radius_change_time_sec / (1.0 / framerate), 1.0);
+        double velocity_decay = 1.0 - radius_change_per_frame;
+        cv::Mat transition_matrix{(cv::Mat_<double>(2, 2) << 1, 1.0 / framerate, 0, velocity_decay)};
         cv::Mat measurement_matrix{(cv::Mat_<double>(1, 2) << 1, 0)};
         cv::Mat process_noise_cov{cv::Mat::eye(2, 2, CV_64F) * 2};
         cv::Mat measurement_noise_cov{(cv::Mat_<double>(1, 1) << 5)};
@@ -179,26 +179,25 @@ namespace et
     }
 
     cv::KalmanFilter
-    ContinuousTemporalFilterer::createEllipseKalmanFilter(const cv::Size2i &resolution, float framerate)
+    ContinuousTemporalFilterer::createEllipseKalmanFilter(const cv::Size2i &resolution, double framerate)
     {
         // Expected average saccade time.
         double saccade_length_sec = 0.1;
-        double saccade_per_frame = std::fmin(saccade_length_sec / (1.0f / framerate), 1.0f);
-        double velocity_decay = 1.0f - saccade_per_frame;
+        double saccade_per_frame = std::fmin(saccade_length_sec / (1.0 / framerate), 1.0);
+        double velocity_decay = 1.0 - saccade_per_frame;
         cv::Mat transition_matrix{
-                (cv::Mat_<float>(10, 10) << 1, 0, 0, 0, 0, 1.0f / framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1.0f /
-                                                                                                            framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-                        1.0f / framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1.0f / framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-                        1.0f /
+                (cv::Mat_<double>(10, 10) << 1, 0, 0, 0, 0, 1.0 / framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1.0 /
+                                                                                                           framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+                        1.0 / framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1.0 / framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+                        1.0 /
                         framerate, 0, 0, 0, 0, 0, velocity_decay, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, velocity_decay, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, velocity_decay, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, velocity_decay, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, velocity_decay)};
-        cv::Mat measurement_matrix{(cv::Mat_<float>(5, 10)
+        cv::Mat measurement_matrix{(cv::Mat_<double>(5, 10)
                 << 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0)};
-        cv::Mat process_noise_cov{cv::Mat::eye(10, 10, CV_32F) * 2};
-        cv::Mat measurement_noise_cov{cv::Mat::eye(5, 5, CV_32F) * 5};
-        cv::Mat error_cov_post{cv::Mat::eye(10, 10, CV_32F)};
-        cv::Mat state_post{
-                (cv::Mat_<float>(10, 1) << resolution.width / 2, resolution.height / 2, resolution.width / 4,
-                        resolution.height / 4, 0)};
+        cv::Mat process_noise_cov{cv::Mat::eye(10, 10, CV_64F) * 2};
+        cv::Mat measurement_noise_cov{cv::Mat::eye(5, 5, CV_64F) * 5};
+        cv::Mat error_cov_post{cv::Mat::eye(10, 10, CV_64F)};
+        cv::Mat state_post{(cv::Mat_<double>(10, 1) << resolution.width / 2.0, resolution.height / 2.0, resolution.width / 4.0,
+                resolution.height / 4.0, 0.0)};
 
         cv::KalmanFilter KF(10, 5);
         KF.transitionMatrix = transition_matrix;
@@ -207,6 +206,7 @@ namespace et
         KF.measurementNoiseCov = measurement_noise_cov;
         KF.errorCovPost = error_cov_post;
         KF.statePost = state_post;
+        KF.predict();
         return KF;
     }
 

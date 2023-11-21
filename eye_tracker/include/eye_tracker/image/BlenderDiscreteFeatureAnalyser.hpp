@@ -11,9 +11,9 @@ namespace et
     public:
         explicit BlenderDiscreteFeatureAnalyser(int camera_id);
 
-        cv::Point2f undistort(cv::Point2f point) override;
+        cv::Point2d undistort(cv::Point2d point) override;
 
-        cv::Point2f distort(cv::Point2f point) override;
+        cv::Point2d distort(cv::Point2d point) override;
     };
 
 } // et

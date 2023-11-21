@@ -13,25 +13,25 @@ namespace et
         max_pupil_radius_ = &Settings::parameters.detection_params[camera_id].max_pupil_radius;
     }
 
-    bool ContourPositionEstimator::findPupil(cv::Mat &image, cv::Point2f &pupil_position, float &radius)
+    bool ContourPositionEstimator::findPupil(cv::Mat &image, cv::Point2d &pupil_position, double &radius)
     {
         cv::findContours(image, contours_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-        cv::Point2f best_pupil_position{};
-        float best_radius{};
-        float best_rating{0};
+        cv::Point2d best_pupil_position{};
+        double best_radius{};
+        double best_rating{0};
 
-        cv::Point2f image_centre{*pupil_search_centre_};
-        auto max_distance = (float) (*pupil_search_radius_);
+        cv::Point2d image_centre{*pupil_search_centre_};
+        auto max_distance = (double) (*pupil_search_radius_);
 
         // All the contours are analyzed
         for (const std::vector<cv::Point> &contour: contours_)
         {
-            cv::Point2f est_pupil_position;
-            float est_radius;
+            cv::Point2d est_pupil_position;
+            double est_radius;
 
             cv::Rect bound_rect = cv::boundingRect(contour);
             est_pupil_position = 0.5 * (bound_rect.tl() + bound_rect.br());
-            est_radius = (float) std::max(bound_rect.width, bound_rect.height) / 2;
+            est_radius =  std::max(bound_rect.width, bound_rect.height) / 2.0;
 
             // Contours forming too small or too large pupils are rejected.
             if (est_radius < *min_pupil_radius_ or est_radius > *max_pupil_radius_)
@@ -40,16 +40,16 @@ namespace et
             }
 
             // Contours outside the hole in the view piece are rejected.
-            float distance = euclideanDistance(est_pupil_position, image_centre);
+            double distance = euclideanDistance(est_pupil_position, image_centre);
             if (distance > max_distance)
             {
                 continue;
             }
 
             // Contours are rated according to their similarity to the circle.
-            const float contour_area = static_cast<float>(cv::contourArea(contour));
-            const float circle_area = 3.1415926f * powf(est_radius, 2);
-            float rating = contour_area / circle_area;
+            const double contour_area = static_cast<double>(cv::contourArea(contour));
+            const double circle_area = M_PI * pow(est_radius, 2.0);
+            double rating = contour_area / circle_area;
             if (rating >= best_rating)
             {
                 best_pupil_position = est_pupil_position;

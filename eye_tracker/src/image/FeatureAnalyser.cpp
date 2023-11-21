@@ -13,24 +13,24 @@ namespace et
         glint_locations_undistorted_.resize(Settings::parameters.leds_positions[camera_id].size());
     }
 
-    cv::Point2f FeatureAnalyser::getPupilUndistorted()
+    cv::Point2d FeatureAnalyser::getPupilUndistorted()
     {
         return pupil_location_undistorted_;
     }
 
-    cv::Point2f FeatureAnalyser::getPupilDistorted()
+    cv::Point2d FeatureAnalyser::getPupilDistorted()
     {
         return pupil_location_distorted_;
     }
 
-    void FeatureAnalyser::getPupilUndistorted(cv::Point2f &pupil)
+    void FeatureAnalyser::getPupilUndistorted(cv::Point2d &pupil)
     {
         mtx_features_.lock();
         pupil = pupil_location_undistorted_;
         mtx_features_.unlock();
     }
 
-    void FeatureAnalyser::getPupilBuffered(cv::Point2f &pupil)
+    void FeatureAnalyser::getPupilBuffered(cv::Point2d &pupil)
     {
         mtx_features_.lock();
         pupil = pupil_location_buffered_;
@@ -47,12 +47,12 @@ namespace et
         return pupil_radius_distorted_;
     }
 
-    std::vector<cv::Point2f> *FeatureAnalyser::getGlints()
+    std::vector<cv::Point2d> *FeatureAnalyser::getGlints()
     {
         return &glint_locations_undistorted_;
     }
 
-    std::vector<cv::Point2f> *FeatureAnalyser::getDistortedGlints()
+    std::vector<cv::Point2d> *FeatureAnalyser::getDistortedGlints()
     {
         return &glint_locations_distorted_;
     }
@@ -69,8 +69,8 @@ namespace et
 
     bool FeatureAnalyser::findPupil()
     {
-        cv::Point2f estimated_pupil_location{};
-        float estimated_pupil_radius{};
+        cv::Point2d estimated_pupil_location{};
+        double estimated_pupil_radius{};
         bool success = position_estimator_->findPupil(pupil_thresholded_image_, estimated_pupil_location,
                                                       estimated_pupil_radius);
 
@@ -85,14 +85,14 @@ namespace et
         pupil_radius_distorted_ = estimated_pupil_radius;
 
         auto centre_undistorted = undistort(estimated_pupil_location);
-        cv::Point2f pupil_left_side = estimated_pupil_location;
+        cv::Point2d pupil_left_side = estimated_pupil_location;
         pupil_left_side.x -= estimated_pupil_radius;
-        cv::Point2f pupil_right_side = estimated_pupil_location;
+        cv::Point2d pupil_right_side = estimated_pupil_location;
         pupil_right_side.x += estimated_pupil_radius;
 
         auto left_side_undistorted = undistort(pupil_left_side);
         auto right_side_undistorted = undistort(pupil_right_side);
-        float radius_undistorted = (right_side_undistorted.x - left_side_undistorted.x) * 0.5f;
+        double radius_undistorted = (right_side_undistorted.x - left_side_undistorted.x) * 0.5;
         mtx_features_.lock();
         pupil_location_undistorted_ = centre_undistorted;
         pupil_radius_undistorted_ = radius_undistorted;
@@ -146,7 +146,7 @@ namespace et
         for (int i = 0; i < 2; i++)
         {
             glint_locations_undistorted_[i] =
-                    glint_ellipse_undistorted_.center - glint_ellipse_distorted_.center + glint_locations_distorted_[i];
+                    (cv::Point2d) glint_ellipse_undistorted_.center - (cv::Point2d) glint_ellipse_distorted_.center + glint_locations_distorted_[i];
         }
         glint_represent_undistorted_ = glint_ellipse_undistorted_.center;
         mtx_features_.unlock();
@@ -168,14 +168,14 @@ namespace et
         return image;
     }
 
-    void FeatureAnalyser::getPupilGlintVector(cv::Vec2f &pupil_glint_vector)
+    void FeatureAnalyser::getPupilGlintVector(cv::Vec2d &pupil_glint_vector)
     {
         mtx_features_.lock();
         pupil_glint_vector = pupil_location_undistorted_ - glint_represent_undistorted_;
         mtx_features_.unlock();
     }
 
-    void FeatureAnalyser::getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector)
+    void FeatureAnalyser::getPupilGlintVectorFiltered(cv::Vec2d &pupil_glint_vector)
     {
         mtx_features_.lock();
         pupil_glint_vector = pupil_location_buffered_ - glint_location_filtered_;
@@ -219,10 +219,10 @@ namespace et
             glint_location_buffer_.resize(buffer_size_);
             buffer_idx_ = 0;
             buffer_summed_count_ = 0;
-            pupil_location_summed_.x = 0.0f;
-            pupil_location_summed_.y = 0.0f;
-            glint_location_summed_.x = 0.0f;
-            glint_location_summed_.y = 0.0f;
+            pupil_location_summed_.x = 0.0;
+            pupil_location_summed_.y = 0.0;
+            glint_location_summed_.x = 0.0;
+            glint_location_summed_.y = 0.0;
         }
 
         if (buffer_summed_count_ == buffer_size_)

@@ -11,7 +11,7 @@ namespace et
         glints_template_ = cv::cuda::GpuMat(glints_template_cpu.rows, glints_template_cpu.cols, CV_8UC1);
         glints_template_.upload(glints_template_cpu);
         template_matcher_ = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF);
-        template_crop_ = (cv::Mat_<float>(2, 3) << 1, 0, glints_template_.cols / 2, 0, 1, glints_template_.rows / 2);
+        template_crop_ = (cv::Mat_<double>(2, 3) << 1, 0, glints_template_.cols / 2, 0, 1, glints_template_.rows / 2);
     }
 
     void CameraImagePreprocessor::preprocess(const EyeImage &input, EyeImage &output)

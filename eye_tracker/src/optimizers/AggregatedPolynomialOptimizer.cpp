@@ -27,7 +27,7 @@ namespace et
         for (int i = 0; i < 6; i++)
         {
             int coeff_num = fitters[i]->getCoefficients().size();
-            std::vector<float> coefficients{};
+            std::vector<double> coefficients{};
             for (int j = 0; j < coeff_num; j++)
             {
                 coefficients.push_back(x[counter++]);
@@ -35,21 +35,21 @@ namespace et
             fitters[i]->setCoefficients(coefficients);
         }
 
-        float total_error = 0;
+        double total_error = 0;
         for (int i = 0; i < pupils.size(); i++)
         {
             EyeInfo eye_info = {.pupil = pupils[i], .ellipse = ellipses[i]};
 
-            cv::Point3f nodal_point{}, eye_centre{}, visual_axis{};
+            cv::Point3d nodal_point{}, eye_centre{}, visual_axis{};
 
             polynomial_eye_estimator->detectEye(eye_info, nodal_point, eye_centre, visual_axis);
 
-            float angle = Utils::getAngleBetweenVectors(visual_axis, visual_axes[i]) * 180 / CV_PI;
-            float distance = cv::norm(eye_centre - eye_centres[i]);
+            double angle = Utils::getAngleBetweenVectors(visual_axis, visual_axes[i]) * 180.0 / CV_PI;
+            double distance = cv::norm(eye_centre - eye_centres[i]);
             total_error += std::abs(angle) / ACCEPTABLE_ANGLE_ERROR + distance / ACCEPTABLE_DISTANCE_ERROR;
         }
 
         std::clog << "Current error: " << total_error / pupils.size() << std::endl;
-        return total_error / (pupils.size() * 2);
+        return total_error / (pupils.size() * 2.0);
     }
 } // et

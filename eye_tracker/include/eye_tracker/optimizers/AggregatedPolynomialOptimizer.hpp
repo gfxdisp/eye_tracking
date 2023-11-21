@@ -11,19 +11,19 @@ namespace et
     class AggregatedPolynomialOptimizer : public cv::DownhillSolver::Function
     {
     public:
-        std::vector<cv::Point2f> pupils{};
+        std::vector<cv::Point2d> pupils{};
         std::vector<cv::RotatedRect> ellipses{};
 
-        std::vector<cv::Point3f> eye_centres{};
-        std::vector<cv::Vec3f> visual_axes{};
+        std::vector<cv::Point3d> eye_centres{};
+        std::vector<cv::Vec3d> visual_axes{};
 
         double calc(const double *x) const override;
 
-        constexpr static float ACCEPTABLE_ANGLE_ERROR = 0.5f;
-//        constexpr static float ACCEPTABLE_ANGLE_ERROR = 1.0f;
+        constexpr static double ACCEPTABLE_ANGLE_ERROR = 0.5;
+//        constexpr static double ACCEPTABLE_ANGLE_ERROR = 1.0;
 
-        constexpr static float ACCEPTABLE_DISTANCE_ERROR = 0.1553f;
-//        constexpr static float ACCEPTABLE_DISTANCE_ERROR = 0.4105f;
+        constexpr static double ACCEPTABLE_DISTANCE_ERROR = 0.1553;
+//        constexpr static double ACCEPTABLE_DISTANCE_ERROR = 0.4105;
     private:
         int getDims() const override;
 

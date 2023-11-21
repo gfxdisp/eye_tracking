@@ -12,7 +12,7 @@ namespace et
     public:
         TemporalFilterer(int camera_id);
 
-        virtual void filterPupil(cv::Point2f &pupil, float &radius) = 0;
+        virtual void filterPupil(cv::Point2d &pupil, double &radius) = 0;
 
         virtual void filterGlints(std::vector<cv::Point2f> &glints) = 0;
 

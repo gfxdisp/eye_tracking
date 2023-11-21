@@ -24,10 +24,10 @@ class SetupParameters:
         self.roi = camera_params['region_of_interest']
 
         self.cornea_centre_distance = 5.3 / 1000  # m
-        self.cornea_curvature_radius = 7.8 / 1000  # m
+        self.cornea_curvature_radius = 8.2 / 1000  # m
         self.cornea_refraction_index = 1.3375
-        self.alpha = 5.0 if eye == 'left' else -5.0  # degrees
-        self.beta = 1.5  # degrees
+        self.alpha = -2.758 if eye == 'left' else -5.0  # degrees
+        self.beta = 4.244  # degrees
 
         # self.cornea_centre_distance = 6.32233071280933 / 1000  # m
         # self.cornea_curvature_radius = 8.0096467356863 / 1000  # m
@@ -67,13 +67,13 @@ class SetupParameters:
             # self.M_intr[[0, 1], [0, 1]] += np.random.normal(0, self.focal_length_error_std)
             # self.M_intr[[0, 1], [2, 2]] += np.random.normal(0, self.principal_shift_error_std)
 
-        self.cornea_centre_distance += np.random.normal(0, self.eyeball_to_cornea_dist_error_std)
-        self.cornea_curvature_radius += np.random.normal(0, self.cornea_radius_error_std)
+        # self.cornea_centre_distance += np.random.normal(0, self.eyeball_to_cornea_dist_error_std)
+        # self.cornea_curvature_radius += np.random.normal(0, self.cornea_radius_error_std)
+        #
+        # self.cornea_refraction_index += np.random.normal(0, self.cornea_refraction_index_error_std)
 
-        self.cornea_refraction_index += np.random.normal(0, self.cornea_refraction_index_error_std)
-
-        self.alpha += np.random.normal(0, self.alpha_error_std)
-        self.beta += np.random.normal(0, self.beta_error_std)
+        # self.alpha += np.random.normal(0, self.alpha_error_std)
+        # self.beta += np.random.normal(0, self.beta_error_std)
 
 
 def get_rot_x(angle_deg):

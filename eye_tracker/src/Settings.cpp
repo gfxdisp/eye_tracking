@@ -29,24 +29,24 @@ namespace et
         j.at("pixel_clock").get_to(camera_params.pixel_clock);
         j.at("gamma").get_to(camera_params.gamma);
         j.at("distortion_coefficients").get_to(camera_params.distortion_coefficients);
-        std::vector<float> d_data{};
+        std::vector<double> d_data{};
         j.at("intrinsic_matrix").get_to(d_data);
-        camera_params.intrinsic_matrix = cv::Mat(3, 3, CV_32FC1);
+        camera_params.intrinsic_matrix = cv::Mat(3, 3, CV_64FC1);
         for (int i = 0; i < 3; i++) {
             for (int k = 0; k < 3; k++) {
-                camera_params.intrinsic_matrix.at<float>(cv::Point(i, k)) = d_data[i * 3 + k];
+                camera_params.intrinsic_matrix.at<double>(cv::Point(i, k)) = d_data[i * 3 + k];
             }
         }
         d_data.clear();
         j.at("extrinsic_matrix").get_to(d_data);
-        camera_params.extrinsic_matrix = cv::Mat(4, 4, CV_32FC1);
+        camera_params.extrinsic_matrix = cv::Mat(4, 4, CV_64FC1);
         for (int i = 0; i < 4; i++) {
             for (int k = 0; k < 4; k++) {
-                camera_params.extrinsic_matrix.at<float>(cv::Point(i, k)) = d_data[i * 4 + k];
+                camera_params.extrinsic_matrix.at<double>(cv::Point(i, k)) = d_data[i * 4 + k];
             }
         }
         j.at("gaze_shift").get_to(d_data);
-        camera_params.gaze_shift = cv::Vec3f(d_data[0], d_data[1], d_data[2]);
+        camera_params.gaze_shift = cv::Vec3d(d_data[0], d_data[1], d_data[2]);
     }
 
     void to_json(json &j, const CameraParams &camera_params)
@@ -61,12 +61,12 @@ namespace et
         j["gamma"] = camera_params.gamma;
         for (int i = 0; i < 3; i++) {
             for (int k = 0; k < 3; k++) {
-                j["intrinsic_matrix"][i * 3 + k] = camera_params.intrinsic_matrix.at<float>(cv::Point(i, k));
+                j["intrinsic_matrix"][i * 3 + k] = camera_params.intrinsic_matrix.at<double>(cv::Point(i, k));
             }
         }
         for (int i = 0; i < 4; i++) {
             for (int k = 0; k < 4; k++) {
-                j["extrinsic_matrix"][i * 4 + k] = camera_params.extrinsic_matrix.at<float>(cv::Point(i, k));
+                j["extrinsic_matrix"][i * 4 + k] = camera_params.extrinsic_matrix.at<double>(cv::Point(i, k));
             }
         }
         for (int i = 0; i < camera_params.distortion_coefficients.size(); i++)
@@ -96,7 +96,7 @@ namespace et
         j.at("max_hor_glint_pupil_distance").get_to(detection_params.max_hor_glint_pupil_distance);
         j.at("max_vert_glint_pupil_distance").get_to(detection_params.max_vert_glint_pupil_distance);
 
-        std::vector<float> data{};
+        std::vector<double> data{};
         j.at("pupil_search_centre").get_to(data);
         detection_params.pupil_search_centre = {data[0], data[1]};
 
@@ -227,10 +227,10 @@ namespace et
         std::string_view side_names[] = {"left", "right"};
         for (int i = 0; i < 2; i++)
         {
-            std::vector<std::vector<float>> data{};
+            std::vector<std::vector<double>> data{};
             j.at("led_positions").at(side_names[i]).get_to(data);
 
-            static cv::Vec3f origin{1e6, 1e6, 1e6};
+            static cv::Vec3d origin{1e6, 1e6, 1e6};
             origin(0) = origin(1) = origin(2) = 1e6;
             for (const auto &item: data)
             {
@@ -255,7 +255,7 @@ namespace et
     {
         j["camera_params"]["left"] = parameters.camera_params[0];
         j["camera_params"]["right"] = parameters.camera_params[1];
-        std::vector<std::vector<float>> data{};
+        std::vector<std::vector<double>> data{};
         for (int i = 0; i < parameters.leds_positions[0].size(); i++)
         {
             j["led_positions"]["left"][i] = {parameters.leds_positions[0][i](0), parameters.leds_positions[0][i](1),

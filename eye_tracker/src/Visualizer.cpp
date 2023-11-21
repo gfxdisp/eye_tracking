@@ -75,7 +75,7 @@ namespace et
     {
         if (++frame_index_ == FRAMES_FOR_FPS_MEASUREMENT)
         {
-            const std::chrono::duration<float> frame_time = std::chrono::steady_clock::now() - last_frame_time_;
+            const std::chrono::duration<double> frame_time = std::chrono::steady_clock::now() - last_frame_time_;
             fps_text_.str(""); // Clear contents of fps_text
             fps_text_ << 1s / (frame_time / FRAMES_FOR_FPS_MEASUREMENT);
             frame_index_ = 0;
@@ -101,9 +101,9 @@ namespace et
         return image;
     }
 
-    float Visualizer::getAvgFramerate()
+    double Visualizer::getAvgFramerate()
     {
-        return total_framerate_ / (float) total_frames_;
+        return total_framerate_ / (double) total_frames_;
     }
 
     void Visualizer::onPupilThresholdUpdate(int value, void *ptr)
@@ -139,15 +139,15 @@ namespace et
     void Visualizer::onExposureUpdate(int value)
     {
         // Scales exposure to millimeters
-        user_params_->exposure = (float) value / 100.0f;
+        user_params_->exposure = (double) value / 100.0;
     }
 
-    void Visualizer::drawPupil(cv::Point2f pupil, int radius)
+    void Visualizer::drawPupil(cv::Point2d pupil, int radius)
     {
         cv::circle(image_, pupil, radius, cv::Scalar(0xFF, 0xFF, 0x00), 1);
     }
 
-    void Visualizer::drawGlints(std::vector<cv::Point2f> *glints)
+    void Visualizer::drawGlints(std::vector<cv::Point2d> *glints)
     {
         for (const auto &glint: (*glints))
         {
@@ -155,17 +155,17 @@ namespace et
         }
     }
 
-    void Visualizer::drawBoundingCircle(cv::Point2f centre, int radius)
+    void Visualizer::drawBoundingCircle(cv::Point2d centre, int radius)
     {
         cv::circle(image_, centre, radius, cv::Scalar(0xFF, 0xFF, 0x00), 1);
     }
 
-    void Visualizer::drawEyeCentre(cv::Point2f eye_centre)
+    void Visualizer::drawEyeCentre(cv::Point2d eye_centre)
     {
         cv::circle(image_, eye_centre, 2, cv::Scalar(0x00, 0x80, 0x00), 5);
     }
 
-    void Visualizer::drawCorneaCentre(cv::Point2f cornea_centre)
+    void Visualizer::drawCorneaCentre(cv::Point2d cornea_centre)
     {
         cv::circle(image_, cornea_centre, 2, cv::Scalar(0x00, 0xFF, 0xFF), 5);
     }

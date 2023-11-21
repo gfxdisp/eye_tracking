@@ -40,7 +40,7 @@ namespace et
         return total_value;
     }
 
-    void GlintCircleOptimizer::setParameters(const std::vector<cv::Point2f> &glints, const cv::Point2d &previous_centre,
+    void GlintCircleOptimizer::setParameters(const std::vector<cv::Point2d> &glints, const cv::Point2d &previous_centre,
                                              double previous_radius)
     {
         glints_ = glints;

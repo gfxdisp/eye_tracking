@@ -9,19 +9,19 @@ namespace et
     class OpticalAxisOptimizer : public cv::DownhillSolver::Function
     {
     public:
-        void setParameters(float alpha, float beta, float cornea_centre_distance, cv::Point3f eye_centre,
-                           cv::Point3f focus_point);
+        void setParameters(double alpha, double beta, double cornea_centre_distance, cv::Point3d eye_centre,
+                           cv::Point3d focus_point);
 
     private:
         int getDims() const override;
 
         double calc(const double *x) const override;
 
-        float alpha_{};
-        float beta_{};
-        float cornea_centre_distance_{};
-        cv::Point3f eye_centre_{};
-        cv::Point3f focus_point_{};
+        double alpha_{};
+        double beta_{};
+        double cornea_centre_distance_{};
+        cv::Point3d eye_centre_{};
+        cv::Point3d focus_point_{};
     };
 
 } // et

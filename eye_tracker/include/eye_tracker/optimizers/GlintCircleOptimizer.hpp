@@ -17,13 +17,13 @@ public:
      * in the previous frame.
      * @param previous_radius a radius of the circle fit in the previous frame.
      */
-    void setParameters(const std::vector<cv::Point2f> &glints,
+    void setParameters(const std::vector<cv::Point2d> &glints,
                        const cv::Point2d &previous_centre,
                        double previous_radius);
 
 private:
     // A vector of glints in the current frame.
-    std::vector<cv::Point2f> glints_{};
+    std::vector<cv::Point2d> glints_{};
     // Expected error of the glint positions (in pixels).
     double glints_sigma_{2};
     // Position of the circle's centre from the previous frame.

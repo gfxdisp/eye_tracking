@@ -31,49 +31,22 @@ def stdout_redirected(to=os.devnull):
         os.close(old_stdout.fileno())
 
 
-def look_at(focus_point, alpha, beta, eyeball_to_cornea_dist):
-    eye = bpy.data.objects.get("Eye")
-    eye_world_pos = np.array(eye.matrix_world.translation)
-    x0 = (focus_point - eye_world_pos) / np.linalg.norm(focus_point - eye_world_pos)
-
-    optical_axis = minimize(find_optical_axis, x0,
-                            args=(eye_world_pos, focus_point, alpha, beta, eyeball_to_cornea_dist)).x
-    optical_axis = optical_axis / np.linalg.norm(optical_axis)
-
-    point_on_sphere = eye_world_pos + eyeball_to_cornea_dist * optical_axis
-
-    r = np.linalg.norm(point_on_sphere - eye_world_pos)
-    theta = np.math.acos((point_on_sphere[2] - eye_world_pos[2]) / r)
-    phi = np.math.atan2(point_on_sphere[1] - eye_world_pos[1], point_on_sphere[0] - eye_world_pos[0])
-
-    q = Euler((0, -0.5 * np.pi, 0), 'XYZ').to_quaternion()
-    q.rotate(Euler((0, theta, phi), 'XYZ'))
-    eye.rotation_mode = 'QUATERNION'
-    eye.rotation_quaternion = q
+def get_rot_x(angle):
+    return np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
 
 
-def find_optical_axis(optical_axis, eye_pos, focus_point, alpha, beta, eyeball_to_cornea_dist):
-    optical_axis = optical_axis / np.linalg.norm(optical_axis)
-    visual_axis = get_visual_axis(optical_axis, alpha, beta)
-    cornea_pos = eye_pos + eyeball_to_cornea_dist * optical_axis
-
-    distance = point_to_line_dist(focus_point, cornea_pos, visual_axis)
-    return distance
+def get_rot_y(angle):
+    return np.array([[np.cos(angle), 0, np.sin(angle)], [0, 1, 0], [-np.sin(angle), 0, np.cos(angle)]])
 
 
-def get_visual_axis(optical_axis, alpha, beta):
-    optical_axis = optical_axis / np.linalg.norm(optical_axis)
+def get_rot_z(angle):
+    return np.array([[np.cos(angle), -np.sin(angle), 0], [np.sin(angle), np.cos(angle), 0], [0, 0, 1]])
 
-    phi = np.math.asin(optical_axis[1])
-    theta = np.math.asin(optical_axis[0] / np.cos(phi))
 
-    theta += np.deg2rad(alpha)
-    phi += np.deg2rad(beta)
-
-    visual_axis = np.array([np.sin(theta) * np.cos(phi), np.sin(phi), -np.cos(theta) * np.cos(phi)])
-    visual_axis = visual_axis / np.linalg.norm(visual_axis)
-
-    return visual_axis
+def axis_and_angle_to_rot_mat(axis, angle):
+    K = np.array([[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]])
+    R = np.eye(3, 3) + np.sin(angle) * K + (1 - np.cos(angle)) * K @ K
+    return R
 
 
 def point_to_line_dist(line_point, point, line_direction):
@@ -81,6 +54,79 @@ def point_to_line_dist(line_point, point, line_direction):
     projection = np.dot(V, line_direction) / np.linalg.norm(line_direction) ** 2 * line_direction
     distance = np.linalg.norm(V - projection)
     return distance
+
+
+def optical_to_visual(optical_axis, alpha, beta):
+    forward = optical_axis / np.linalg.norm(optical_axis)
+    theta = np.arctan2(optical_axis[0], optical_axis[2]) - np.pi
+    phi = -(np.arccos(optical_axis[1]) - np.pi / 2)
+
+    R = get_rot_y(theta) @ get_rot_x(phi)
+    right = R @ np.array([1, 0, 0])
+    up = R @ np.array([0, 1, 0])
+
+    R = axis_and_angle_to_rot_mat(up, np.deg2rad(-alpha))
+    forward = R @ forward
+    right = R @ right
+
+    R = axis_and_angle_to_rot_mat(right, np.deg2rad(-beta))
+    visual_axis = R @ forward
+
+    return visual_axis
+
+
+def visual_to_optical(visual_axis, alpha, beta):
+    def calculate_error(angles, visual_axis, alpha, beta):
+        phi = angles[0]
+        theta = angles[1]
+        R = get_rot_y(theta) @ get_rot_x(phi)
+        calc_optical_axis = R @ np.array([0, 0, -1])
+        calc_visual_axis = optical_to_visual(calc_optical_axis, alpha, beta)
+        calc_visual_axis = calc_visual_axis / np.linalg.norm(calc_visual_axis)
+        error = np.sum(np.abs(calc_visual_axis - visual_axis))
+        return error
+
+    angles = minimize(calculate_error, visual_axis, args=(visual_axis, alpha, beta), method='Nelder-Mead').x
+    phi = angles[0]
+    theta = angles[1]
+    R = get_rot_y(theta) @ get_rot_x(phi)
+    optical_axis = R @ np.array([0, 0, -1])
+    return optical_axis
+
+
+def find_optical_axis(angles, eye_pos, focus_point, alpha, beta, eyeball_to_cornea_dist):
+    phi = angles[0]
+    theta = angles[1]
+    R = get_rot_y(theta) @ get_rot_x(phi)
+    optical_axis = R @ np.array([0, 0, -1])
+    optical_axis = optical_axis / np.linalg.norm(optical_axis)
+
+    visual_axis = optical_to_visual(optical_axis, alpha, beta)
+    cornea_pos = eye_pos + eyeball_to_cornea_dist * optical_axis
+
+    distance = point_to_line_dist(focus_point, cornea_pos, visual_axis)
+    return distance
+
+
+def look_at(focus_point, alpha, beta, eyeball_to_cornea_dist):
+    eye = bpy.data.objects.get("Eye")
+    eye_world_pos = np.array(eye.matrix_world.translation)
+
+    test_axis = focus_point - eye_world_pos
+    test_axis /= np.linalg.norm(test_axis)
+    theta = np.arctan2(test_axis[0], test_axis[2]) - np.pi
+    phi = -(np.arccos(test_axis[1]) - np.pi / 2)
+
+    x0 = np.array([phi, theta])
+
+    angles = minimize(find_optical_axis, x0,
+                      args=(eye_world_pos, focus_point, alpha, beta, eyeball_to_cornea_dist)).x
+
+    phi = angles[0]
+    theta = angles[1]
+
+    eye.rotation_mode = 'XYZ'
+    eye.rotation_euler = (phi, theta, 0)
 
 
 def render_images(setup_params, images_num, folder_path, csv_path):
@@ -130,16 +176,13 @@ def render_images(setup_params, images_num, folder_path, csv_path):
         led.location = leds_poses[i, :]
 
     eye = bpy.data.objects['Eye']
-    eye.rotation_mode = 'XZY'
-    eye.rotation_euler = (0, 0.5 * np.pi, 0)
+    eye.rotation_mode = 'XYZ'
+    eye.rotation_euler = (0, 0, 0)
 
     cornea = bpy.data.objects['Cornea']
-    cornea_size = setup_params.cornea_curvature_radius * 2
     cornea.rotation_mode = 'XYZ'
     cornea.rotation_euler = (0, 0, 0)
-    cornea.scale = (cornea_size, cornea_size, cornea_size)
-    cornea.matrix_world.translation = np.array(eye.matrix_world.translation) - np.array(
-        [0, 0, setup_params.cornea_centre_distance])
+    cornea.location = (0, 0, -setup_params.cornea_centre_distance)
 
     bpy.data.materials['Cornea'].node_tree.nodes['Glass BSDF'].inputs[
         2].default_value = setup_params.cornea_refraction_index
@@ -201,8 +244,7 @@ def render_images(setup_params, images_num, folder_path, csv_path):
         bpy.context.view_layer.update()
 
         if using_file:
-            focus_point = focus_poses[i]# + np.array(
-                # [random.uniform(-7.5, 7.5), random.uniform(-7.5, 7.5), random.uniform(-7.5, 7.5)]) / 1000
+            focus_point = focus_poses[i]
         else:
             focus_point = np.array(
                 [random.uniform(min_screen_x, max_screen_x), random.uniform(min_screen_y, max_screen_y),
@@ -214,9 +256,11 @@ def render_images(setup_params, images_num, folder_path, csv_path):
         eye_centre_pos = eye.matrix_world.translation
         cornea_pos = cornea.matrix_world.translation
 
+        print(eye_centre_pos, cornea_pos)
+
         for j in range(leds_poses.shape[0]):
             bpy.data.objects[f"Light.{j:03d}"].hide_render = True
-        bpy.data.materials['Cornea'].use_nodes = True
+        bpy.data.materials['Cornea'].use_screen_refraction = True
         bpy.data.materials['Cornea'].roughness = 0.0
 
         bpy.context.scene.render.filepath = os.path.join(folder_path, "images", f"image_{i:010d}_lights_off.jpg")
@@ -226,7 +270,7 @@ def render_images(setup_params, images_num, folder_path, csv_path):
         for j in range(leds_poses.shape[0]):
             bpy.data.objects[f"Light.{j:03d}"].hide_render = False
         bpy.data.objects["Global light"].hide_render = True
-        bpy.data.materials['Cornea'].use_nodes = False
+        bpy.data.materials['Cornea'].use_screen_refraction = False
         bpy.data.materials['Cornea'].roughness = 0.0
 
         bpy.context.scene.render.filepath = os.path.join(folder_path, "images", f"image_{i:010d}_lights_on.jpg")

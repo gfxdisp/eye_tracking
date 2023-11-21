@@ -26,20 +26,20 @@ public:
      * @param screen_glint Vector of glints in image space corresponding to LEDs.
      * @param lp Vector of LED positions in camera space corresponding to glints.
      */
-    void setParameters(const cv::Vec3f &np2c_dir, cv::Vec3f *screen_glint,
-                       std::vector<cv::Vec3f> &lp, cv::Vec3f &np);
+    void setParameters(const cv::Vec3d &np2c_dir, cv::Vec3d *screen_glint,
+                       std::vector<cv::Vec3d> &lp, cv::Vec3d &np);
 
 private:
     // Camera space position of the nodal point.
-    cv::Vec3f np_{};
+    cv::Vec3d np_{};
     // Direction vector between camera's nodal point and cornea centre.
-    cv::Vec3f np2c_dir_{};
+    cv::Vec3d np2c_dir_{};
     // Vector of glints in image space corresponding to LEDs.
-    std::vector<cv::Vec3f> screen_glint_{};
+    std::vector<cv::Vec3d> screen_glint_{};
     // Vector of LED positions in camera space corresponding to glints.
-    std::vector<cv::Vec3f> lp_{};
+    std::vector<cv::Vec3d> lp_{};
     // Vector of directions between camera's nodal point and glints.
-    std::vector<cv::Vec3f> ray_dir_{};
+    std::vector<cv::Vec3d> ray_dir_{};
     // Set to true after running initialize() method.
     bool initialized_{false};
 

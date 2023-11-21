@@ -131,7 +131,7 @@ namespace et
         is_Exposure(camera_handle_, IS_EXPOSURE_CMD_SET_EXPOSURE, (void *) &exposure, sizeof(exposure));
     }
 
-    void IdsCamera::setGamma(float gamma)
+    void IdsCamera::setGamma(double gamma)
     {
         int scaled_gamma = static_cast<int>(gamma * 100);
         is_Gamma(camera_handle_, IS_GAMMA_CMD_SET, (void *) &scaled_gamma, sizeof(scaled_gamma));

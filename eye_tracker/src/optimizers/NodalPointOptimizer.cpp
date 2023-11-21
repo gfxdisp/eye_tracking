@@ -16,7 +16,7 @@ namespace et
 
     double NodalPointOptimizer::calc(const double *x) const
     {
-        cv::Vec3f c{np_ + np2c_dir_ * x[0]};
+        cv::Vec3d c{np_ + np2c_dir_ * x[0]};
         double t{0};
 
         double error{0};
@@ -30,19 +30,19 @@ namespace et
                                                                       t)};
             if (intersected && t > 0)
             {
-                cv::Vec3f pp{screen_glint_[i] + t * ray_dir_[i]};
-                cv::Vec3f vc{pp - c};
+                cv::Vec3d pp{screen_glint_[i] + t * ray_dir_[i]};
+                cv::Vec3d vc{pp - c};
                 cv::normalize(vc, vc);
 
-                cv::Vec3f v1{np_ - pp};
+                cv::Vec3d v1{np_ - pp};
                 cv::normalize(v1, v1);
 
-                cv::Vec3f v2{lp_[i] - pp};
+                cv::Vec3d v2{lp_[i] - pp};
                 cv::normalize(v2, v2);
 
                 double alf1{std::acos(v1.dot(vc))};
                 double alf2{std::acos(v2.dot(vc))};
-                error += std::abs(alf1 - alf2);
+                error += std::pow(alf1 - alf2, 2.0f);
 
             }
             else
@@ -55,7 +55,7 @@ namespace et
     }
 
     void
-    NodalPointOptimizer::setParameters(const cv::Vec3f &np2c_dir, cv::Vec3f *screen_glint, std::vector<cv::Vec3f> &lp, cv::Vec3f &np)
+    NodalPointOptimizer::setParameters(const cv::Vec3d &np2c_dir, cv::Vec3d *screen_glint, std::vector<cv::Vec3d> &lp, cv::Vec3d &np)
     {
         if (!initialized_)
         {
@@ -76,7 +76,7 @@ namespace et
 
     void NodalPointOptimizer::initialize()
     {
-        np_ = cv::Vec3f(0.0);
+        np_ = cv::Vec3d(0.0);
         unsigned long n_leds = Settings::parameters.leds_positions[0].size();
         screen_glint_.resize(n_leds);
         lp_.resize(n_leds);

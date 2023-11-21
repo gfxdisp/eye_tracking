@@ -10,18 +10,18 @@ namespace et
 
     double OpticalAxisOptimizer::calc(const double *x) const
     {
-        cv::Point3f optical_axis = cv::Point3f(x[0], x[1], x[2]);
+        cv::Point3d optical_axis = cv::Point3d(x[0], x[1], x[2]);
         optical_axis = optical_axis / cv::norm(optical_axis);
-        cv::Point3f visual_axis = Utils::opticalToVisualAxis(optical_axis, alpha_, beta_);
+        cv::Point3d visual_axis = Utils::opticalToVisualAxis(optical_axis, alpha_, beta_);
 
-        cv::Point3f cornea_centre = eye_centre_ + cornea_centre_distance_ * optical_axis;
-        float distance = Utils::pointToLineDistance(cornea_centre, visual_axis, focus_point_);
+        cv::Point3d cornea_centre = eye_centre_ + cornea_centre_distance_ * optical_axis;
+        double distance = Utils::pointToLineDistance(cornea_centre, visual_axis, focus_point_);
         return distance;
     }
 
     void
-    OpticalAxisOptimizer::setParameters(float alpha, float beta, float cornea_centre_distance, cv::Point3f eye_centre,
-                                        cv::Point3f focus_point)
+    OpticalAxisOptimizer::setParameters(double alpha, double beta, double cornea_centre_distance, cv::Point3d eye_centre,
+                                        cv::Point3d focus_point)
     {
         alpha_ = alpha;
         beta_ = beta;

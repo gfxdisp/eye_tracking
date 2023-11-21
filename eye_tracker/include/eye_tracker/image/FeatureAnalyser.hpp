@@ -54,14 +54,14 @@ namespace et
          * the vector is calculated between pupil position and ellipse centre.
          * @param pupil_glint_vector Variable that will contain the vector.
          */
-        void getPupilGlintVector(cv::Vec2f &pupil_glint_vector);
+        void getPupilGlintVector(cv::Vec2d &pupil_glint_vector);
 
         /**
          * Retrieves pupil position in image space that was previously
          * calculated in findPupil().
          * @param pupil Variable that will contain the pupil position.
          */
-        void getPupilUndistorted(cv::Point2f &pupil);
+        void getPupilUndistorted(cv::Point2d &pupil);
 
         /**
          * Retrieves a vector between a specific glint and pupil position
@@ -72,7 +72,7 @@ namespace et
          * the setGazeBufferSize() method.
          * @param pupil_glint_vector Variable that will contain the vector.
          */
-        void getPupilGlintVectorFiltered(cv::Vec2f &pupil_glint_vector);
+        void getPupilGlintVectorFiltered(cv::Vec2d &pupil_glint_vector);
 
         /**
          * Retrieves pupil position in image space that was previously
@@ -80,21 +80,21 @@ namespace et
          * set using the setGazeBufferSize() method.
          * @param pupil Variable that will contain the pupil position.
          */
-        void getPupilBuffered(cv::Point2f &pupil);
+        void getPupilBuffered(cv::Point2d &pupil);
 
         /**
          * Retrieves pupil position in image space that was previously
          * calculated in findPupil().
          * @return Pupil position.
          */
-        cv::Point2f getPupilUndistorted();
+        cv::Point2d getPupilUndistorted();
 
         /**
          * Retrieves distorted pupil position in image space that was previously
          * calculated in findPupil().
          * @return Pupil position.
          */
-        cv::Point2f getPupilDistorted();
+        cv::Point2d getPupilDistorted();
 
         /**
          * Retrieves a radius of a pupil.
@@ -112,13 +112,13 @@ namespace et
          * Retrieves a pointer to the vector of glints detected using findGlints().
          * @return A vector of glints.
          */
-        std::vector<cv::Point2f> *getGlints();
+        std::vector<cv::Point2d> *getGlints();
 
         /**
          * Retrieves a pointer to the vector of distorted glints detected using findGlints().
          * @return A vector of glints.
          */
-        std::vector<cv::Point2f> *getDistortedGlints();
+        std::vector<cv::Point2d> *getDistortedGlints();
 
         /**
          * Retrieves an ellipse detected using findEllipsePoints().
@@ -164,9 +164,9 @@ namespace et
          */
         void updateGazeBuffer();
 
-        virtual cv::Point2f undistort(cv::Point2f point) = 0;
+        virtual cv::Point2d undistort(cv::Point2d point) = 0;
 
-        virtual cv::Point2f distort(cv::Point2f point) = 0;
+        virtual cv::Point2d distort(cv::Point2d point) = 0;
 
     protected:
 
@@ -178,20 +178,20 @@ namespace et
         std::mutex mtx_features_{};
 
         // Pupil location estimated using findPupil().
-        cv::Point2f pupil_location_distorted_{};
+        cv::Point2d pupil_location_distorted_{};
         // Undisorted pupil location estimated using findPupil().
-        cv::Point2f pupil_location_undistorted_{};
+        cv::Point2d pupil_location_undistorted_{};
         // Undistorted location of the representative glint estimated using findGlints() or findEllipse().
-        cv::Point2f glint_represent_undistorted_{};
+        cv::Point2d glint_represent_undistorted_{};
 
         // Radius of the pupil in pixels.
-        float pupil_radius_distorted_{0};
+        double pupil_radius_distorted_{0};
         // Radius of the undistorted pupil in pixels.
-        float pupil_radius_undistorted_{0};
+        double pupil_radius_undistorted_{0};
         // Glint locations estimated using findGlints() or findEllipse().
-        std::vector<cv::Point2f> glint_locations_distorted_{};
+        std::vector<cv::Point2d> glint_locations_distorted_{};
         // Undistorted glint locations estimated using findGlints() or findEllipse().
-        std::vector<cv::Point2f> glint_locations_undistorted_{};
+        std::vector<cv::Point2d> glint_locations_undistorted_{};
         // Ellipse parameters estimated using findEllipse().
         cv::RotatedRect glint_ellipse_distorted_{};
         // Undisorted ellipse parameters estimated using findEllipse().
@@ -205,17 +205,17 @@ namespace et
         // Number of total pupil and glint positions.
         int buffer_summed_count_{0};
         // Buffer of the most recent pupil positions.
-        std::vector<cv::Point2f> pupil_location_buffer_{};
+        std::vector<cv::Point2d> pupil_location_buffer_{};
         // Buffer of the most recent glint positions.
-        std::vector<cv::Point2f> glint_location_buffer_{};
+        std::vector<cv::Point2d> glint_location_buffer_{};
         // Summed values from the pupil_location_buffer_ vector.
-        cv::Point2f pupil_location_summed_{};
+        cv::Point2d pupil_location_summed_{};
         // Summed values from the glint_location_buffer_ vector.
-        cv::Point2f glint_location_summed_{};
+        cv::Point2d glint_location_summed_{};
         // Mean pupil position averaged across whole pupil_location_buffer_ vector.
-        cv::Point2f pupil_location_buffered_{};
+        cv::Point2d pupil_location_buffered_{};
         // Mean pupil position averaged across whole glint_location_buffer_ vector.
-        cv::Point2f glint_location_filtered_{};
+        cv::Point2d glint_location_filtered_{};
 
         int frame_num_{};
 

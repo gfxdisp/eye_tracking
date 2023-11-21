@@ -73,12 +73,12 @@ namespace et
         std::shared_ptr<Framework> eye_trackers_[2]{};
 
         // Gaze direction to be sent.
-        cv::Vec3f gaze_direction_{};
+        cv::Vec3d gaze_direction_{};
 
         // Pupil-glint vector to be sent.
-        cv::Vec2f pupil_glint_vector_{};
+        cv::Vec2d pupil_glint_vector_{};
         // Vector of glint locations to be sent.
-        std::vector<cv::Point2f> glint_locations_{};
+        std::vector<cv::Point2d> glint_locations_{};
 
         EyeDataToSend eye_data_to_send_{};
         EyeDataToReceive eye_data_to_receive_{};

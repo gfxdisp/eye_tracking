@@ -1,4 +1,5 @@
 #include "eye_tracker/Utils.hpp"
+#include "eye_tracker/optimizers/OpticalFromVisualAxisOptimizer.hpp"
 
 #include <chrono>
 #include <ctime>
@@ -7,13 +8,14 @@
 #include <opencv2/core/mat.hpp>
 #include <sstream>
 #include <numeric>
+#include <iostream>
 
 namespace et
 {
     std::mt19937::result_type Utils::seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::mt19937 Utils::gen = std::mt19937(seed);
 
-    std::vector<std::vector<float>> Utils::readFloatColumnsCsv(const std::string &filename, bool ignore_first_line)
+    std::vector<std::vector<double>> Utils::readFloatColumnsCsv(const std::string &filename, bool ignore_first_line)
     {
         std::ifstream input_file{filename};
         if (!input_file.is_open())
@@ -22,7 +24,7 @@ namespace et
         }
 
         std::string line{};
-        std::vector<std::vector<float>> csv_data{};
+        std::vector<std::vector<double>> csv_data{};
         int line_num{0};
 
         if (ignore_first_line)
@@ -50,7 +52,7 @@ namespace et
         return csv_data;
     }
 
-    std::vector<std::vector<float>> Utils::readFloatRowsCsv(const std::string &filename, bool ignore_first_line)
+    std::vector<std::vector<double>> Utils::readFloatRowsCsv(const std::string &filename, bool ignore_first_line)
     {
         std::ifstream input_file{filename};
         if (!input_file.is_open())
@@ -59,7 +61,7 @@ namespace et
         }
 
         std::string line{};
-        std::vector<std::vector<float>> csv_data{};
+        std::vector<std::vector<double>> csv_data{};
 
         if (ignore_first_line)
         {
@@ -68,7 +70,7 @@ namespace et
 
         while (std::getline(input_file, line))
         {
-            std::vector<float> row{};
+            std::vector<double> row{};
             std::string str_value{};
             std::stringstream stream_line{line};
             while (std::getline(stream_line, str_value, ','))
@@ -81,7 +83,7 @@ namespace et
         return csv_data;
     }
 
-    void Utils::writeFloatCsv(std::vector<std::vector<float>> &data, const std::string &filename)
+    void Utils::writeFloatCsv(std::vector<std::vector<double>> &data, const std::string &filename)
     {
         std::ofstream file{filename};
         for (auto &row: data)
@@ -124,12 +126,12 @@ namespace et
         return result;
     }
 
-    cv::Point3f Utils::calculateNodalPointPosition(cv::Point3_<float> observed_point, cv::Point3_<float> eye_centre,
-                                                   float nodal_dist)
+    cv::Point3d Utils::calculateNodalPointPosition(cv::Point3d observed_point, cv::Point3d eye_centre,
+                                                   double nodal_dist)
     {
-        cv::Point3f nodal_point{};
-        float dist = cv::norm(observed_point - eye_centre);
-        float ratio = nodal_dist / dist;
+        cv::Point3d nodal_point{};
+        double dist = cv::norm(observed_point - eye_centre);
+        double ratio = nodal_dist / dist;
         nodal_point.x = eye_centre.x + ratio * (observed_point.x - eye_centre.x);
         nodal_point.y = eye_centre.y + ratio * (observed_point.y - eye_centre.y);
         nodal_point.z = eye_centre.z + ratio * (observed_point.z - eye_centre.z);
@@ -149,24 +151,23 @@ namespace et
 
     cv::Mat Utils::convertToHomogeneous(cv::Mat mat)
     {
-        cv::Mat mat_homogeneous(mat.rows, mat.cols + 1, mat.type());
+        cv::Mat mat_homogeneous(mat.rows, mat.cols + 1, CV_64F);
         for (int i = 0; i < mat.rows; i++)
         {
-            mat_homogeneous.at<float>(i, 0) = mat.at<float>(i, 0);
-            mat_homogeneous.at<float>(i, 1) = mat.at<float>(i, 1);
-            mat_homogeneous.at<float>(i, 2) = mat.at<float>(i, 2);
-            mat_homogeneous.at<float>(i, 3) = 1.0;
-
+            mat_homogeneous.at<double>(i, 0) = mat.at<double>(i, 0);
+            mat_homogeneous.at<double>(i, 1) = mat.at<double>(i, 1);
+            mat_homogeneous.at<double>(i, 2) = mat.at<double>(i, 2);
+            mat_homogeneous.at<double>(i, 3) = 1.0;
         }
         return mat_homogeneous;
     }
 
     bool
-    Utils::getRaySphereIntersection(const cv::Vec3f &ray_pos, const cv::Vec3d &ray_dir, const cv::Vec3f &sphere_pos,
+    Utils::getRaySphereIntersection(const cv::Vec3d &ray_pos, const cv::Vec3d &ray_dir, const cv::Vec3d &sphere_pos,
                                     double sphere_radius, double &t)
     {
         double A{ray_dir.dot(ray_dir)};
-        cv::Vec3f v{ray_pos - sphere_pos};
+        cv::Vec3d v{ray_pos - sphere_pos};
         double B{2 * v.dot(ray_dir)};
         double C{v.dot(v) - sphere_radius * sphere_radius};
         double delta{B * B - 4 * A * C};
@@ -190,83 +191,87 @@ namespace et
         return (delta > 0);
     }
 
-    cv::Point3f Utils::visualToOpticalAxis(const cv::Point3f &visual_axis, float alpha, float beta)
+    cv::Point3d Utils::visualToOpticalAxis(const cv::Point3d &visual_axis, double alpha, double beta)
     {
-        float alpha_r = alpha * M_PI / 180;
-        float beta_r = beta * M_PI / 180;
-
-        float phi = std::asin(visual_axis.y);
-
-        float inside_val = visual_axis.x / std::cos(phi);
-        if (inside_val > 1.0) {
-            inside_val = 1.0;
-        } else if (inside_val < -1.0) {
-            inside_val = -1.0;
+        static int initialized = false;
+        static OpticalFromVisualAxisOptimizer *optimizer{};
+        static cv::Ptr<cv::DownhillSolver::Function> minimizer_function{};
+        static cv::Ptr<cv::DownhillSolver> solver{};
+        if (!initialized)
+        {
+            optimizer = new OpticalFromVisualAxisOptimizer();
+            minimizer_function = cv::Ptr<cv::DownhillSolver::Function>{optimizer};
+            solver = cv::DownhillSolver::create();
+            solver->setFunction(minimizer_function);
+            cv::Mat step = (cv::Mat_<double>(1, 2) << 0.1, 0.1);
+            solver->setInitStep(step);
+            initialized = true;
         }
 
-        float theta = std::asin(inside_val);
-
-        theta -= alpha_r;
-        phi -= beta_r;
-
-        cv::Point3f optical_axis = {std::cos(phi) * std::sin(theta), std::sin(phi),
-                                    -std::cos(phi) * std::cos(theta)};
+        optimizer->setParameters(alpha, beta, visual_axis);
+        cv::Mat x = (cv::Mat_<double>(1, 2) << 0, 0);
+        solver->minimize(x);
+        double phi = x.at<double>(0, 0);
+        double theta = x.at<double>(0, 1);
+        cv::Mat R = Utils::getRotY(theta) * Utils::getRotX(phi);
+        cv::Mat optical_axis_mat = R * (cv::Mat_<double>(3, 1) << 0, 0, -1);
+        cv::Point3d optical_axis = cv::Point3d(optical_axis_mat.at<double>(0, 0), optical_axis_mat.at<double>(1, 0),
+                                               optical_axis_mat.at<double>(2, 0));
         optical_axis = optical_axis / cv::norm(optical_axis);
         return optical_axis;
     }
 
-    cv::Point3f Utils::opticalToVisualAxis(const cv::Point3f &optical_axis, float alpha, float beta)
+    cv::Point3d Utils::opticalToVisualAxis(const cv::Point3d &optical_axis, double alpha, double beta)
     {
-        float alpha_r = alpha * M_PI / 180;
-        float beta_r = beta * M_PI / 180;
+        cv::Point3d norm_optical_axis = optical_axis / cv::norm(optical_axis);
 
-        float phi = std::asin(optical_axis.y);
+        double theta = std::atan2(norm_optical_axis.x, norm_optical_axis.z) - M_PI;
+        double phi = -(std::acos(norm_optical_axis.y) - M_PI / 2);
 
-        float inside_val = optical_axis.x / std::cos(phi);
-        if (inside_val > 1.0) {
-            inside_val = 1.0;
-        } else if (inside_val < -1.0) {
-            inside_val = -1.0;
-        }
+        cv::Mat R = getRotY(theta) * getRotX(phi);
+        cv::Mat right = R * (cv::Mat_<double>(3, 1) << 1, 0, 0);
+        cv::Mat up = R * (cv::Mat_<double>(3, 1) << 0, 1, 0);
+        cv::Mat forward = (cv::Mat_<double>(3, 1) << norm_optical_axis.x, norm_optical_axis.y, norm_optical_axis.z);
 
-        float theta = std::asin(inside_val);
+        R = Utils::convertAxisAngleToRotationMatrix(up, -alpha * M_PI / 180);
+        forward = R * forward;
+        right = R * right;
 
-        theta += alpha_r;
-        phi += beta_r;
+        R = Utils::convertAxisAngleToRotationMatrix(right, -beta * M_PI / 180);
+        forward = R * forward;
 
-        cv::Point3f visual_axis = {std::cos(phi) * std::sin(theta), std::sin(phi),
-                                   -std::cos(phi) * std::cos(theta)};
+        cv::Point3d visual_axis = {forward.at<double>(0, 0), forward.at<double>(1, 0), forward.at<double>(2, 0)};
         visual_axis = visual_axis / cv::norm(visual_axis);
         return visual_axis;
     }
 
-    float Utils::pointToLineDistance(cv::Vec3f origin, cv::Vec3f direction, cv::Vec3f point)
+    double Utils::pointToLineDistance(cv::Vec3d origin, cv::Vec3d direction, cv::Vec3d point)
     {
-        cv::Vec3f V = origin - point;
-        cv::Vec3f projection = V.dot(direction) / (cv::norm(direction) * cv::norm(direction)) * direction;
+        cv::Vec3d V = origin - point;
+        cv::Vec3d projection = V.dot(direction) / (cv::norm(direction) * cv::norm(direction)) * direction;
         return cv::norm(V - projection);
     }
 
-    cv::Point2f Utils::findEllipseIntersection(cv::RotatedRect &ellipse, float angle)
+    cv::Point2d Utils::findEllipseIntersection(cv::RotatedRect &ellipse, double angle)
     {
-        float a = ellipse.size.width / 2;
-        float b = ellipse.size.height / 2;
-        float x0 = ellipse.center.x;
-        float y0 = ellipse.center.y;
-        float theta = ellipse.angle * M_PI / 180;
-        float cos_theta = cosf(theta);
-        float sin_theta = sinf(theta);
-        float cos_angle = cosf(angle);
-        float sin_angle = sinf(angle);
-        float x = x0 + a * cos_theta * cos_angle - b * sin_theta * sin_angle;
-        float y = y0 + a * sin_theta * cos_angle + b * cos_theta * sin_angle;
-        return cv::Point2f(x, y);
+        double a = ellipse.size.width / 2.0;
+        double b = ellipse.size.height / 2.0;
+        double x0 = ellipse.center.x;
+        double y0 = ellipse.center.y;
+        double theta = ellipse.angle * M_PI / 180;
+        double cos_theta = cos(theta);
+        double sin_theta = sin(theta);
+        double cos_angle = cos(angle);
+        double sin_angle = sin(angle);
+        double x = x0 + a * cos_theta * cos_angle - b * sin_theta * sin_angle;
+        double y = y0 + a * sin_theta * cos_angle + b * cos_theta * sin_angle;
+        return cv::Point2d(x, y);
     }
 
-    float Utils::getAngleBetweenVectors(cv::Vec3f a, cv::Vec3f b)
+    double Utils::getAngleBetweenVectors(cv::Vec3d a, cv::Vec3d b)
     {
-        float dot = a.dot(b);
-        float det = a[0] * b[1] - a[1] * b[0];
+        double dot = a.dot(b);
+        double det = a[0] * b[1] - a[1] * b[0];
         if (dot == 0 && det == 0)
         {
             return M_PI;
@@ -285,34 +290,34 @@ namespace et
         std::random_shuffle(indices.begin(), indices.end());
     }
 
-    cv::Point3f
-    Utils::findGridIntersection(std::vector<cv::Point3f> &front_corners, std::vector<cv::Point3f> &back_corners)
+    cv::Point3d
+    Utils::findGridIntersection(std::vector<cv::Point3d> &front_corners, std::vector<cv::Point3d> &back_corners)
     {
         int n = front_corners.size();
-        cv::Mat S = cv::Mat::zeros(3, 3, CV_32F);
-        cv::Mat C = cv::Mat::zeros(3, 1, CV_32F);
-        cv::Mat directions = cv::Mat::zeros(n, 3, CV_32F);
-        cv::Mat origins = cv::Mat::zeros(n, 3, CV_32F);
+        cv::Mat S = cv::Mat::zeros(3, 3, CV_64F);
+        cv::Mat C = cv::Mat::zeros(3, 1, CV_64F);
+        cv::Mat directions = cv::Mat::zeros(n, 3, CV_64F);
+        cv::Mat origins = cv::Mat::zeros(n, 3, CV_64F);
 
         for (int i = 0; i < n; i++)
         {
-            cv::Vec3f optical_axis = {back_corners[i].x - front_corners[i].x, back_corners[i].y - front_corners[i].y,
+            cv::Vec3d optical_axis = {back_corners[i].x - front_corners[i].x, back_corners[i].y - front_corners[i].y,
                                      back_corners[i].z - front_corners[i].z};
-            float norm = std::sqrt(optical_axis[0] * optical_axis[0] + optical_axis[1] * optical_axis[1] +
+            double norm = std::sqrt(optical_axis[0] * optical_axis[0] + optical_axis[1] * optical_axis[1] +
                                    optical_axis[2] * optical_axis[2]);
             optical_axis[0] /= norm;
             optical_axis[1] /= norm;
             optical_axis[2] /= norm;
-            directions.at<float>(i, 0) = optical_axis[0];
-            directions.at<float>(i, 1) = optical_axis[1];
-            directions.at<float>(i, 2) = optical_axis[2];
+            directions.at<double>(i, 0) = optical_axis[0];
+            directions.at<double>(i, 1) = optical_axis[1];
+            directions.at<double>(i, 2) = optical_axis[2];
 
-            origins.at<float>(i, 0) = back_corners[i].x;
-            origins.at<float>(i, 1) = back_corners[i].y;
-            origins.at<float>(i, 2) = back_corners[i].z;
+            origins.at<double>(i, 0) = back_corners[i].x;
+            origins.at<double>(i, 1) = back_corners[i].y;
+            origins.at<double>(i, 2) = back_corners[i].z;
         }
 
-        cv::Mat eye = cv::Mat::eye(3, 3, CV_32F);
+        cv::Mat eye = cv::Mat::eye(3, 3, CV_64F);
 
         for (int i = 0; i < 4; i++)
         {
@@ -321,8 +326,52 @@ namespace et
         }
 
         cv::Mat intersection = S.inv(cv::DECOMP_SVD) * C;
-        cv::Point3f cross_point = {intersection.at<float>(0, 0), intersection.at<float>(1, 0), intersection.at<float>(2, 0)};
+        cv::Point3d cross_point = {intersection.at<double>(0, 0), intersection.at<double>(1, 0), intersection.at<double>(2, 0)};
         return cross_point;
+    }
+
+    cv::Mat Utils::getRotX(double angle)
+    {
+        cv::Mat rot_x = cv::Mat::eye(3, 3, CV_64F);
+        rot_x.at<double>(1, 1) = std::cos(angle);
+        rot_x.at<double>(1, 2) = -std::sin(angle);
+        rot_x.at<double>(2, 1) = std::sin(angle);
+        rot_x.at<double>(2, 2) = std::cos(angle);
+        return rot_x;
+    }
+
+    cv::Mat Utils::getRotY(double angle)
+    {
+        cv::Mat rot_y = cv::Mat::eye(3, 3, CV_64F);
+        rot_y.at<double>(0, 0) = std::cos(angle);
+        rot_y.at<double>(0, 2) = std::sin(angle);
+        rot_y.at<double>(2, 0) = -std::sin(angle);
+        rot_y.at<double>(2, 2) = std::cos(angle);
+        return rot_y;
+    }
+
+    cv::Mat Utils::getRotZ(double angle)
+    {
+        cv::Mat rot_z = cv::Mat::eye(3, 3, CV_64F);
+        rot_z.at<double>(0, 0) = std::cos(angle);
+        rot_z.at<double>(0, 1) = -std::sin(angle);
+        rot_z.at<double>(1, 0) = std::sin(angle);
+        rot_z.at<double>(1, 1) = std::cos(angle);
+        return rot_z;
+    }
+
+    cv::Mat Utils::convertAxisAngleToRotationMatrix(cv::Mat axis, double angle)
+    {
+        cv::Mat K = cv::Mat::zeros(3, 3, CV_64F);
+        K.at<double>(0, 1) = -axis.at<double>(2);
+        K.at<double>(0, 2) = axis.at<double>(1);
+        K.at<double>(1, 0) = axis.at<double>(2);
+        K.at<double>(1, 2) = -axis.at<double>(0);
+        K.at<double>(2, 0) = -axis.at<double>(1);
+        K.at<double>(2, 1) = axis.at<double>(0);
+
+        cv::Mat R = cv::Mat::eye(3, 3, CV_64F) + std::sin(angle) * K + (1 - std::cos(angle)) * K * K;
+        return R;
     }
 
 } // namespace et

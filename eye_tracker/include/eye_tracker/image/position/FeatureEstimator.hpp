@@ -10,7 +10,7 @@ namespace et
     public:
         FeatureEstimator(int camera_id);
 
-        virtual bool findPupil(cv::Mat &image, cv::Point2f &pupil_position, float &radius) = 0;
+        virtual bool findPupil(cv::Mat &image, cv::Point2d &pupil_position, double &radius) = 0;
 
         virtual bool findGlints(cv::Mat &image, std::vector<cv::Point2f> &glints) = 0;
     };

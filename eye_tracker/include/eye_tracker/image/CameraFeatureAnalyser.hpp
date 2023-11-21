@@ -11,9 +11,9 @@ namespace et
     public:
         explicit CameraFeatureAnalyser(int camera_id);
 
-        cv::Point2f undistort(cv::Point2f point) override;
+        cv::Point2d undistort(cv::Point2d point) override;
 
-        cv::Point2f distort(cv::Point2f point) override;
+        cv::Point2d distort(cv::Point2d point) override;
     protected:
         // Intrinsic matrix of the camera.
         cv::Mat *intrinsic_matrix_{};
@@ -21,7 +21,7 @@ namespace et
         // corner of the full image, measured in pixels separately for every axis.
         cv::Size2i *capture_offset_{};
         // Distortion coefficients of the camera.
-        std::vector<float> *distortion_coefficients_{};
+        std::vector<double> *distortion_coefficients_{};
     };
 
 } // et

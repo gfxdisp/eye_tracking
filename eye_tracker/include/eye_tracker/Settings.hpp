@@ -26,19 +26,19 @@ struct CameraParams {
     // corner of the full image, measured in pixels separately for every axis.
     cv::Size2i capture_offset{};
     // Camera's framerate.
-    float framerate{};
+    double framerate{};
     // Camera's gamma.
-    float gamma{};
+    double gamma{};
     // Camera's pixel clock in MHz.
-    float pixel_clock{};
+    double pixel_clock{};
     // Intrinsic matrix of the camera.
     cv::Mat intrinsic_matrix{};
     // Extrinsic matrix of the camera.
     cv::Mat extrinsic_matrix{};
     // Distortion coefficients of the camera.
-    std::vector<float> distortion_coefficients{};
+    std::vector<double> distortion_coefficients{};
     // Constant shift needed to be added to the vector between eye and cornea centre.
-    cv::Vec3f gaze_shift{};
+    cv::Vec3d gaze_shift{};
 };
 
 /**
@@ -46,35 +46,35 @@ struct CameraParams {
  */
 struct DetectionParams {
     // Minimal radius of the pupil in pixels.
-    float min_pupil_radius{};
+    double min_pupil_radius{};
     // Maximal radius of the pupil in pixels.
-    float max_pupil_radius{};
+    double max_pupil_radius{};
     // Minimal radius of the glint in pixels.
-    float min_glint_radius{};
+    double min_glint_radius{};
     // Maximal radius of the glint in pixels.
-    float max_glint_radius{};
+    double max_glint_radius{};
     // Minimal horizontal distance between a glint and its bottom neighbour.
-    float min_glint_bottom_hor_distance{};
+    double min_glint_bottom_hor_distance{};
     // Maximal horizontal distance between a glint and its bottom neighbour.
-    float max_glint_bottom_hor_distance{};
+    double max_glint_bottom_hor_distance{};
     // Minimal vertical distance between a glint and its bottom neighbour.
-    float min_glint_bottom_vert_distance{};
+    double min_glint_bottom_vert_distance{};
     // Maximal vertical distance between a glint and its bottom neighbour.
-    float max_glint_bottom_vert_distance{};
+    double max_glint_bottom_vert_distance{};
     // Minimal horizontal distance between a glint and its right neighbour.
-    float min_glint_right_hor_distance{};
+    double min_glint_right_hor_distance{};
     // Maximal horizontal distance between a glint and its right neighbour.
-    float max_glint_right_hor_distance{};
+    double max_glint_right_hor_distance{};
     // Minimal vertical distance between a glint and its right neighbour.
-    float min_glint_right_vert_distance{};
+    double min_glint_right_vert_distance{};
     // Maximal vertical distance between a glint and its right neighbour.
-    float max_glint_right_vert_distance{};
+    double max_glint_right_vert_distance{};
     // Maximal horizontal distance between a glint and a pupil's centre.
-    float max_hor_glint_pupil_distance{};
+    double max_hor_glint_pupil_distance{};
     // Maximal vertical distance between a glint and a pupil's centre.
-    float max_vert_glint_pupil_distance{};
+    double max_vert_glint_pupil_distance{};
     // Centre of the circle aligned with the hole in the view piece in the image.
-    cv::Point2f pupil_search_centre{};
+    cv::Point2d pupil_search_centre{};
     // Radius of the circle aligned with the hole in the view piece in the image.
     int pupil_search_radius{};
 };
@@ -88,39 +88,39 @@ struct FeaturesParams {
     // Threshold value for glints detection used by FeatureDetector.
     int glint_threshold{};
     // Exposure of the camera in milliseconds.
-    float exposure{};
+    double exposure{};
 };
 
 
 struct Coefficients {
     // Polynomial coefficients estimating x-axis position of the eye centre.
-    std::vector<float> eye_centre_pos_x{};
+    std::vector<double> eye_centre_pos_x{};
     // Polynomial coefficients estimating y-axis position of the eye centre.
-    std::vector<float> eye_centre_pos_y{};
+    std::vector<double> eye_centre_pos_y{};
     // Polynomial coefficients estimating z-axis position of the eye centre.
-    std::vector<float> eye_centre_pos_z{};
+    std::vector<double> eye_centre_pos_z{};
     // Polynomial coefficients estimating x-axis direction of the visual axis.
-    std::vector<float> nodal_point_x{};
+    std::vector<double> nodal_point_x{};
     // Polynomial coefficients estimating y-axis direction of the visual axis.
-    std::vector<float> nodal_point_y{};
+    std::vector<double> nodal_point_y{};
     // Polynomial coefficients estimating z-axis direction of the visual axis.
-    std::vector<float> nodal_point_z{};
+    std::vector<double> nodal_point_z{};
 
-    std::vector<float> pupil_x{};
-    std::vector<float> pupil_y{};
-    std::vector<float> ellipse_x{};
-    std::vector<float> ellipse_y{};
-    std::vector<float> ellipse_width{};
-    std::vector<float> ellipse_height{};
-    std::vector<float> ellipse_angle{};
+    std::vector<double> pupil_x{};
+    std::vector<double> pupil_y{};
+    std::vector<double> ellipse_x{};
+    std::vector<double> ellipse_y{};
+    std::vector<double> ellipse_width{};
+    std::vector<double> ellipse_height{};
+    std::vector<double> ellipse_angle{};
 };
 
 struct SetupVariables {
-    float cornea_centre_distance{};
-    float cornea_curvature_radius{};
-    float cornea_refraction_index{};
-    float alpha{};
-    float beta{};
+    double cornea_centre_distance{};
+    double cornea_curvature_radius{};
+    double cornea_refraction_index{};
+    double alpha{};
+    double beta{};
 };
 
 struct PolynomialParams {
@@ -135,7 +135,7 @@ struct Parameters {
     // Internal camera parameters. One struct per eye.
     CameraParams camera_params[2]{};
     // Vector of LED positions. One per eye.
-    std::vector<cv::Vec3f> leds_positions[2]{};
+    std::vector<cv::Vec3d> leds_positions[2]{};
     // Parameters used to increase the eye features detection precision.
     // One struct per eye.
     DetectionParams detection_params[2]{};

@@ -16,13 +16,13 @@ namespace et
 
         void setModel(int model_num);
 
-        bool fitModel(std::vector<cv::Point2f> &pupils, std::vector<cv::RotatedRect> &ellipses,
-                      std::vector<cv::Point3f> &eye_centres, std::vector<cv::Point3f> &nodal_points, std::vector<cv::Vec3f> &visual_axes);
+        bool fitModel(std::vector<cv::Point2d> &pupils, std::vector<cv::RotatedRect> &ellipses,
+                      std::vector<cv::Point3d> &eye_centres, std::vector<cv::Point3d> &nodal_points, std::vector<cv::Vec3d> &visual_axes);
 
-        bool detectEye(EyeInfo &eye_info, cv::Point3f &nodal_point, cv::Point3f &eye_centre,
-                       cv::Point3f &visual_axis) override;
+        bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre,
+                       cv::Point3d &visual_axis) override;
 
-        void invertEye(cv::Point3f &nodal_point, cv::Point3f &eye_centre, EyeInfo &eye_info);
+        void invertEye(cv::Point3d &nodal_point, cv::Point3d &eye_centre, EyeInfo &eye_info);
 
         Coefficients getCoefficients() const;
 

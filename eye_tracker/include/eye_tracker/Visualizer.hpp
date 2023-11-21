@@ -33,14 +33,14 @@ namespace et
          * @param pupil Centre of the pupil.
          * @param radius Radius of the pupil.
          */
-        void drawPupil(cv::Point2f pupil, int radius);
+        void drawPupil(cv::Point2d pupil, int radius);
 
         /**
          * Draws circles around glint positions in the image loaded
          * with prepareImage().
          * @param glints Vector of glints to draw.
          */
-        void drawGlints(std::vector<cv::Point2f> *glints);
+        void drawGlints(std::vector<cv::Point2d> *glints);
 
         /**
          * Draws a circle around the hole in the view piece in the image loaded
@@ -48,21 +48,21 @@ namespace et
          * @param centre Centre of the hole.
          * @param radius Radius of the hole.
          */
-        void drawBoundingCircle(cv::Point2f centre, int radius);
+        void drawBoundingCircle(cv::Point2d centre, int radius);
 
         /**
          * Draws a circle around the eye centre in the image loaded
          * with prepareImage().
          * @param eye_centre Eye centre position in image space.
          */
-        void drawEyeCentre(cv::Point2f eye_centre);
+        void drawEyeCentre(cv::Point2d eye_centre);
 
         /**
          * Draws a circle around the cornea centre in the image loaded
          * with prepareImage().
          * @param cornea_centre Cornea centre position in image space.
          */
-        void drawCorneaCentre(cv::Point2f cornea_centre);
+        void drawCorneaCentre(cv::Point2d cornea_centre);
 
         /**
          * Draws an ellipse formed from glints in the image loaded with prepareImage().
@@ -100,7 +100,7 @@ namespace et
          * Retrieves an average framerate since the start of the application.
          * @return Average framerate value.
          */
-        float getAvgFramerate();
+        double getAvgFramerate();
 
         /**
          * Checks if the managed window was closed.
@@ -188,7 +188,7 @@ namespace et
         // Total number of frames since the application start.
         int total_frames_{0};
         // Summed up framerate measurements after each calculateFramerate() call.
-        float total_framerate_{0};
+        double total_framerate_{0};
 
         // Detection parameters for the current user.
         FeaturesParams *user_params_{};

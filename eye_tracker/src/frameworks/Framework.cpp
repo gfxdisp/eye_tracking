@@ -49,16 +49,16 @@ namespace et
 
         feature_detector_->preprocessImage(analyzed_frame_);
         features_found_ = feature_detector_->findPupil();
-        cv::Point2f pupil = feature_detector_->getPupilUndistorted();
+        cv::Point2d pupil = feature_detector_->getPupilUndistorted();
         features_found_ &= feature_detector_->findEllipsePoints();
         auto glints = feature_detector_->getGlints();
         cv::RotatedRect ellipse = feature_detector_->getEllipseUndistorted();
         int pupil_radius = feature_detector_->getPupilRadiusUndistorted();
         if (features_found_)
         {
-            EyeInfo eye_info = {.pupil = pupil, .pupil_radius = (float) pupil_radius, .glints = *glints, .ellipse = ellipse};
+            EyeInfo eye_info = {.pupil = pupil, .pupil_radius = (double) pupil_radius, .glints = *glints, .ellipse = ellipse};
             eye_estimator_->findEye(eye_info);
-            cv::Point3f cornea_centre{};
+            cv::Point3d cornea_centre{};
             eye_estimator_->getCorneaCurvaturePosition(cornea_centre);
         }
 
@@ -193,7 +193,7 @@ namespace et
         return false;
     }
 
-    float Framework::getAvgFramerate()
+    double Framework::getAvgFramerate()
     {
         return visualizer_->getAvgFramerate();
     }
@@ -259,7 +259,7 @@ namespace et
         }
     }
 
-    cv::Point3f Framework::setMetaModel(const std::string &input_path)
+    cv::Point3d Framework::setMetaModel(const std::string &input_path)
     {
         fs::path path = input_path;
         std::clog << "Input path: " << input_path << std::endl;
@@ -280,7 +280,7 @@ namespace et
         auto csv_path = path / "calib_data.csv";
 
         std::clog << "CSV path: " << csv_path.string() << std::endl;
-        cv::Point3f eye_centre = meta_model_->findMetaModel(image_provider, feature_analyser, csv_path.string());
+        cv::Point3d eye_centre = meta_model_->findMetaModel(image_provider, feature_analyser, csv_path.string());
         return eye_centre;
     }
 

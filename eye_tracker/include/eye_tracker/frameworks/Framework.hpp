@@ -31,21 +31,21 @@ namespace et
 
     struct EyeDataToSend
     {
-        cv::Point3f cornea_centre;
-        cv::Point3f eye_centre;
-        cv::Point2f pupil;
+        cv::Point3d cornea_centre;
+        cv::Point3d eye_centre;
+        cv::Point2d pupil;
         cv::RotatedRect ellipse;
-        cv::Vec2f pupil_glint_vector;
-        float pupil_diameter;
-        cv::Vec3f gaze_direction;
+        cv::Vec2d pupil_glint_vector;
+        double pupil_diameter;
+        cv::Vec3d gaze_direction;
         int frame_num;
     };
 
     struct EyeDataToReceive
     {
-        std::vector<cv::Point3f> front_corners = std::vector<cv::Point3f>(4);
-        std::vector<cv::Point3f> back_corners = std::vector<cv::Point3f>(4);
-        cv::Point3f marker_position;
+        std::vector<cv::Point3d> front_corners = std::vector<cv::Point3d>(4);
+        std::vector<cv::Point3d> back_corners = std::vector<cv::Point3d>(4);
+        cv::Point3d marker_position;
     };
 
 /**
@@ -146,7 +146,7 @@ namespace et
          * Retrieves number of frames analyzed in one second.
          * @return Calculated framerate.
          */
-        float getAvgFramerate();
+        double getAvgFramerate();
 
         /**
          * Starts a recording of eyes through a remote application.
@@ -161,7 +161,7 @@ namespace et
 
         void addEyeVideoData(const EyeDataToReceive &eye_data);
 
-        cv::Point3f setMetaModel(const std::string &input_path);
+        cv::Point3d setMetaModel(const std::string &input_path);
 
         bool wereFeaturesFound();
 

@@ -43,7 +43,7 @@ public:
      * @param gamma Set exponent of gamma correction
      * @param camera_id An id of the updated camera.
      */
-    void setGamma(float gamma);
+    void setGamma(double gamma);
     /**
      * Sets the framerate of the selected camera.
      * @param framerate Set number of frames per second.

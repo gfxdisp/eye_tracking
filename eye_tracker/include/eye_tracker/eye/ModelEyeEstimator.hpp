@@ -12,10 +12,10 @@ namespace et
     class ModelEyeEstimator : public EyeEstimator
     {
     public:
-        ModelEyeEstimator(int camera_id, cv::Point3f eye_position);
+        ModelEyeEstimator(int camera_id, cv::Point3d eye_position);
         ~ModelEyeEstimator();
 
-        bool detectEye(EyeInfo &eye_info, cv::Point3f &nodal_point, cv::Point3f &eye_centre, cv::Point3f &visual_axis) override;
+        bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre, cv::Point3d &visual_axis) override;
 
     protected:
         // Function used to optimize cornea centre position in
@@ -26,7 +26,7 @@ namespace et
         // Downhill solver optimizer used to find cornea centre position.
         cv::Ptr<cv::DownhillSolver> solver_{};
 
-        float pupil_eye_centre_distance_{};
+        double pupil_eye_centre_distance_{};
     };
 
 } // et

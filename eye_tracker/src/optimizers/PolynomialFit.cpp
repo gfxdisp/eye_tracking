@@ -5,7 +5,7 @@
 namespace et
 {
 
-    bool PolynomialFit::fit(std::vector<std::vector<float>> &variables, std::vector<float> *outputs)
+    bool PolynomialFit::fit(std::vector<std::vector<double>> &variables, std::vector<double> *outputs)
     {
 
         auto max_abs_func = [](const auto &a, const auto &b)
@@ -14,7 +14,7 @@ namespace et
         };
 
         // Finds the maximum data point for each variable.
-        std::vector<float> maximum(n_variables_);
+        std::vector<double> maximum(n_variables_);
         auto n_data_points = (int) variables.size();
         auto n_coeffs = (int) monomial_sets_.size();
 
@@ -35,8 +35,8 @@ namespace et
             return false;
         }
 
-        cv::Mat A{cv::Size(n_coeffs, n_data_points), CV_32FC1};
-        cv::Mat scaled_output{cv::Size(1, n_data_points), CV_32FC1};
+        cv::Mat A{cv::Size(n_coeffs, n_data_points), CV_64FC1};
+        cv::Mat scaled_output{cv::Size(1, n_data_points), CV_64FC1};
 
         // Computes all exponents scaled by max values.
         for (int i = 0; i < n_coeffs; i++)
@@ -48,17 +48,17 @@ namespace et
                 {
                     val *= std::pow(variables[j][k] / maximum[k], monomial_sets_[i][k]);
                 }
-                A.at<float>(j, i) = (float) val;
+                A.at<double>(j, i) = val;
             }
         }
 
         cv::Mat scaled_coeffs;
-        float maximum_output;
+        double maximum_output;
 
         maximum_output = std::abs(*std::max_element(outputs->begin(), outputs->end(), max_abs_func));
         for (int i = 0; i < n_data_points; i++)
         {
-            scaled_output.at<float>(i, 0) = (*outputs)[i] / maximum_output;
+            scaled_output.at<double>(i, 0) = (*outputs)[i] / maximum_output;
         }
         try
         {
@@ -76,13 +76,13 @@ namespace et
             {
                 val *= std::pow(1.0 / maximum[j], monomial_sets_[i][j]);
             }
-            coefficients_[i] = (float) (val * scaled_coeffs.at<float>(i, 0) * maximum_output);
+            coefficients_[i] = (double) (val * scaled_coeffs.at<double>(i, 0) * maximum_output);
         }
 
         return true;
     }
 
-    float PolynomialFit::getEstimation(const std::vector<float> &input)
+    double PolynomialFit::getEstimation(const std::vector<double> &input)
     {
         double total{0};
         for (int i = 0; i < monomial_sets_.size(); i++)
@@ -94,7 +94,7 @@ namespace et
             }
             total += val;
         }
-        return (float) total;
+        return total;
     }
 
     std::vector<std::vector<int8_t>> PolynomialFit::generateMonomials(int order, int dimension)
@@ -120,12 +120,12 @@ namespace et
         return output;
     }
 
-    void PolynomialFit::setCoefficients(std::vector<float> coefficients)
+    void PolynomialFit::setCoefficients(std::vector<double> coefficients)
     {
         coefficients_ = coefficients;
     }
 
-    std::vector<float> PolynomialFit::getCoefficients() const
+    std::vector<double> PolynomialFit::getCoefficients() const
     {
         return coefficients_;
     }
@@ -135,7 +135,7 @@ namespace et
         n_variables_ = n_variables;
         polynomial_degree_ = polynomial_degree;
         monomial_sets_ = generateMonomials(polynomial_degree_, n_variables_);
-        coefficients_ = std::vector<float>(monomial_sets_.size(), 0);
+        coefficients_ = std::vector<double>(monomial_sets_.size(), 0);
     }
 
     int PolynomialFit::getNVariables() const

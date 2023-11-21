@@ -27,34 +27,34 @@ namespace et
          * @param outputs Vector of output data points.
          * @return True if the fitting was successful.
          */
-        bool fit(std::vector<std::vector<float>> &variables, std::vector<float> *outputs);
+        bool fit(std::vector<std::vector<double>> &variables, std::vector<double> *outputs);
 
         /**
          * Sets polynomial coefficients directly, without fitting.
          * @param coefficients Vector of coefficients.
          */
-        void setCoefficients(std::vector<float> coefficients);
+        void setCoefficients(std::vector<double> coefficients);
 
         /**
          * Retrieves a list of coefficients calculated using fit() or
          * setCoefficients() methods.
          * @return Vector of coefficients.
          */
-        std::vector<float> getCoefficients() const;
+        std::vector<double> getCoefficients() const;
 
         /**
          * Estimates a polynomial value based on the input.
          * @param input Set of input variables.
          * @return Estimated polynomial value.
          */
-        float getEstimation(const std::vector<float> &input);
+        double getEstimation(const std::vector<double> &input);
 
         int getNVariables() const;
 
     private:
         // List of coefficients to polynomial monomials in the order specified
         // in the monomial_sets_ variable.
-        std::vector<float> coefficients_{};
+        std::vector<double> coefficients_{};
         // List of all possible monomials for the specific polynomial. Every vector
         // element contains a vector specifying an exponent of every input variable.
         std::vector<std::vector<int8_t>> monomial_sets_{};

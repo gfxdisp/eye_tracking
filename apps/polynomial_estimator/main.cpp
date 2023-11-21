@@ -19,7 +19,7 @@
 std::mutex mutex;
 
 void polynomialCalculator(std::string model_path, int model_num, int camera_id,
-                          std::vector<std::vector<float>> &setups_params,
+                          std::vector<std::vector<double>> &setups_params,
                           std::unordered_map<int, et::PolynomialParams> *polynomial_params, bool headless);
 
 int main(int argc, char *argv[])
@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
 }
 
 void polynomialCalculator(std::string model_path, int model_num, int camera_id,
-                          std::vector<std::vector<float>> &setups_params,
+                          std::vector<std::vector<double>> &setups_params,
                           std::unordered_map<int, et::PolynomialParams> *polynomial_params, bool headless)
 {
     std::clog << "Loading model " << model_num << " for camera " << camera_id << std::endl;
@@ -173,15 +173,15 @@ void polynomialCalculator(std::string model_path, int model_num, int camera_id,
                                        setup_params->at(4), setup_params->at(5)};
 
     et::EyeDataToSend eye_data_package{};
-    std::vector<cv::Point2f> pupils{};
+    std::vector<cv::Point2d> pupils{};
     std::vector<cv::RotatedRect> ellipses{};
 
     auto eye_features_path = std::filesystem::path(model_path) / "eye_features.csv";
     auto eye_features = et::Utils::readFloatColumnsCsv(eye_features_path);
     int current_row = 0;
-    std::vector<cv::Point3f> eye_centres{};
-    std::vector<cv::Point3f> nodal_points{};
-    std::vector<cv::Vec3f> visual_axes{};
+    std::vector<cv::Point3d> eye_centres{};
+    std::vector<cv::Point3d> nodal_points{};
+    std::vector<cv::Vec3d> visual_axes{};
 
     auto framework = std::make_shared<et::RandomImagesFramework>(camera_id, headless, model_path);
 
@@ -205,14 +205,14 @@ void polynomialCalculator(std::string model_path, int model_num, int camera_id,
             pupils.push_back(eye_data_package.pupil);
             ellipses.push_back(eye_data_package.ellipse);
 
-            cv::Point3f nodal_point = {eye_features[1][current_row], eye_features[2][current_row],
+            cv::Point3d nodal_point = {eye_features[1][current_row], eye_features[2][current_row],
                                        eye_features[3][current_row]};
-            cv::Point3f eye_centre = {eye_features[4][current_row], eye_features[5][current_row],
+            cv::Point3d eye_centre = {eye_features[4][current_row], eye_features[5][current_row],
                                       eye_features[6][current_row]};
 
-            cv::Vec3f optical_axis = nodal_point - eye_centre;
+            cv::Vec3d optical_axis = nodal_point - eye_centre;
             optical_axis = optical_axis / cv::norm(optical_axis);
-            cv::Vec3f visual_axis = et::Utils::opticalToVisualAxis(optical_axis, setup_variables.alpha,
+            cv::Vec3d visual_axis = et::Utils::opticalToVisualAxis(optical_axis, setup_variables.alpha,
                                                                    setup_variables.beta);
 
             nodal_points.push_back(nodal_point);

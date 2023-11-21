@@ -9,15 +9,15 @@ namespace et
     class EyeAnglesOptimizer : public cv::DownhillSolver::Function
     {
     public:
-        void setParameters(cv::Vec3f visual_axis, cv::Vec3f optical_axis);
+        void setParameters(cv::Vec3d visual_axis, cv::Vec3d optical_axis);
 
     private:
         int getDims() const override;
 
         double calc(const double *x) const override;
 
-        cv::Vec3f visual_axis_{};
-        cv::Vec3f optical_axis_{};
+        cv::Vec3d visual_axis_{};
+        cv::Vec3d optical_axis_{};
     };
 
 } // et

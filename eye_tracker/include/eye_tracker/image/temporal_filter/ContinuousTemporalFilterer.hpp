@@ -14,7 +14,7 @@ namespace et
     public:
         ContinuousTemporalFilterer(int camera_id);
 
-        void filterPupil(cv::Point2f &pupil, float &radius) override;
+        void filterPupil(cv::Point2d &pupil, double &radius) override;
 
         void filterGlints(std::vector<cv::Point2f> &glints) override;
 
@@ -30,7 +30,7 @@ namespace et
          * @param framerate Estimated system framerate used to calculate velocity.
          * @return Kalman filter.
          */
-        cv::KalmanFilter createPixelKalmanFilter(const cv::Size2i &resolution, float framerate);
+        cv::KalmanFilter createPixelKalmanFilter(const cv::Size2i &resolution, double framerate);
 
         /**
          * Creates a 2x2 Kalman Filter assuming its input vector consists of
@@ -40,7 +40,7 @@ namespace et
          * @param framerate Estimated system framerate used to calculate velocity.
          * @return Kalman filter.
          */
-        cv::KalmanFilter createRadiusKalmanFilter(const float &min_radius, const float &max_radius, float framerate);
+        cv::KalmanFilter createRadiusKalmanFilter(const double &min_radius, const double &max_radius, double framerate);
 
         /**
          * Creates a 10x10 Kalman Filter assuming its input vector consists of
@@ -50,7 +50,7 @@ namespace et
          * @param framerate Estimated system framerate used to calculate velocity.
          * @return Kalman filter.
          */
-        cv::KalmanFilter createEllipseKalmanFilter(const cv::Size2i &resolution, float framerate);
+        cv::KalmanFilter createEllipseKalmanFilter(const cv::Size2i &resolution, double framerate);
 
         // Kalman filter used to correct noisy pupil position.
         cv::KalmanFilter pupil_kalman_{};
@@ -80,9 +80,9 @@ namespace et
          * @param m Matrix to be converted.
          * @return Converted point.
          */
-        static inline cv::Point2f toPoint(cv::Mat m)
+        static inline cv::Point2d toPoint(cv::Mat m)
         {
-            return {(float) m.at<double>(0, 0), (float) m.at<double>(0, 1)};
+            return {m.at<double>(0, 0), m.at<double>(0, 1)};
         }
 
         /**
@@ -90,14 +90,14 @@ namespace et
          * @param m Matrix with a value to extract.
          * @return Extracted value.
          */
-        static inline float toValue(cv::Mat m)
+        static inline double toValue(cv::Mat m)
         {
-            return (float) m.at<double>(0, 0);
+            return m.at<double>(0, 0);
         }
 
-        static inline float euclideanDistance(const cv::Point2f &p, const cv::Point2f &q)
+        static inline double euclideanDistance(const cv::Point2d &p, const cv::Point2d &q)
         {
-            cv::Point2f diff = p - q;
+            cv::Point2d diff = p - q;
             return cv::sqrt(diff.x * diff.x + diff.y * diff.y);
         }
     };
