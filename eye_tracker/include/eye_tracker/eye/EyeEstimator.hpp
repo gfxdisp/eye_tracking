@@ -21,7 +21,7 @@ namespace et
     class EyeEstimator
     {
     public:
-        EyeEstimator(int camera_id, cv::Point3d eye_position);
+        EyeEstimator(int camera_id);
 
         virtual bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre, cv::Point3d &visual_axis) = 0;
 
@@ -90,7 +90,7 @@ namespace et
         /**
          * Creates inverted projection matrix from image to camera space.
          */
-        void createInvertedProjectionMatrix(cv::Point3d eye_position);
+        void createInvertedProjectionMatrix();
 
         /**
          * Converts point from image space to camera space.
@@ -103,6 +103,12 @@ namespace et
 
         [[nodiscard]] cv::Vec3d ICStoWCS(const cv::Point2d point);
 
+        [[nodiscard]] cv::Point2d CCStoICS(cv::Point3d point);
+
+        [[nodiscard]] cv::Point2d WCStoICS(cv::Point3d point);
+
+        [[nodiscard]] cv::Point3d WCStoCCS(cv::Point3d point);
+
         /**
          * Estimates the camera space position of the point located on the pupil
          * @param pupil_px_position Pixel position of the point located on the pupil.
@@ -111,15 +117,6 @@ namespace et
          */
         [[nodiscard]] cv::Vec3d
         calculatePositionOnPupil(const cv::Vec3d &pupil_px_position, const cv::Vec3d &cornea_centre);
-
-        /**
-         * Calculates a vector's direction after refraction.
-         * @param direction Direction vector.
-         * @param normal Normal of the refracting surface.
-         * @param refraction_index Refraction index of the surface.
-         * @return Direction vector after refraction.
-         */
-        cv::Vec3d getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index);
 
         // Distance from top-left corner of the region-of-interest to the top-left
         // corner of the full image, measured in pixels separately for every axis.
@@ -131,6 +128,8 @@ namespace et
         // Inverted extrinsic matrix of the camera.
         cv::Mat inv_extrinsic_matrix_{};
 
+        cv::Mat extrinsic_matrix_{};
+
         cv::Size2i *dimensions_{};
 
         SetupVariables *setup_variables_{};
@@ -138,6 +137,12 @@ namespace et
         int camera_id_{};
 
         double pupil_cornea_distance_{};
+
+        double eye_cornea_distance_{};
+
+        double cornea_radius_{};
+
+        double refraction_index_{};
 
         // Diameter of the pupil in millimeters.
         double pupil_diameter_{};

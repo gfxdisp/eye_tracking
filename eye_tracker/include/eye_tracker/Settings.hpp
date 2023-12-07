@@ -144,7 +144,7 @@ struct Parameters {
     // Detection parameters for the current user.
     FeaturesParams *user_params[2]{};
 
-    std::unordered_map<int, PolynomialParams> polynomial_params[2]{};
+    std::unordered_map<std::string, PolynomialParams> polynomial_params[2]{};
     PolynomialParams *user_polynomial_params[2]{};
 };
 

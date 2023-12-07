@@ -22,6 +22,9 @@ namespace et
         bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre,
                        cv::Point3d &visual_axis) override;
 
+        bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre,
+                       cv::Point3d &visual_axis, double alpha, double beta);
+
         void invertEye(cv::Point3d &nodal_point, cv::Point3d &eye_centre, EyeInfo &eye_info);
 
         Coefficients getCoefficients() const;

@@ -8,14 +8,23 @@
 
 namespace et
 {
+    struct EyeMeasurements
+    {
+        double eye_cornea_dist;
+        double pupil_cornea_dist;
+        double cornea_radius;
+        double refraction_index;
+    };
 
     class ModelEyeEstimator : public EyeEstimator
     {
     public:
-        ModelEyeEstimator(int camera_id, cv::Point3d eye_position);
+        ModelEyeEstimator(int camera_id);
         ~ModelEyeEstimator();
 
         bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre, cv::Point3d &visual_axis) override;
+
+        bool invertDetectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre, EyeMeasurements &measurements);
 
     protected:
         // Function used to optimize cornea centre position in
@@ -25,8 +34,6 @@ namespace et
         cv::Ptr<cv::DownhillSolver::Function> minimizer_function_{};
         // Downhill solver optimizer used to find cornea centre position.
         cv::Ptr<cv::DownhillSolver> solver_{};
-
-        double pupil_eye_centre_distance_{};
     };
 
 } // et

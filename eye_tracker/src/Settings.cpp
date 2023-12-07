@@ -198,24 +198,22 @@ namespace et
         j["beta"] = setup_variables.beta;
     }
 
-    void from_json(const json &j, std::unordered_map<int, PolynomialParams> &polynomial_params)
+    void from_json(const json &j, std::unordered_map<std::string, PolynomialParams> &polynomial_params)
     {
         for (const auto &item: j.items())
         {
-            int name = std::stoi(item.key());
             auto value = item.value();
-            value.at("coefficients").get_to(polynomial_params[name].coefficients);
-            value.at("setup_variables").get_to(polynomial_params[name].setup_variables);
+            value.at("coefficients").get_to(polynomial_params[item.key()].coefficients);
+            value.at("setup_variables").get_to(polynomial_params[item.key()].setup_variables);
         }
     }
 
-    void to_json(json &j, const std::unordered_map<int, PolynomialParams> &polynomial_params)
+    void to_json(json &j, const std::unordered_map<std::string, PolynomialParams> &polynomial_params)
     {
         for (const auto &item: polynomial_params)
         {
-            int name = item.first;
-            j[std::to_string(name)]["coefficients"] = polynomial_params.at(name).coefficients;
-            j[std::to_string(name)]["setup_variables"] = polynomial_params.at(name).setup_variables;
+            j[item.first]["coefficients"] = polynomial_params.at(item.first).coefficients;
+            j[item.first]["setup_variables"] = polynomial_params.at(item.first).setup_variables;
         }
     }
 
@@ -229,16 +227,9 @@ namespace et
         {
             std::vector<std::vector<double>> data{};
             j.at("led_positions").at(side_names[i]).get_to(data);
-
-            static cv::Vec3d origin{1e6, 1e6, 1e6};
-            origin(0) = origin(1) = origin(2) = 1e6;
             for (const auto &item: data)
             {
                 parameters.leds_positions[i].push_back({item[0], item[1], item[2]});
-                for (int k = 0; k < 3; k++)
-                {
-                    origin(k) = std::min(origin(k), item[k]);
-                }
             }
             data.clear();
         }
@@ -288,8 +279,8 @@ namespace et
         file >> j;
         file.close();
         parameters = j.get<Parameters>();
-        parameters.user_polynomial_params[0] = &parameters.polynomial_params[0][0];
-        parameters.user_polynomial_params[1] = &parameters.polynomial_params[1][0];
+        parameters.user_polynomial_params[0] = &parameters.polynomial_params[0]["0"];
+        parameters.user_polynomial_params[1] = &parameters.polynomial_params[1]["0"];
         parameters.user_params[0] = &parameters.features_params[0]["default"];
         parameters.user_params[1] = &parameters.features_params[1]["default"];
     }

@@ -5,7 +5,7 @@
 
 namespace et
 {
-    PolynomialEyeEstimator::PolynomialEyeEstimator(int camera_id) : EyeEstimator(camera_id, {0, 0, 0})
+    PolynomialEyeEstimator::PolynomialEyeEstimator(int camera_id) : EyeEstimator(camera_id)
     {
         eye_centre_pos_x_fit = std::make_shared<PolynomialFit>(6, 3);
         eye_centre_pos_y_fit = std::make_shared<PolynomialFit>(6, 3);
@@ -22,7 +22,7 @@ namespace et
         ellipse_angle_fit = std::make_shared<PolynomialFit>(6, 3);
     }
 
-    PolynomialEyeEstimator::PolynomialEyeEstimator(int camera_id, int model_num) : EyeEstimator(camera_id, {0, 0, 0})
+    PolynomialEyeEstimator::PolynomialEyeEstimator(int camera_id, int model_num) : EyeEstimator(camera_id)
     {
         eye_centre_pos_x_fit = std::make_shared<PolynomialFit>(6, 3);
         eye_centre_pos_y_fit = std::make_shared<PolynomialFit>(6, 3);
@@ -44,13 +44,10 @@ namespace et
     {
         std::clog << "Loading model " << model_num << std::endl;
         Coefficients *coefficients;
-        if (model_num == -1)
-        {
+        if (model_num == -1) {
             coefficients = &Settings::parameters.user_polynomial_params[camera_id_]->coefficients;
-        }
-        else
-        {
-            coefficients = &Settings::parameters.polynomial_params[camera_id_][model_num].coefficients;
+        } else {
+            coefficients = &Settings::parameters.polynomial_params[camera_id_][std::to_string(model_num)].coefficients;
         }
 
         eye_centre_pos_x_fit->setCoefficients(coefficients->eye_centre_pos_x);
@@ -68,7 +65,7 @@ namespace et
         ellipse_height_fit->setCoefficients(coefficients->ellipse_height);
         ellipse_angle_fit->setCoefficients(coefficients->ellipse_angle);
 
-        setup_variables_ = &Settings::parameters.polynomial_params[camera_id_][model_num].setup_variables;
+        setup_variables_ = &Settings::parameters.polynomial_params[camera_id_][std::to_string(model_num)].setup_variables;
     }
 
     bool PolynomialEyeEstimator::fitModel(std::vector<cv::Point2d> &pupils, std::vector<cv::RotatedRect> &ellipses,
@@ -90,8 +87,7 @@ namespace et
         std::vector<double> nodal_point_y{};
         std::vector<double> nodal_point_z{};
 
-        for (int i = 0; i < pupils.size(); i++)
-        {
+        for (int i = 0; i < pupils.size(); i++) {
             pupil_x.push_back(pupils[i].x);
             pupil_y.push_back(pupils[i].y);
             ellipse_x.push_back(ellipses[i].center.x);
@@ -140,35 +136,28 @@ namespace et
         int data_points_num = pupils.size();
 
 
-        for (int setup = 0; setup < setup_count; setup++)
-        {
+        for (int setup = 0; setup < setup_count; setup++) {
             bool success = true;
             std::clog << "Fitting " << names[setup] << std::endl;
             std::vector<int> indices(data_points_num);
             Utils::getCrossValidationIndices(indices, data_points_num, cross_folds);
-            for (int i = 0; i <= cross_folds; i++)
-            {
+            for (int i = 0; i <= cross_folds; i++) {
                 std::vector<std::vector<double>> train_input_data{};
                 std::vector<std::vector<double>> test_input_data{};
                 std::vector<double> train_output_data{};
                 std::vector<double> test_output_data{};
-                for (int j = 0; j < indices.size(); j++)
-                {
-                    if (indices[j] == i || i == cross_folds)
-                    {
+                for (int j = 0; j < indices.size(); j++) {
+                    if (indices[j] == i || i == cross_folds) {
                         std::vector<double> row{};
-                        for (int k = 0; k < fitters[setup]->getNVariables(); k++)
-                        {
+                        for (int k = 0; k < fitters[setup]->getNVariables(); k++) {
                             row.push_back(inputs[setup][k][j]);
                         }
                         test_input_data.push_back(row);
                         test_output_data.push_back((*outputs[setup])[j]);
                     }
-                    if (indices[j] != i || i == cross_folds)
-                    {
+                    if (indices[j] != i || i == cross_folds) {
                         std::vector<double> row{};
-                        for (int k = 0; k < fitters[setup]->getNVariables(); k++)
-                        {
+                        for (int k = 0; k < fitters[setup]->getNVariables(); k++) {
                             row.push_back(inputs[setup][k][j]);
                         }
                         train_input_data.push_back(row);
@@ -176,28 +165,24 @@ namespace et
                     }
                 }
                 success = fitters[setup]->fit(train_input_data, &train_output_data);
-                if (i == cross_folds)
-                {
+                if (i == cross_folds) {
                     result &= success;
                 }
-                if (!success)
-                {
+                if (!success) {
                     std::clog << "[" << (i == cross_folds ? "full" : std::to_string(i)) << "] Fitting failed."
                               << std::endl;
                     continue;
                 }
 
                 std::vector<double> error{};
-                for (int j = 0; j < test_input_data.size(); j++)
-                {
+                for (int j = 0; j < test_input_data.size(); j++) {
                     std::vector<double> input{};
                     double estimation = fitters[setup]->getEstimation(test_input_data[j]);
                     error.push_back(std::abs(estimation - test_output_data[j]));
                 }
                 double mean_error = std::accumulate(error.begin(), error.end(), 0.0) / error.size();
                 double std_error = 0.0;
-                for (int j = 0; j < error.size(); j++)
-                {
+                for (int j = 0; j < error.size(); j++) {
                     std_error += (error[j] - mean_error) * (error[j] - mean_error);
                 }
                 std_error = std::sqrt(std_error / error.size());
@@ -207,77 +192,73 @@ namespace et
             }
         }
 
-        if (!result)
-        {
+        if (!result) {
             return false;
         }
 
-        auto aggregated_polynomial_optimizer = new AggregatedPolynomialOptimizer();
-        aggregated_polynomial_optimizer->pupils = pupils;
-        aggregated_polynomial_optimizer->ellipses = ellipses;
-        aggregated_polynomial_optimizer->eye_centres = eye_centres;
-        aggregated_polynomial_optimizer->visual_axes = visual_axes;
-
-        auto minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>{aggregated_polynomial_optimizer};
-        auto solver_ = cv::DownhillSolver::create();
-        solver_->setFunction(minimizer_function_);
-
-        cv::Mat x{};
-        coeffsToMat(x);
-        cv::Mat step = cv::Mat::ones(x.rows, x.cols, CV_64F) * 10e-4;
-        double start_error = aggregated_polynomial_optimizer->calc(x.ptr<double>());
-
-        solver_->setInitStep(step);
-        solver_->setTermCriteria(cv::TermCriteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS, 10000, 10e-5));
-        solver_->minimize(x);
-
-        double end_error = aggregated_polynomial_optimizer->calc(x.ptr<double>());
-
-        std::clog << "Aggregated polynomial optimizer: start error = " << start_error << ", end error = " << end_error
-                  << std::endl;
-
-        std::vector<double> coefficients{};
-        int counter = 0;
-        for (int i = 0; i < eye_centre_pos_x_fit->getCoefficients().size(); i++)
-        {
-            coefficients.push_back(x.at<double>(counter++));
-        }
-        eye_centre_pos_x_fit->setCoefficients(coefficients);
-
-        coefficients.clear();
-        for (int i = 0; i < nodal_point_x_fit->getCoefficients().size(); i++)
-        {
-            coefficients.push_back(x.at<double>(counter++));
-        }
-        nodal_point_x_fit->setCoefficients(coefficients);
-
-        coefficients.clear();
-        for (int i = 0; i < eye_centre_pos_y_fit->getCoefficients().size(); i++)
-        {
-            coefficients.push_back(x.at<double>(counter++));
-        }
-        eye_centre_pos_y_fit->setCoefficients(coefficients);
-
-        coefficients.clear();
-        for (int i = 0; i < nodal_point_y_fit->getCoefficients().size(); i++)
-        {
-            coefficients.push_back(x.at<double>(counter++));
-        }
-        nodal_point_y_fit->setCoefficients(coefficients);
-
-        coefficients.clear();
-        for (int i = 0; i < eye_centre_pos_z_fit->getCoefficients().size(); i++)
-        {
-            coefficients.push_back(x.at<double>(counter++));
-        }
-        eye_centre_pos_z_fit->setCoefficients(coefficients);
-
-        coefficients.clear();
-        for (int i = 0; i < nodal_point_z_fit->getCoefficients().size(); i++)
-        {
-            coefficients.push_back(x.at<double>(counter++));
-        }
-        nodal_point_z_fit->setCoefficients(coefficients);
+//        auto aggregated_polynomial_optimizer = new AggregatedPolynomialOptimizer();
+//        aggregated_polynomial_optimizer->pupils = pupils;
+//        aggregated_polynomial_optimizer->ellipses = ellipses;
+//        aggregated_polynomial_optimizer->eye_centres = eye_centres;
+//        aggregated_polynomial_optimizer->visual_axes = visual_axes;
+//
+//        auto minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>{aggregated_polynomial_optimizer};
+//        auto solver_ = cv::DownhillSolver::create(cv::Ptr<cv::MinProblemSolver::Function>(),
+//                                                  cv::Mat_<double>(1, 1, 0.0),
+//                                                  cv::TermCriteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS,
+//                                                                   1000,
+//                                                                   10e-4));
+//        solver_->setFunction(minimizer_function_);
+//
+//        cv::Mat x{};
+//        coeffsToMat(x);
+//        cv::Mat step = cv::Mat::ones(x.rows, x.cols, CV_64F) * 10e-4;
+//        double start_error = aggregated_polynomial_optimizer->calc(x.ptr<double>());
+//
+//        solver_->setInitStep(step);
+//        solver_->minimize(x);
+//
+//        double end_error = aggregated_polynomial_optimizer->calc(x.ptr<double>());
+//
+//        std::clog << "Aggregated polynomial optimizer: start error = " << start_error << ", end error = " << end_error
+//                  << std::endl;
+//
+//        std::vector<double> coefficients{};
+//        int counter = 0;
+//        for (int i = 0; i < eye_centre_pos_x_fit->getCoefficients().size(); i++) {
+//            coefficients.push_back(x.at<double>(counter++));
+//        }
+//        eye_centre_pos_x_fit->setCoefficients(coefficients);
+//
+//        coefficients.clear();
+//        for (int i = 0; i < nodal_point_x_fit->getCoefficients().size(); i++) {
+//            coefficients.push_back(x.at<double>(counter++));
+//        }
+//        nodal_point_x_fit->setCoefficients(coefficients);
+//
+//        coefficients.clear();
+//        for (int i = 0; i < eye_centre_pos_y_fit->getCoefficients().size(); i++) {
+//            coefficients.push_back(x.at<double>(counter++));
+//        }
+//        eye_centre_pos_y_fit->setCoefficients(coefficients);
+//
+//        coefficients.clear();
+//        for (int i = 0; i < nodal_point_y_fit->getCoefficients().size(); i++) {
+//            coefficients.push_back(x.at<double>(counter++));
+//        }
+//        nodal_point_y_fit->setCoefficients(coefficients);
+//
+//        coefficients.clear();
+//        for (int i = 0; i < eye_centre_pos_z_fit->getCoefficients().size(); i++) {
+//            coefficients.push_back(x.at<double>(counter++));
+//        }
+//        eye_centre_pos_z_fit->setCoefficients(coefficients);
+//
+//        coefficients.clear();
+//        for (int i = 0; i < nodal_point_z_fit->getCoefficients().size(); i++) {
+//            coefficients.push_back(x.at<double>(counter++));
+//        }
+//        nodal_point_z_fit->setCoefficients(coefficients);
 
         return true;
     }
@@ -285,28 +266,8 @@ namespace et
     bool PolynomialEyeEstimator::detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre,
                                            cv::Point3d &visual_axis)
     {
-        std::vector<double> input_data(6);
-
-        // Uses different sets of data for different estimated parameters.
-        input_data[0] = eye_info.pupil.x;
-        input_data[1] = eye_info.pupil.y;
-        input_data[2] = eye_info.ellipse.center.x;
-        input_data[3] = eye_info.ellipse.center.y;
-        input_data[4] = eye_info.ellipse.size.width;
-        input_data[5] = eye_info.ellipse.size.height;
-        eye_centre.x = eye_centre_pos_x_fit->getEstimation(input_data);
-        nodal_point.x = nodal_point_x_fit->getEstimation(input_data);
-        eye_centre.y = eye_centre_pos_y_fit->getEstimation(input_data);
-        nodal_point.y = nodal_point_y_fit->getEstimation(input_data);
-        eye_centre.z = eye_centre_pos_z_fit->getEstimation(input_data);
-        nodal_point.z = nodal_point_z_fit->getEstimation(input_data);
-
-        cv::Point3d optical_axis = nodal_point - eye_centre;
-        optical_axis += cv::Point3d{0, 0, 10 - 7};
-        optical_axis = optical_axis / cv::norm(optical_axis);
-
-        visual_axis = Utils::opticalToVisualAxis(optical_axis, setup_variables_->alpha, setup_variables_->beta);
-        return true;
+        return detectEye(eye_info, nodal_point, eye_centre, visual_axis, setup_variables_->alpha,
+                         setup_variables_->beta);
     }
 
     void PolynomialEyeEstimator::invertEye(cv::Point3d &nodal_point, cv::Point3d &eye_centre, EyeInfo &eye_info)
@@ -345,8 +306,7 @@ namespace et
         coeffs.insert(coeffs.end(), nodal_point_z_coeffs.begin(), nodal_point_z_coeffs.end());
 
         mat = cv::Mat(coeffs.size(), 1, CV_64F);
-        for (int i = 0; i < coeffs.size(); i++)
-        {
+        for (int i = 0; i < coeffs.size(); i++) {
             mat.at<double>(i) = coeffs[i];
         }
     }
@@ -360,5 +320,31 @@ namespace et
                             ellipse_x_fit->getCoefficients(), ellipse_y_fit->getCoefficients(),
                             ellipse_width_fit->getCoefficients(), ellipse_height_fit->getCoefficients(),
                             ellipse_angle_fit->getCoefficients()};
+    }
+
+    bool PolynomialEyeEstimator::detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre,
+                                           cv::Point3d &visual_axis, double alpha, double beta)
+    {
+        std::vector<double> input_data(6);
+
+        // Uses different sets of data for different estimated parameters.
+        input_data[0] = eye_info.pupil.x;
+        input_data[1] = eye_info.pupil.y;
+        input_data[2] = eye_info.ellipse.center.x;
+        input_data[3] = eye_info.ellipse.center.y;
+        input_data[4] = eye_info.ellipse.size.width;
+        input_data[5] = eye_info.ellipse.size.height;
+        eye_centre.x = eye_centre_pos_x_fit->getEstimation(input_data);
+        nodal_point.x = nodal_point_x_fit->getEstimation(input_data);
+        eye_centre.y = eye_centre_pos_y_fit->getEstimation(input_data);
+        nodal_point.y = nodal_point_y_fit->getEstimation(input_data);
+        eye_centre.z = eye_centre_pos_z_fit->getEstimation(input_data);
+        nodal_point.z = nodal_point_z_fit->getEstimation(input_data);
+
+        cv::Point3d optical_axis = nodal_point - eye_centre;
+        optical_axis = optical_axis / cv::norm(optical_axis);
+
+        visual_axis = Utils::opticalToVisualAxis(optical_axis, alpha, beta);
+        return true;
     }
 } // et

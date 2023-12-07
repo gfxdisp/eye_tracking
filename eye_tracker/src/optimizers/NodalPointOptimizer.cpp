@@ -8,13 +8,12 @@
 
 namespace et
 {
-
     int NodalPointOptimizer::getDims() const
     {
         return 2;
     }
 
-    double NodalPointOptimizer::calc(const double *x) const
+    double NodalPointOptimizer::calc(const double* x) const
     {
         cv::Vec3d c{np_ + np2c_dir_ * x[0]};
         double t{0};
@@ -25,9 +24,7 @@ namespace et
         // should be as low as possible.
         for (int i = 0; i < lp_.size(); i++)
         {
-            bool intersected{Utils::getRaySphereIntersection(screen_glint_[i], ray_dir_[i], c,
-                                                                      Settings::parameters.user_polynomial_params[camera_id_]->setup_variables.cornea_curvature_radius,
-                                                                      t)};
+            bool intersected{Utils::getRaySphereIntersection(screen_glint_[i], ray_dir_[i], c, cornea_radius_, t)};
             if (intersected && t > 0)
             {
                 cv::Vec3d pp{screen_glint_[i] + t * ray_dir_[i]};
@@ -42,8 +39,7 @@ namespace et
 
                 double alf1{std::acos(v1.dot(vc))};
                 double alf2{std::acos(v2.dot(vc))};
-                error += std::pow(alf1 - alf2, 2.0f);
-
+                error += std::abs(alf1 - alf2);
             }
             else
             {
@@ -54,13 +50,12 @@ namespace et
         return error;
     }
 
-    void
-    NodalPointOptimizer::setParameters(const cv::Vec3d &np2c_dir, cv::Vec3d *screen_glint, std::vector<cv::Vec3d> &lp, cv::Vec3d &np)
+    void NodalPointOptimizer::setParameters(const cv::Vec3d& np2c_dir, cv::Vec3d* screen_glint,
+                                            std::vector<cv::Vec3d>& lp, cv::Vec3d& np, double cornea_radius)
     {
         if (!initialized_)
         {
-            std::cerr << "NodalPointOptimizer not initialized! Run initialize() "
-                         "method first.\n";
+            std::cerr << "NodalPointOptimizer not initialized! Run initialize() " "method first.\n";
             return;
         }
         np_ = np;
@@ -72,6 +67,7 @@ namespace et
             ray_dir_[i] = np_ - screen_glint_[i];
             cv::normalize(ray_dir_[i], ray_dir_[i]);
         }
+        cornea_radius_ = cornea_radius;
     }
 
     void NodalPointOptimizer::initialize()
@@ -87,4 +83,4 @@ namespace et
     NodalPointOptimizer::NodalPointOptimizer(int camera_id) : camera_id_(camera_id)
     {
     }
-}// namespace et
+} // namespace et

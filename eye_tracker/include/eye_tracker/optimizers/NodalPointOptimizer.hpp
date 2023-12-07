@@ -26,8 +26,7 @@ public:
      * @param screen_glint Vector of glints in image space corresponding to LEDs.
      * @param lp Vector of LED positions in camera space corresponding to glints.
      */
-    void setParameters(const cv::Vec3d &np2c_dir, cv::Vec3d *screen_glint,
-                       std::vector<cv::Vec3d> &lp, cv::Vec3d &np);
+    void setParameters(const cv::Vec3d& np2c_dir, cv::Vec3d* screen_glint, std::vector<cv::Vec3d>& lp, cv::Vec3d& np, double cornea_radius);
 
 private:
     // Camera space position of the nodal point.
@@ -58,6 +57,8 @@ private:
      * @return total error computed for the parameters.
      */
     double calc(const double *x) const override;
+
+    double cornea_radius_{};
 };
 
 } // namespace et

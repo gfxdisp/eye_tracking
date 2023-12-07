@@ -9,6 +9,7 @@
 #include <sstream>
 #include <numeric>
 #include <iostream>
+#include <eye_tracker/optimizers/EyeAnglesOptimizer.hpp>
 
 namespace et
 {
@@ -126,8 +127,8 @@ namespace et
         return result;
     }
 
-    cv::Point3d Utils::calculateNodalPointPosition(cv::Point3d observed_point, cv::Point3d eye_centre,
-                                                   double nodal_dist)
+    cv::Point3d
+    Utils::calculateNodalPointPosition(cv::Point3d observed_point, cv::Point3d eye_centre, double nodal_dist)
     {
         cv::Point3d nodal_point{};
         double dist = cv::norm(observed_point - eye_centre);
@@ -280,7 +281,7 @@ namespace et
         return atan2(det, dot);
     }
 
-    void Utils::getCrossValidationIndices(std::vector<int>& indices, int n_data_points, int n_folds)
+    void Utils::getCrossValidationIndices(std::vector<int> &indices, int n_data_points, int n_folds)
     {
         indices.resize(n_data_points);
         for (int i = 0; i < n_data_points; i++)
@@ -302,9 +303,9 @@ namespace et
         for (int i = 0; i < n; i++)
         {
             cv::Vec3d optical_axis = {back_corners[i].x - front_corners[i].x, back_corners[i].y - front_corners[i].y,
-                                     back_corners[i].z - front_corners[i].z};
+                                      back_corners[i].z - front_corners[i].z};
             double norm = std::sqrt(optical_axis[0] * optical_axis[0] + optical_axis[1] * optical_axis[1] +
-                                   optical_axis[2] * optical_axis[2]);
+                                    optical_axis[2] * optical_axis[2]);
             optical_axis[0] /= norm;
             optical_axis[1] /= norm;
             optical_axis[2] /= norm;
@@ -326,7 +327,8 @@ namespace et
         }
 
         cv::Mat intersection = S.inv(cv::DECOMP_SVD) * C;
-        cv::Point3d cross_point = {intersection.at<double>(0, 0), intersection.at<double>(1, 0), intersection.at<double>(2, 0)};
+        cv::Point3d cross_point = {intersection.at<double>(0, 0), intersection.at<double>(1, 0),
+                                   intersection.at<double>(2, 0)};
         return cross_point;
     }
 
@@ -374,4 +376,99 @@ namespace et
         return R;
     }
 
+    cv::Vec3d Utils::getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index)
+    {
+        double nr{1 / refraction_index};
+        double m_cos{(-direction).dot(normal)};
+        double m_sin{nr * nr * (1 - m_cos * m_cos)};
+        cv::Vec3d t{nr * direction + (nr * m_cos - std::sqrt(1 - m_sin)) * normal};
+        cv::normalize(t, t);
+        return t;
+    }
+
+    double Utils::getStdDev(const std::vector<double>& values)
+    {
+        double mean = std::accumulate(values.begin(), values.end(), 0.0) / values.size();
+        double std = 0.0;
+        for (int i = 0; i < values.size(); i++)
+        {
+            std += (values[i] - mean) * (values[i] - mean);
+        }
+        std /= values.size();
+        std = std::sqrt(std);
+        return std;
+    }
+
+    double Utils::getPercentile(const std::vector<double>& values, double percentile)
+    {
+        int index = (int) (percentile * values.size());
+        std::vector<double> sorted_values = values;
+        std::sort(sorted_values.begin(), sorted_values.end());
+        return sorted_values[index];
+    }
+
+    void Utils::getAnglesBetweenVectors(cv::Vec3d a, cv::Vec3d b, double &alpha, double &beta)
+    {
+        double dot = a.dot(b);
+        double det = a[2] * b[1] - a[1] * b[2];
+        if (dot == 0 && det == 0)
+        {
+            alpha = M_PI;
+            beta = M_PI;
+            return;
+        }
+
+        beta = atan2(det, dot);
+
+        dot = a.dot(b);
+        det = a[0] * b[2] - a[2] * b[0];
+        if (dot == 0 && det == 0)
+        {
+            alpha = M_PI;
+            beta = M_PI;
+            return;
+        }
+
+        alpha = atan2(det, dot);
+
+        alpha = alpha * 180 / M_PI;
+        beta = beta * 180 / M_PI;
+
+        if (alpha < -90) {
+            alpha += 180;
+        }
+        if (alpha > 90) {
+            alpha -= 180;
+        }
+        if (beta < -90) {
+            beta += 180;
+        }
+        if (beta > 90) {
+            beta -= 180;
+        }
+    }
+
+    void Utils::getAnglesBetweenVectorsAlt(cv::Vec3d visual_axis, cv::Vec3d optical_axis, double& alpha, double& beta)
+    {
+        static int initialized = false;
+        static EyeAnglesOptimizer *optimizer{};
+        static cv::Ptr<cv::DownhillSolver::Function> minimizer_function{};
+        static cv::Ptr<cv::DownhillSolver> solver{};
+        if (!initialized)
+        {
+            optimizer = new EyeAnglesOptimizer();
+            minimizer_function = cv::Ptr<cv::DownhillSolver::Function>{optimizer};
+            solver = cv::DownhillSolver::create();
+            solver->setFunction(minimizer_function);
+            cv::Mat step = (cv::Mat_<double>(1, 2) << 0.1, 0.1);
+            solver->setInitStep(step);
+            initialized = true;
+        }
+
+        cv::Mat x = (cv::Mat_<double>(1, 2) << 0, 0);
+        optimizer->setParameters(visual_axis, optical_axis);
+        solver->minimize(x);
+        alpha = -x.at<double>(0, 0);
+        beta = -x.at<double>(0, 1);
+    }
 } // namespace et

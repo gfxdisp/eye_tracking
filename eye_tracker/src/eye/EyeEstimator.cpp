@@ -3,37 +3,38 @@
 
 namespace et
 {
-    EyeEstimator::EyeEstimator(int camera_id, cv::Point3d eye_position) : camera_id_{camera_id}
+    EyeEstimator::EyeEstimator(int camera_id) : camera_id_{camera_id}
     {
         setup_variables_ = &Settings::parameters.user_polynomial_params[camera_id]->setup_variables;
         intrinsic_matrix_ = &Settings::parameters.camera_params[camera_id].intrinsic_matrix;
         capture_offset_ = &Settings::parameters.camera_params[camera_id].capture_offset;
         dimensions_ = &Settings::parameters.camera_params[camera_id].dimensions;
-        cv::Vec4d homo_eye_position{eye_position.x, eye_position.y, eye_position.z, 1.0};
-        cv::Mat camera_pos_mat = cv::Mat(homo_eye_position).t() * Settings::parameters.camera_params[camera_id].extrinsic_matrix.t();
-        cv::Point3d camera_pos{camera_pos_mat.at<double>(0), camera_pos_mat.at<double>(1), camera_pos_mat.at<double>(2)};
-        createInvertedProjectionMatrix(camera_pos);
+        createInvertedProjectionMatrix();
         inv_extrinsic_matrix_ = Settings::parameters.camera_params[camera_id].extrinsic_matrix.inv().t();
+        extrinsic_matrix_ = Settings::parameters.camera_params[camera_id].extrinsic_matrix.t();
 
         camera_nodal_point_ = {0, 0, 0};
 
         pupil_cornea_distance_ = 4.2;
+        eye_cornea_distance_ = 5.3;
+        cornea_radius_ = 7.8;
+        refraction_index_ = 1.3375;
     }
 
     cv::Vec3d EyeEstimator::ICStoCCS(const cv::Point2d point)
     {
-//        cv::Vec4d homo_point{point.x + capture_offset_->width, point.y + capture_offset_->height, 0, 1};
-//        // Multiplies by inverted projection matrix to get camera space coordinates.
-//        cv::Mat p{cv::Mat(homo_point).t() * inv_projection_matrix_};
-//        double x = p.at<double>(0) / p.at<double>(3);
-//        double y = p.at<double>(1) / p.at<double>(3);
-//        double z = p.at<double>(2) / p.at<double>(3);
+        cv::Vec4d homo_point{point.x + capture_offset_->width, point.y + capture_offset_->height, 0, 1};
+        // Multiplies by inverted projection matrix to get camera space coordinates.
+        cv::Mat p{cv::Mat(homo_point).t() * inv_projection_matrix_};
+        double x = p.at<double>(0) / p.at<double>(3);
+        double y = p.at<double>(1) / p.at<double>(3);
+        double z = p.at<double>(2) / p.at<double>(3);
 
-        double z = -intrinsic_matrix_->at<double>(cv::Point(0, 0)) * 6.144 / dimensions_->width;
-        double shift_x = intrinsic_matrix_->at<double>(cv::Point(0, 2)) - dimensions_->width * 0.5;
-        double shift_y = intrinsic_matrix_->at<double>(cv::Point(1, 2)) - dimensions_->height * 0.5;
-        double x = -(point.x - shift_x + capture_offset_->width - dimensions_->width * 0.5) / (dimensions_->width * 0.5) * 6.144 / 2;
-        double y = -(point.y - shift_y + capture_offset_->height - dimensions_->height * 0.5) / (dimensions_->height * 0.5) * 4.915 / 2;
+        // z = -intrinsic_matrix_->at<double>(cv::Point(0, 0)) * 6.144 / dimensions_->width;
+        // double shift_x = intrinsic_matrix_->at<double>(cv::Point(0, 2)) - dimensions_->width * 0.5;
+        // double shift_y = intrinsic_matrix_->at<double>(cv::Point(1, 2)) - dimensions_->height * 0.5;
+        // x = -(point.x - shift_x + capture_offset_->width - dimensions_->width * 0.5) / (dimensions_->width * 0.5) * 6.144 / 2;
+        // y = -(point.y - shift_y + capture_offset_->height - dimensions_->height * 0.5) / (dimensions_->height * 0.5) * 4.915 / 2;
 
         return {x, y, z};
     }
@@ -54,13 +55,37 @@ namespace et
         return CCStoWCS(ICStoCCS(point));
     }
 
-    void EyeEstimator::createInvertedProjectionMatrix(cv::Point3d eye_position)
+    cv::Point2d EyeEstimator::CCStoICS(cv::Point3d point)
+    {
+        cv::Point2d pixel;
+        unproject(point, pixel);
+        return pixel;
+    }
+
+    cv::Point2d EyeEstimator::WCStoICS(cv::Point3d point)
+    {
+        return CCStoICS(WCStoCCS(point));
+    }
+
+    cv::Point3d EyeEstimator::WCStoCCS(cv::Point3d point)
+    {
+        cv::Vec4d homo_point{point.x, point.y, point.z, 1.0};
+        cv::Mat ccs_pos = cv::Mat(homo_point).t() * extrinsic_matrix_;
+        double x = ccs_pos.at<double>(0) / ccs_pos.at<double>(3);
+        double y = ccs_pos.at<double>(1) / ccs_pos.at<double>(3);
+        double z = ccs_pos.at<double>(2) / ccs_pos.at<double>(3);
+
+        return {x, y, z};
+    }
+
+    void EyeEstimator::createInvertedProjectionMatrix()
     {
         // Projection matrix created according to the lecture notes:
         // https://www.cl.cam.ac.uk/teaching/2122/AGIP/lf_rendering.pdf
         cv::Point3d normal{0, 0, 1};
 //        cv::Point3d wf = pupil_plane_position;
-        cv::Point3d wf{0, 0, -28.3074};
+        // cv::Point3d wf{0, 0, -28.3074};
+        cv::Point3d wf{0, 0, -1.0};
         double view_data[4][4]{{1,        0,        0,        0},
                               {0,        1,        0,        0},
                               {normal.x, normal.y, normal.z, -normal.dot(wf)},
@@ -100,7 +125,7 @@ namespace et
         cv::Vec3d pupil_dir{-pupil_px_position};
         cv::normalize(pupil_dir, pupil_dir);
         bool intersected{Utils::getRaySphereIntersection(cv::Vec3d(0.0), pupil_dir, cornea_centre,
-                                                         setup_variables_->cornea_curvature_radius, t)};
+                                                         cornea_radius_, t)};
 
         if (intersected)
         {
@@ -109,7 +134,7 @@ namespace et
             cv::normalize(nv, nv);
             cv::Vec3d m_dir{-pupil_px_position};
             cv::normalize(m_dir, m_dir);
-            cv::Vec3d direction{getRefractedRay(m_dir, nv, setup_variables_->cornea_refraction_index)};
+            cv::Vec3d direction{Utils::getRefractedRay(m_dir, nv, refraction_index_)};
             intersected = Utils::getRaySphereIntersection(pupil_on_cornea, direction, cornea_centre,
                                                           pupil_cornea_distance_, t);
             if (intersected)
@@ -118,17 +143,6 @@ namespace et
             }
         }
         return pupil_position;
-    }
-
-    cv::Vec3d
-    EyeEstimator::getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index)
-    {
-        double nr{1 / refraction_index};
-        double m_cos{(-direction).dot(normal)};
-        double m_sin{nr * nr * (1 - m_cos * m_cos)};
-        cv::Vec3d t{nr * direction + (nr * m_cos - std::sqrt(1 - m_sin)) * normal};
-        cv::normalize(t, t);
-        return t;
     }
 
     bool EyeEstimator::findPupilDiameter(cv::Point2d pupil_pix_position, int pupil_px_radius,

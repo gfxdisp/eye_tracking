@@ -44,8 +44,8 @@ namespace et
 
         static std::vector<std::string> split(std::string to_split, char i);
 
-        static cv::Point3d calculateNodalPointPosition(cv::Point3d observed_point, cv::Point3d eye_centre,
-                                                       double nodal_dist = 5.3);
+        static cv::Point3d
+        calculateNodalPointPosition(cv::Point3d observed_point, cv::Point3d eye_centre, double nodal_dist = 5.3);
 
         static cv::Mat findTransformationMatrix(const cv::Mat &mat_from, const cv::Mat &mat_to);
 
@@ -75,9 +75,10 @@ namespace et
 
         static double getAngleBetweenVectors(cv::Vec3d a, cv::Vec3d b);
 
-        static void getCrossValidationIndices(std::vector<int>& indices, int n_data_points, int n_folds);
+        static void getCrossValidationIndices(std::vector<int> &indices, int n_data_points, int n_folds);
 
-        static cv::Point3d findGridIntersection(std::vector<cv::Point3d> &front_corners, std::vector<cv::Point3d> &back_corners);
+        static cv::Point3d
+        findGridIntersection(std::vector<cv::Point3d> &front_corners, std::vector<cv::Point3d> &back_corners);
 
         static cv::Mat getRotX(double angle);
 
@@ -87,7 +88,17 @@ namespace et
 
         static cv::Mat convertAxisAngleToRotationMatrix(cv::Mat axis, double angle);
 
-    private:
+        static void getAnglesBetweenVectors(cv::Vec3d a, cv::Vec3d b, double &alpha, double &beta);
+
+        static void getAnglesBetweenVectorsAlt(cv::Vec3d visual_axis, cv::Vec3d optical_axis, double &alpha, double &beta);
+
+        static cv::Vec3d getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index);
+
+        static double getStdDev(const std::vector<double>& values);
+
+        static double getPercentile(const std::vector<double>& values, double percentile);
+
+       private:
         static std::mt19937::result_type seed;
         static std::mt19937 gen;
     };

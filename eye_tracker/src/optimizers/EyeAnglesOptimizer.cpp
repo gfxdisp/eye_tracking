@@ -18,9 +18,9 @@ namespace et
     {
         double alpha = x[0];
         double beta = x[1];
-        cv::Vec3d expected_optical_axis = Utils::visualToOpticalAxis(visual_axis_, alpha, beta);
+        cv::Vec3d expected_visual_axis = Utils::opticalToVisualAxis(optical_axis_, alpha, beta);
         // Get angle between expected and actual optical axis
-        double angle = std::acos(expected_optical_axis.dot(optical_axis_));
+        double angle = std::acos(expected_visual_axis.dot(visual_axis_));
         return angle;
     }
 } // et
