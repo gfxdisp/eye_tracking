@@ -55,11 +55,11 @@ int main(int argc, char *argv[])
         }
     }
 
-    cv::Vec3d min_eye_pos = {190.0, 135.0, 815.0};
-    cv::Vec3d max_eye_pos = {204.0, 151.0, 830.0};
+    cv::Vec3d min_eye_pos = {190.0, 135.0, 880.0};
+    cv::Vec3d max_eye_pos = {204.0, 151.0, 920.0};
 
     cv::Vec3d min_marker_pos = {170.0, 90.0, -100.0};
-    cv::Vec3d max_marker_pos = {290.0, 210.0, 100.0};
+    cv::Vec3d max_marker_pos = {290.0, 210.0, 200.0};
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
     et::ModelEyeEstimator model_eye_estimator(camera_id);
     std::vector<cv::Point2f> glints{};
 
-    for (int j = 0; j < 10000; j++) {
+    for (int j = 0; j < 25000; j++) {
         marker_pos = {dis_marker_x(gen), dis_marker_y(gen), dis_marker_z(gen)};
         eye_centre = {dis_eye_x(gen), dis_eye_y(gen), dis_eye_z(gen)};
 
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
         eye_centres.push_back(eye_centre);
         nodal_points.push_back(nodal_point);
         visual_axes.push_back(visual_axis);
-        std::cout << j << " / 10000" << std::endl;
+        std::cout << j << " / 25000" << std::endl;
     }
     polynomial_eye_estimator.fitModel(pupils, ellipses, eye_centres, nodal_points, visual_axes);
 

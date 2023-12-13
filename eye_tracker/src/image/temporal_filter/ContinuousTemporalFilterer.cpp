@@ -120,10 +120,10 @@ namespace et
 
         cv::Mat predicted_ellipse = glint_ellipse_kalman_.predict();
         ellipse.center.x = predicted_ellipse.at<double>(0, 0);
-        ellipse.center.y = predicted_ellipse.at<double>(1, 0);
-        ellipse.size.width = predicted_ellipse.at<double>(2, 0);
-        ellipse.size.height = predicted_ellipse.at<double>(3, 0);
-        ellipse.angle = predicted_ellipse.at<double>(4, 0);
+        ellipse.center.y = predicted_ellipse.at<double>(0, 1);
+        ellipse.size.width = predicted_ellipse.at<double>(0, 2);
+        ellipse.size.height = predicted_ellipse.at<double>(0, 3);
+        ellipse.angle = predicted_ellipse.at<double>(0, 4);
     }
 
     cv::KalmanFilter ContinuousTemporalFilterer::createPixelKalmanFilter(const cv::Size2i &resolution, double framerate)
@@ -140,7 +140,7 @@ namespace et
         cv::Mat error_cov_post{cv::Mat::eye(4, 4, CV_64F)};
         cv::Mat state_post{(cv::Mat_<double>(4, 1) << resolution.width / 2, resolution.height / 2, 0, 0)};
 
-        cv::KalmanFilter KF(4, 2);
+        cv::KalmanFilter KF(4, 2, CV_64F);
         KF.transitionMatrix = transition_matrix;
         KF.measurementMatrix = measurement_matrix;
         KF.processNoiseCov = process_noise_cov;
@@ -166,7 +166,7 @@ namespace et
         cv::Mat error_cov_post{cv::Mat::eye(2, 2, CV_64F)};
         cv::Mat state_post{(cv::Mat_<double>(2, 1) << (max_radius - min_radius) / 2, 0)};
 
-        cv::KalmanFilter KF(2, 1);
+        cv::KalmanFilter KF(2, 1, CV_64F);
         KF.transitionMatrix = transition_matrix;
         KF.measurementMatrix = measurement_matrix;
         KF.processNoiseCov = process_noise_cov;
@@ -196,10 +196,10 @@ namespace et
         cv::Mat process_noise_cov{cv::Mat::eye(10, 10, CV_64F) * 2};
         cv::Mat measurement_noise_cov{cv::Mat::eye(5, 5, CV_64F) * 5};
         cv::Mat error_cov_post{cv::Mat::eye(10, 10, CV_64F)};
-        cv::Mat state_post{(cv::Mat_<double>(10, 1) << resolution.width / 2.0, resolution.height / 2.0, resolution.width / 4.0,
-                resolution.height / 4.0, 0.0)};
+        cv::Mat state_post{(cv::Mat_<double>(10, 1) << resolution.width / 2, resolution.height / 2, resolution.width / 4, resolution.height / 4, 0, 0, 0, 0, 0,
+                0)};
 
-        cv::KalmanFilter KF(10, 5);
+        cv::KalmanFilter KF(10, 5, CV_64F);
         KF.transitionMatrix = transition_matrix;
         KF.measurementMatrix = measurement_matrix;
         KF.processNoiseCov = process_noise_cov;

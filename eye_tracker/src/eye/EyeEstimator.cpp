@@ -57,9 +57,11 @@ namespace et
 
     cv::Point2d EyeEstimator::CCStoICS(cv::Point3d point)
     {
-        cv::Point2d pixel;
-        unproject(point, pixel);
-        return pixel;
+        cv::Vec3d homo_point{point.x, point.y, point.z};
+        cv::Mat ccs_pos = cv::Mat(homo_point).t() * (*intrinsic_matrix_);
+        double x = ccs_pos.at<double>(0) / ccs_pos.at<double>(2);
+        double y = ccs_pos.at<double>(1) / ccs_pos.at<double>(2);
+        return {x - capture_offset_->width, y - capture_offset_->height};
     }
 
     cv::Point2d EyeEstimator::WCStoICS(cv::Point3d point)
@@ -172,18 +174,6 @@ namespace et
         return false;
     }
 
-    void EyeEstimator::unproject(cv::Point3d point, cv::Point2d &pixel)
-    {
-        cv::Vec3d point_vec{point};
-        // Multiplies by intrinsic matrix to get image space coordinates.
-        cv::Mat unprojected = intrinsic_matrix_->t() * point_vec;
-        double x = unprojected.at<double>(0);
-        double y = unprojected.at<double>(1);
-        double w = unprojected.at<double>(2);
-        // Shifts the position to account for region-of-interest.
-        pixel = {x / w - (double) capture_offset_->width, y / w - (double) capture_offset_->height};
-    }
-
     void EyeEstimator::getGazeDirection(cv::Point3d nodal_point, cv::Point3d eye_centre, cv::Vec3d &gaze_direction)
     {
         cv::Vec3d optical_axis = nodal_point - eye_centre;
@@ -230,10 +220,10 @@ namespace et
         cv::Vec3d gaze_direction{};
 
         bool result = detectEye(eye_info, nodal_point, eye_centre, visual_axis);
-        unproject(eye_centre_, eye_centre_pixel_);
-        unproject(cornea_centre_, cornea_centre_pixel_);
-        findPupilDiameter(eye_info.pupil, eye_info.pupil_radius, cornea_centre_, pupil_diameter_);
-        getGazeDirection(nodal_point, eye_centre, gaze_direction_);
+        eye_centre_pixel = WCStoICS(eye_centre);
+        cornea_centre_pixel = WCStoICS(nodal_point);
+        findPupilDiameter(eye_info.pupil, eye_info.pupil_radius, nodal_point, pupil_diameter);
+        getGazeDirection(nodal_point, eye_centre, gaze_direction);
 
         mtx_eye_position_.lock();
         cornea_centre_ = nodal_point;

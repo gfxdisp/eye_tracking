@@ -205,9 +205,21 @@ namespace et
                         {
                             goto connect_failure;
                         }
-                        message_buffer_[path_length] = '\0';
                         std::string meta_model_path = message_buffer_;
-                        cv::Point3d eye_centre = eye_trackers_[camera_id]->setMetaModel(meta_model_path);
+
+                        int user_id_length{};
+                        if (!readAll(&user_id_length, sizeof(user_id_length)))
+                        {
+                            goto connect_failure;
+                        }
+                        if (!readAll(message_buffer_, user_id_length))
+                        {
+                            goto connect_failure;
+                        }
+
+                        message_buffer_[user_id_length] = '\0';
+                        std::string user_id = message_buffer_;
+                        cv::Point3d eye_centre = eye_trackers_[camera_id]->setMetaModel(meta_model_path, user_id);
                         if (!sendAll(&eye_centre, sizeof(eye_centre)))
                         {
                             goto connect_failure;

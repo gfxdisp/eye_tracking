@@ -126,6 +126,7 @@ struct SetupVariables {
 struct PolynomialParams {
     Coefficients coefficients{};
     SetupVariables setup_variables{};
+    cv::Mat camera_to_blender{};
 };
 
 /**

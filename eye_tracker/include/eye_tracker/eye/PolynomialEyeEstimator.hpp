@@ -12,9 +12,9 @@ namespace et
     public:
         PolynomialEyeEstimator(int camera_id);
 
-        PolynomialEyeEstimator(int camera_id, int model_num);
+        PolynomialEyeEstimator(int camera_id, std::string user_id);
 
-        void setModel(int model_num);
+        void setModel(std::string user_id);
 
         bool fitModel(std::vector<cv::Point2d> &pupils, std::vector<cv::RotatedRect> &ellipses,
                       std::vector<cv::Point3d> &eye_centres, std::vector<cv::Point3d> &nodal_points, std::vector<cv::Vec3d> &visual_axes);
@@ -46,6 +46,7 @@ namespace et
 
     private:
         void coeffsToMat(cv::Mat &mat);
+        cv::Mat *camera_to_blender_{};
     };
 
 } // et

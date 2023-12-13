@@ -259,10 +259,11 @@ namespace et
         }
     }
 
-    cv::Point3d Framework::setMetaModel(const std::string &input_path)
+    cv::Point3d Framework::setMetaModel(const std::string &input_path, const std::string &user_id)
     {
         fs::path path = input_path;
         std::clog << "Input path: " << input_path << std::endl;
+        std::clog << "User id: " << user_id << std::endl;
 
         std::shared_ptr<ImageProvider> image_provider{};
         std::shared_ptr<FeatureAnalyser> feature_analyser{};
@@ -280,8 +281,7 @@ namespace et
         auto csv_path = path / "calib_data.csv";
 
         std::clog << "CSV path: " << csv_path.string() << std::endl;
-        cv::Point3d eye_centre = meta_model_->findMetaModel(image_provider, feature_analyser, csv_path.string());
-        return eye_centre;
+        return meta_model_->findMetaModel(image_provider, feature_analyser, csv_path.string(), user_id);
     }
 
     void Framework::getEyeDataPackage(EyeDataToSend &eye_data_package)

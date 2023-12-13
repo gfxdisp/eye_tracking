@@ -205,6 +205,7 @@ namespace et
             auto value = item.value();
             value.at("coefficients").get_to(polynomial_params[item.key()].coefficients);
             value.at("setup_variables").get_to(polynomial_params[item.key()].setup_variables);
+            polynomial_params[item.key()].camera_to_blender = cv::Mat::eye(4, 4, CV_64FC1);
         }
     }
 

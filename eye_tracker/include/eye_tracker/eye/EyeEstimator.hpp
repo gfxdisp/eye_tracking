@@ -31,13 +31,6 @@ namespace et
 
         virtual void getGazeDirection(cv::Point3d nodal_point, cv::Point3d eye_centre, cv::Vec3d &gaze_direction);
 
-        /**
-         * Converts point position from camera space to region-of-interest image space.
-         * @param point Location in the camera space.
-         * @return Pixel location of the point in region-of-interest image space.
-         */
-        virtual void unproject(cv::Point3d point, cv::Point2d &pixel);
-
 
         bool findEye(EyeInfo &eye_info);
 

@@ -20,9 +20,10 @@ namespace et
         ellipse_width_fit = std::make_shared<PolynomialFit>(6, 3);
         ellipse_height_fit = std::make_shared<PolynomialFit>(6, 3);
         ellipse_angle_fit = std::make_shared<PolynomialFit>(6, 3);
+        setModel("default");
     }
 
-    PolynomialEyeEstimator::PolynomialEyeEstimator(int camera_id, int model_num) : EyeEstimator(camera_id)
+    PolynomialEyeEstimator::PolynomialEyeEstimator(int camera_id, std::string user_id) : EyeEstimator(camera_id)
     {
         eye_centre_pos_x_fit = std::make_shared<PolynomialFit>(6, 3);
         eye_centre_pos_y_fit = std::make_shared<PolynomialFit>(6, 3);
@@ -37,17 +38,17 @@ namespace et
         ellipse_width_fit = std::make_shared<PolynomialFit>(6, 3);
         ellipse_height_fit = std::make_shared<PolynomialFit>(6, 3);
         ellipse_angle_fit = std::make_shared<PolynomialFit>(6, 3);
-        setModel(model_num);
+        setModel(user_id);
     }
 
-    void PolynomialEyeEstimator::setModel(int model_num)
+    void PolynomialEyeEstimator::setModel(std::string user_id)
     {
-        std::clog << "Loading model " << model_num << std::endl;
+        std::clog << "Loading model " << user_id << std::endl;
         Coefficients *coefficients;
-        if (model_num == -1) {
+        if (user_id == "") {
             coefficients = &Settings::parameters.user_polynomial_params[camera_id_]->coefficients;
         } else {
-            coefficients = &Settings::parameters.polynomial_params[camera_id_][std::to_string(model_num)].coefficients;
+            coefficients = &Settings::parameters.polynomial_params[camera_id_][user_id].coefficients;
         }
 
         eye_centre_pos_x_fit->setCoefficients(coefficients->eye_centre_pos_x);
@@ -65,7 +66,8 @@ namespace et
         ellipse_height_fit->setCoefficients(coefficients->ellipse_height);
         ellipse_angle_fit->setCoefficients(coefficients->ellipse_angle);
 
-        setup_variables_ = &Settings::parameters.polynomial_params[camera_id_][std::to_string(model_num)].setup_variables;
+        setup_variables_ = &Settings::parameters.polynomial_params[camera_id_][user_id].setup_variables;
+        camera_to_blender_ = &Settings::parameters.polynomial_params[camera_id_][user_id].camera_to_blender;
     }
 
     bool PolynomialEyeEstimator::fitModel(std::vector<cv::Point2d> &pupils, std::vector<cv::RotatedRect> &ellipses,
@@ -196,70 +198,6 @@ namespace et
             return false;
         }
 
-//        auto aggregated_polynomial_optimizer = new AggregatedPolynomialOptimizer();
-//        aggregated_polynomial_optimizer->pupils = pupils;
-//        aggregated_polynomial_optimizer->ellipses = ellipses;
-//        aggregated_polynomial_optimizer->eye_centres = eye_centres;
-//        aggregated_polynomial_optimizer->visual_axes = visual_axes;
-//
-//        auto minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>{aggregated_polynomial_optimizer};
-//        auto solver_ = cv::DownhillSolver::create(cv::Ptr<cv::MinProblemSolver::Function>(),
-//                                                  cv::Mat_<double>(1, 1, 0.0),
-//                                                  cv::TermCriteria(cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS,
-//                                                                   1000,
-//                                                                   10e-4));
-//        solver_->setFunction(minimizer_function_);
-//
-//        cv::Mat x{};
-//        coeffsToMat(x);
-//        cv::Mat step = cv::Mat::ones(x.rows, x.cols, CV_64F) * 10e-4;
-//        double start_error = aggregated_polynomial_optimizer->calc(x.ptr<double>());
-//
-//        solver_->setInitStep(step);
-//        solver_->minimize(x);
-//
-//        double end_error = aggregated_polynomial_optimizer->calc(x.ptr<double>());
-//
-//        std::clog << "Aggregated polynomial optimizer: start error = " << start_error << ", end error = " << end_error
-//                  << std::endl;
-//
-//        std::vector<double> coefficients{};
-//        int counter = 0;
-//        for (int i = 0; i < eye_centre_pos_x_fit->getCoefficients().size(); i++) {
-//            coefficients.push_back(x.at<double>(counter++));
-//        }
-//        eye_centre_pos_x_fit->setCoefficients(coefficients);
-//
-//        coefficients.clear();
-//        for (int i = 0; i < nodal_point_x_fit->getCoefficients().size(); i++) {
-//            coefficients.push_back(x.at<double>(counter++));
-//        }
-//        nodal_point_x_fit->setCoefficients(coefficients);
-//
-//        coefficients.clear();
-//        for (int i = 0; i < eye_centre_pos_y_fit->getCoefficients().size(); i++) {
-//            coefficients.push_back(x.at<double>(counter++));
-//        }
-//        eye_centre_pos_y_fit->setCoefficients(coefficients);
-//
-//        coefficients.clear();
-//        for (int i = 0; i < nodal_point_y_fit->getCoefficients().size(); i++) {
-//            coefficients.push_back(x.at<double>(counter++));
-//        }
-//        nodal_point_y_fit->setCoefficients(coefficients);
-//
-//        coefficients.clear();
-//        for (int i = 0; i < eye_centre_pos_z_fit->getCoefficients().size(); i++) {
-//            coefficients.push_back(x.at<double>(counter++));
-//        }
-//        eye_centre_pos_z_fit->setCoefficients(coefficients);
-//
-//        coefficients.clear();
-//        for (int i = 0; i < nodal_point_z_fit->getCoefficients().size(); i++) {
-//            coefficients.push_back(x.at<double>(counter++));
-//        }
-//        nodal_point_z_fit->setCoefficients(coefficients);
-
         return true;
     }
 
@@ -327,13 +265,53 @@ namespace et
     {
         std::vector<double> input_data(6);
 
+        EyeInfo corrected_eye_info{};
+        static int samples_per_ellipse = 20;
+        cv::Mat camera_features(samples_per_ellipse + 1, 4, CV_64F);
+        camera_features.at<double>(0, 0) = eye_info.pupil.x;
+        camera_features.at<double>(0, 1) = eye_info.pupil.y;
+        camera_features.at<double>(0, 2) = 0.0;
+        camera_features.at<double>(0, 3) = 1.0;
+        for (int j = 0; j < samples_per_ellipse; j++) {
+            // Get angle on ellipse between 0 and 2pi
+            double angle = (double) j / samples_per_ellipse * 2 * CV_PI;
+
+            // Find intersection between ellipse and line with angle
+            cv::Point2d intersection = Utils::findEllipseIntersection(eye_info.ellipse, angle);
+            camera_features.at<double>(j + 1, 0) = intersection.x;
+            camera_features.at<double>(j + 1, 1) = intersection.y;
+            camera_features.at<double>(j + 1, 2) = 0.0;
+            camera_features.at<double>(j + 1, 3) = 1.0;
+        }
+
+        cv::Mat blender_features = camera_features * *camera_to_blender_;
+        corrected_eye_info.pupil.x = blender_features.at<double>(0, 0);
+        corrected_eye_info.pupil.y = blender_features.at<double>(0, 1);
+
+        std::vector<cv::Point2f> ellipse_points{};
+        for (int j = 0; j < samples_per_ellipse; j++) {
+            cv::Point2f point;
+            point.x = blender_features.at<double>(j + 1, 0) / blender_features.at<double>(j + 1, 3);
+            point.y = blender_features.at<double>(j + 1, 1) / blender_features.at<double>(j + 1, 3);
+
+            if (point.x == point.x && point.y == point.y) {
+
+                ellipse_points.push_back(point);
+            }
+        }
+        if (ellipse_points.size() < 5) {
+            corrected_eye_info.ellipse = eye_info.ellipse;
+        } else {
+            corrected_eye_info.ellipse = cv::fitEllipse(ellipse_points);
+        }
+
         // Uses different sets of data for different estimated parameters.
-        input_data[0] = eye_info.pupil.x;
-        input_data[1] = eye_info.pupil.y;
-        input_data[2] = eye_info.ellipse.center.x;
-        input_data[3] = eye_info.ellipse.center.y;
-        input_data[4] = eye_info.ellipse.size.width;
-        input_data[5] = eye_info.ellipse.size.height;
+        input_data[0] = corrected_eye_info.pupil.x;
+        input_data[1] = corrected_eye_info.pupil.y;
+        input_data[2] = corrected_eye_info.ellipse.center.x;
+        input_data[3] = corrected_eye_info.ellipse.center.y;
+        input_data[4] = corrected_eye_info.ellipse.size.width;
+        input_data[5] = corrected_eye_info.ellipse.size.height;
         eye_centre.x = eye_centre_pos_x_fit->getEstimation(input_data);
         nodal_point.x = nodal_point_x_fit->getEstimation(input_data);
         eye_centre.y = eye_centre_pos_y_fit->getEstimation(input_data);

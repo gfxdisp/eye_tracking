@@ -161,7 +161,7 @@ namespace et
 
         void addEyeVideoData(const EyeDataToReceive &eye_data);
 
-        cv::Point3d setMetaModel(const std::string &input_path);
+        cv::Point3d setMetaModel(const std::string &input_path, const std::string &user_id);
 
         bool wereFeaturesFound();
 

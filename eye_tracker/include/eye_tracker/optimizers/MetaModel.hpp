@@ -21,7 +21,7 @@ namespace et
 
         cv::Point3d
         findMetaModel(std::shared_ptr<ImageProvider> image_provider, std::shared_ptr<FeatureAnalyser> feature_analyser,
-                      std::string path_to_csv);
+                      std::string path_to_csv, std::string user_id);
 
     private:
         VisualAnglesOptimizer *visual_angles_optimizer_{};
@@ -43,6 +43,10 @@ namespace et
         PixelPosOptimizer *pixel_pos_optimizer_{};
         cv::Ptr<cv::DownhillSolver::Function> pixel_pos_minimizer_function_{};
         cv::Ptr<cv::DownhillSolver> pixel_pos_solver_{};
+
+        EyeCentreOptimizer *eye_centre_optimizer_{};
+        cv::Ptr<cv::DownhillSolver::Function> eye_centre_minimizer_function_{};
+        cv::Ptr<cv::DownhillSolver> eye_centre_solver_{};
 
 
         int camera_id_{};

@@ -18,19 +18,19 @@ namespace et
     cv::Point2d CameraFeatureAnalyser::undistort(cv::Point2d point)
     {
         // Convert from 0-based C++ coordinates to 1-based Matlab coordinates and add offset.
-        cv::Point2d new_point{point.x + 1 + capture_offset_->width, point.y + 1 + capture_offset_->height};
+        cv::Point2d new_point{point};
 
-        std::vector<cv::Point2d> points{point};
+        std::vector<cv::Point2d> points{{point.x + 1 + capture_offset_->width, point.y + 1 + capture_offset_->height}};
         std::vector<cv::Point2d> new_points{new_point};
 
-        cv::undistortPoints(points, new_points, *intrinsic_matrix_, *distortion_coefficients_);
+        cv::undistortPoints(points, new_points, (*intrinsic_matrix_).t(), *distortion_coefficients_);
 
         new_point = new_points[0];
         // Remove normalization
         new_point.x *= intrinsic_matrix_->at<double>(0, 0);
         new_point.y *= intrinsic_matrix_->at<double>(1, 1);
-        new_point.x += intrinsic_matrix_->at<double>(0, 2);
-        new_point.y += intrinsic_matrix_->at<double>(1, 2);
+        new_point.x += intrinsic_matrix_->at<double>(2, 0);
+        new_point.y += intrinsic_matrix_->at<double>(2, 1);
 
         // Convert back to 0-based C++ coordinates and subtract offset.
         new_point.x -= 1 + capture_offset_->width;
@@ -41,8 +41,8 @@ namespace et
 
     cv::Point2d CameraFeatureAnalyser::distort(cv::Point2d point)
     {
-        double cx = intrinsic_matrix_->at<double>(0, 2);
-        double cy = intrinsic_matrix_->at<double>(1, 2);
+        double cx = intrinsic_matrix_->at<double>(2, 0);
+        double cy = intrinsic_matrix_->at<double>(2, 1);
         double fx = intrinsic_matrix_->at<double>(0, 0);
         double fy = intrinsic_matrix_->at<double>(1, 1);
 

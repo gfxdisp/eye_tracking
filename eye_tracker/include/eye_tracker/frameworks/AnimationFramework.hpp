@@ -6,8 +6,7 @@
 namespace et
 {
 
-    class AnimationFramework : public Framework
-    {
+    class AnimationFramework : public Framework {
     public:
         AnimationFramework(int camera_id, bool headless, const std::string &input_video_path);
     };
