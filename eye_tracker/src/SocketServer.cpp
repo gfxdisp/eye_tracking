@@ -179,6 +179,11 @@ namespace et
                             goto connect_failure;
                         }
 
+                        if (!readAll(&eye_data_to_receive_.timer, sizeof(eye_data_to_receive_.timer)))
+                        {
+                            goto connect_failure;
+                        }
+
                         eye_trackers_[camera_id]->addEyeVideoData(eye_data_to_receive_);
                         break;
                     }

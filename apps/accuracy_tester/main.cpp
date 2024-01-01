@@ -3,6 +3,7 @@
 #include "eye_tracker/Utils.hpp"
 #include "eye_tracker/optimizers/PolynomialFit.hpp"
 #include "eye_tracker/eye/PolynomialEyeEstimator.hpp"
+#include "eye_tracker/eye/ModelEyeEstimator.hpp"
 
 #include <getopt.h>
 

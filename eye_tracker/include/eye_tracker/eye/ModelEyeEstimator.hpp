@@ -22,7 +22,7 @@ namespace et
         ModelEyeEstimator(int camera_id);
         ~ModelEyeEstimator();
 
-        bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre, cv::Point3d &visual_axis) override;
+        bool detectEye(EyeInfo &eye_info, cv::Point3d &eye_centre, cv::Vec2d &angles) override;
 
         bool invertDetectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre, EyeMeasurements &measurements);
 

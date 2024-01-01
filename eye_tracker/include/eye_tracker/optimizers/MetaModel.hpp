@@ -6,8 +6,6 @@
 #include "eye_tracker/optimizers/PolynomialFit.hpp"
 #include "eye_tracker/optimizers/OpticalAxisOptimizer.hpp"
 #include "eye_tracker/optimizers/EyeAnglesOptimizer.hpp"
-#include "eye_tracker/optimizers/PixelPosOptimizerTest.hpp"
-#include "eye_tracker/optimizers/PixelPosOptimizer.hpp"
 
 #include <memory>
 
@@ -35,14 +33,6 @@ namespace et
         EyeAnglesOptimizer *eye_angles_optimizer_{};
         cv::Ptr<cv::DownhillSolver::Function> eye_angles_minimizer_function_{};
         cv::Ptr<cv::DownhillSolver> eye_angles_solver_{};
-
-        PixelPosOptimizerTest *pixel_pos_optimizer_test_{};
-        cv::Ptr<cv::DownhillSolver::Function> pixel_pos_minimizer_function_test_{};
-        cv::Ptr<cv::DownhillSolver> pixel_pos_solver_test_{};
-
-        PixelPosOptimizer *pixel_pos_optimizer_{};
-        cv::Ptr<cv::DownhillSolver::Function> pixel_pos_minimizer_function_{};
-        cv::Ptr<cv::DownhillSolver> pixel_pos_solver_{};
 
         EyeCentreOptimizer *eye_centre_optimizer_{};
         cv::Ptr<cv::DownhillSolver::Function> eye_centre_minimizer_function_{};

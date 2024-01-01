@@ -102,6 +102,10 @@ namespace et
 
         static cv::Point3d convertFromHomogeneous(cv::Mat mat);
 
+        static void vectorToAngles(cv::Vec3d vector, cv::Vec2d &angles);
+
+        static void anglesToVector(cv::Vec2d angles, cv::Vec3d &vector);
+
     private:
         static std::mt19937::result_type seed;
         static std::mt19937 gen;

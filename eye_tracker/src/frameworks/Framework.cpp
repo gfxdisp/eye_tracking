@@ -250,7 +250,7 @@ namespace et
                           << eye_data.back_corners[i].z;
             }
             eye_data_ << "," << eye_data.marker_position.x << "," << eye_data.marker_position.y << ","
-                      << eye_data.marker_position.z << "\n";
+                      << eye_data.marker_position.z << "," << eye_data.timer << "\n";
         }
         if (eye_video_.isOpened())
         {

@@ -3,7 +3,6 @@
 #include "eye_tracker/Utils.hpp"
 #include "eye_tracker/eye/EyeEstimator.hpp"
 #include "eye_tracker/eye/PolynomialEyeEstimator.hpp"
-#include "eye_tracker/optimizers/AggregatedPolynomialOptimizer.hpp"
 #include "eye_tracker/frameworks/Framework.hpp"
 #include "eye_tracker/eye/ModelEyeEstimator.hpp"
 
@@ -28,16 +27,6 @@ namespace et
         eye_angles_solver_ = cv::DownhillSolver::create();
         eye_angles_solver_->setFunction(eye_angles_minimizer_function_);
 
-        pixel_pos_optimizer_test_ = new PixelPosOptimizerTest();
-        pixel_pos_minimizer_function_test_ = cv::Ptr<cv::DownhillSolver::Function>(pixel_pos_optimizer_test_);
-        pixel_pos_solver_test_ = cv::DownhillSolver::create();
-        pixel_pos_solver_test_->setFunction(pixel_pos_minimizer_function_test_);
-
-        pixel_pos_optimizer_ = new PixelPosOptimizer();
-        pixel_pos_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(pixel_pos_optimizer_);
-        pixel_pos_solver_ = cv::DownhillSolver::create();
-        pixel_pos_solver_->setFunction(pixel_pos_minimizer_function_);
-
         eye_centre_optimizer_ = new EyeCentreOptimizer();
         eye_centre_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(eye_centre_optimizer_);
         eye_centre_solver_ = cv::DownhillSolver::create();
@@ -57,20 +46,19 @@ namespace et
         std::vector<cv::Point3d> all_marker_positions{};
         std::vector<cv::Point2d> camera_pupils{};
         std::vector<cv::RotatedRect> camera_ellipses{};
-        std::vector<cv::Point3d> nodal_points{};
-        std::vector<cv::Point3d> eye_centres{};
 
         auto user_profile = &Settings::parameters.polynomial_params[camera_id_][user_id];
         double alpha = user_profile->setup_variables.alpha;
         double beta = user_profile->setup_variables.beta;
 
+        std::vector<cv::Point3d> eye_centres{};
+        std::vector<cv::Vec2d> angles{};
+
+        std::vector<cv::Point3d> estimated_eye_centres{};
+        std::vector<cv::Vec2d> estimated_angles{};
+
         std::vector<cv::Vec3d> optical_axes{};
         std::vector<cv::Vec3d> visual_axes{};
-
-        std::vector<cv::Vec3d> estimated_visual_axes{};
-        std::vector<cv::Point3d> estimated_nodal_points{};
-        std::vector<cv::Point3d> estimated_eye_centres{};
-
         std::vector<cv::Point3d> front_corners{};
         std::vector<cv::Point3d> back_corners{};
         for (int i = 0; i < 4; i++) {
@@ -91,7 +79,10 @@ namespace et
         cv::Point3d cross_point = Utils::findGridIntersection(front_corners, back_corners);
         auto model_eye_estimator = std::make_shared<ModelEyeEstimator>(camera_id_);
         auto polynomial_estimator = std::make_shared<PolynomialEyeEstimator>(camera_id_);
-        polynomial_estimator->setModel(user_id);
+        polynomial_estimator->setModel("default");
+
+        et::Settings::parameters.user_params[camera_id_]->eye_centre_offset = {0.0, 0.0, 0.0};
+        et::Settings::parameters.user_params[camera_id_]->angles_offset = {0.0, 0.0};
 
         eye_centre_optimizer_->setParameters(cross_point, visual_axes, optical_axes,
                                              user_profile->setup_variables.cornea_centre_distance);
@@ -125,6 +116,10 @@ namespace et
             cv::Point2d pupil = feature_analyser->getPupilUndistorted();
             cv::RotatedRect ellipse = feature_analyser->getEllipseUndistorted();
 
+            if (csv_file[current_row][28] < 1.0) {
+                continue;
+            }
+
             all_marker_positions.push_back({
                                                    csv_file[current_row][25], csv_file[current_row][26],
                                                    csv_file[current_row][27]
@@ -132,159 +127,65 @@ namespace et
             camera_pupils.push_back(pupil);
             camera_ellipses.push_back(ellipse);
 
-            cv::Point3d visual_axis = all_marker_positions.back() - eye_centre;
-            visual_axis = visual_axis / cv::norm(visual_axis);
+            cv::Point3d gaze_direction = all_marker_positions.back() - eye_centre;
+            gaze_direction = gaze_direction / cv::norm(gaze_direction);
 
-            cv::Point3d optical_axis = Utils::visualToOpticalAxis(visual_axis, alpha, beta);
-            cv::Point3d nodal_point = eye_centre + optical_axis * user_profile->setup_variables.cornea_centre_distance;
-            nodal_points.push_back(nodal_point);
+            cv::Vec2d angle{};
+            Utils::vectorToAngles(gaze_direction, angle);
             eye_centres.push_back(eye_centre);
+            angles.push_back(angle);
 
             EyeInfo eye_info = {
                     .pupil = pupil,
                     .ellipse = ellipse,
             };
 
-            cv::Point3d estimated_nodal_point, estimated_eye_centre, estimated_visual_axis;
-            polynomial_estimator->detectEye(eye_info, estimated_nodal_point, estimated_eye_centre,
-                                            estimated_visual_axis, alpha, beta);
-            estimated_nodal_points.push_back(estimated_nodal_point);
-            estimated_visual_axes.push_back(estimated_visual_axis);
+            cv::Point3d estimated_eye_centre;
+            cv::Vec2d estimated_angle{};
+            polynomial_estimator->detectEye(eye_info, estimated_eye_centre, estimated_angle);
             estimated_eye_centres.push_back(estimated_eye_centre);
+            estimated_angles.push_back(estimated_angle);
         }
 
-        double train_fraction = 1.0;
+        cv::Point3d eye_centre_offset{};
+        cv::Vec2d angle_offset{};
 
-        // Show current error
-        double error = 0.0;
-
-        for (int i = estimated_nodal_points.size() * train_fraction; i < estimated_nodal_points.size(); i++) {
-            cv::Point3d estimated_nodal_point = estimated_nodal_points[i];
-            cv::Point3d nodal_point = nodal_points[i];
-            error += cv::norm(estimated_nodal_point - nodal_point);
-        }
-        error /= estimated_nodal_points.size() * (1 - train_fraction);
-        std::cout << "Nodal point" << std::endl;
-        std::cout << "Old error: " << error << std::endl;
-
-        cv::Point3d offset = {0.0, 0.0, 0.0};
-        for (int i = 0; i < estimated_nodal_points.size() * train_fraction; i++) {
-            offset += nodal_points[i] - estimated_nodal_points[i];
-        }
-        offset /= estimated_nodal_points.size() * train_fraction;
-
-        user_profile->camera_to_blender = Utils::getTransformationBetweenMatrices(
-                std::vector<cv::Point3d>(estimated_nodal_points.begin(),
-                                         estimated_nodal_points.begin() +
-                                         estimated_nodal_points.size() * train_fraction),
-                std::vector<cv::Point3d>(nodal_points.begin(),
-                                         nodal_points.begin() + nodal_points.size() * train_fraction));
-        std::cout << user_profile->camera_to_blender << std::endl;
-
-        cv::Mat new_nodal_point_estimations = Utils::convertToHomogeneous(cv::Mat(estimated_nodal_points).reshape(1)) *
-                                              user_profile->camera_to_blender;
-        for (int i = 0; i < estimated_nodal_points.size(); i++) {
-//            estimated_nodal_points[i] = cv::Point3d(new_nodal_point_estimations.at<double>(i, 0),
-//                                                    new_nodal_point_estimations.at<double>(i, 1),
-//                                                    new_nodal_point_estimations.at<double>(i, 2));
-            estimated_nodal_points[i] = estimated_nodal_points[i] + offset;
-        }
-
-
-        error = 0.0;
-        for (int i = estimated_nodal_points.size() * train_fraction; i < estimated_nodal_points.size(); i++) {
-            error += cv::norm(estimated_nodal_points[i] - nodal_points[i]);
-        }
-        error /= estimated_nodal_points.size() * (1 - train_fraction);
-        std::cout << "New error: " << error << std::endl;
-
-        offset = {0.0, 0.0, 0.0};
-        for (int i = 0; i < estimated_eye_centres.size() * train_fraction; i++) {
-            offset += eye_centres[i] - estimated_eye_centres[i];
-        }
-        offset /= estimated_eye_centres.size() * train_fraction;
-
-        cv::Mat new_eye_centre_estimations = Utils::convertToHomogeneous(cv::Mat(estimated_eye_centres).reshape(1)) *
-                                             user_profile->camera_to_blender;
         for (int i = 0; i < estimated_eye_centres.size(); i++) {
-//            estimated_eye_centres[i] = cv::Point3d(new_eye_centre_estimations.at<double>(i, 0),
-//                                                   new_eye_centre_estimations.at<double>(i, 1),
-//                                                   new_eye_centre_estimations.at<double>(i, 2));
-            estimated_eye_centres[i] = estimated_eye_centres[i] + offset;
+            eye_centre_offset += estimated_eye_centres[i] - eye_centres[i];
+            angle_offset += estimated_angles[i] - angles[i];
         }
-        std::vector<cv::Vec3d> real_visual_axes{};
-        for (int i = 0; i < estimated_visual_axes.size(); i++) {
-            cv::Vec3d estimated_visual_axis = estimated_nodal_points[i] - estimated_eye_centres[i];
-            estimated_visual_axes[i] = estimated_visual_axis / cv::norm(estimated_visual_axis);
-            estimated_visual_axes[i] = Utils::opticalToVisualAxis(estimated_visual_axes[i], alpha, beta);
-            cv::Vec3d real_visual_axis = all_marker_positions[i] - nodal_points[i];
-            real_visual_axis = real_visual_axis / cv::norm(real_visual_axis);
-            real_visual_axes.push_back(real_visual_axis);
-        }
+        eye_centre_offset.x /= (int)(estimated_eye_centres.size());
+        eye_centre_offset.y /= (int)(estimated_eye_centres.size());
+        eye_centre_offset.z /= (int)(estimated_eye_centres.size());
+        angle_offset[0] /= (int)(estimated_eye_centres.size());
+        angle_offset[1] /= (int)(estimated_eye_centres.size());
+        std::cout << "Eye centre offset: " << eye_centre_offset << "\n";
 
-        error = 0.0;
-        for (int i = estimated_visual_axes.size() * train_fraction; i < estimated_visual_axes.size(); i++) {
-            cv::Vec3d estimated_visual_axis = estimated_visual_axes[i];
-            cv::Vec3d real_visual_axis = real_visual_axes[i];
-            error += cv::norm(estimated_visual_axis - real_visual_axis);
-        }
-
-        error /= estimated_visual_axes.size() * (1 - train_fraction);
-        std::cout << "Visual axis" << std::endl;
-        std::cout << "Old error: " << error << std::endl;
-
-        cv::Mat transformation = Utils::getTransformationBetweenMatrices(
-                std::vector<cv::Point3d>(estimated_visual_axes.begin(),
-                                         estimated_visual_axes.begin() + estimated_visual_axes.size() * train_fraction),
-                std::vector<cv::Point3d>(real_visual_axes.begin(),
-                                         real_visual_axes.begin() + real_visual_axes.size() * train_fraction));
-        std::cout << transformation << std::endl;
-
-        cv::Mat new_visual_axis_estimations = Utils::convertToHomogeneous(cv::Mat(estimated_visual_axes).reshape(1)) *
-                                      transformation;
+        std::vector<double> errors{};
+        std::vector<double> errors_theta{};
+        std::vector<double> errors_phi{};
         for (int i = 0; i < estimated_eye_centres.size(); i++) {
-//            estimated_visual_axes[i] = cv::Point3d(new_visual_axis_estimations.at<double>(i, 0),
-//                                                   new_visual_axis_estimations.at<double>(i, 1),
-//                                                   new_visual_axis_estimations.at<double>(i, 2));
-            estimated_visual_axes[i] = estimated_nodal_points[i] - estimated_eye_centres[i];
-            estimated_visual_axes[i] = estimated_visual_axes[i] / cv::norm(estimated_visual_axes[i]);
-            estimated_visual_axes[i] = Utils::opticalToVisualAxis(estimated_visual_axes[i], alpha, beta);
-        }
-        error = 0.0;
-        for (int i = estimated_visual_axes.size() * train_fraction; i < estimated_visual_axes.size(); i++) {
-            cv::Vec3d estimated_visual_axis = estimated_visual_axes[i];
-            estimated_visual_axis = estimated_visual_axis / cv::norm(estimated_visual_axis);
-            cv::Vec3d real_visual_axis = real_visual_axes[i];
-            error += cv::norm(estimated_visual_axis - real_visual_axis);
-        }
-        error /= estimated_visual_axes.size() * (1 - train_fraction);
-        std::cout << "New error: " << error << std::endl;
-
-        // Calculate horizontal and vertical angle error between visual axes
-        std::vector<double> horizontal_angles{};
-        std::vector<double> vertical_angles{};
-        for (int i = estimated_visual_axes.size() * train_fraction; i < estimated_visual_axes.size(); i++) {
-            cv::Vec3d estimated_visual_axis = estimated_visual_axes[i];
-            estimated_visual_axis = estimated_visual_axis / cv::norm(estimated_visual_axis);
-            double k = (all_marker_positions[i].z - estimated_nodal_points[i].z) / estimated_visual_axis[2];
-            cv::Point3d estimated_marker_point =
-                    estimated_nodal_points[i] + k * (cv::Point3d) (estimated_visual_axes[i]);
-            cv::Vec3d estimated_marker_eye_dir = estimated_marker_point - nodal_points[i];
-            estimated_marker_eye_dir = estimated_marker_eye_dir / cv::norm(estimated_marker_eye_dir);
-            cv::Vec3d real_visual_axis = real_visual_axes[i];
-            double horizontal_angle{}, vertical_angle{};
-            Utils::getAnglesBetweenVectors(estimated_marker_eye_dir, real_visual_axis, horizontal_angle,
-                                           vertical_angle);
-            horizontal_angles.push_back(std::abs(horizontal_angle));
-            vertical_angles.push_back(std::abs(vertical_angle));
+            errors.push_back(cv::norm(estimated_eye_centres[i] - eye_centres[i] - eye_centre_offset));
         }
 
-        std::cout << "Mean horizontal angle error: "
-                  << std::accumulate(horizontal_angles.begin(), horizontal_angles.end(), 0.0) / horizontal_angles.size()
-                  << std::endl;
-        std::cout << "Mean vertical angle error: "
-                  << std::accumulate(vertical_angles.begin(), vertical_angles.end(), 0.0) / vertical_angles.size()
-                  << std::endl;
+        std::cout << "Mean error: " << std::accumulate(errors.begin(), errors.end(), 0.0) / errors.size()
+        << " ± " << Utils::getStdDev(errors) << "\n";
+
+        std::cout << "Angles offset: " << angle_offset * 180 / CV_PI << "\n";
+        for (int i = 0; i < estimated_angles.size(); i++) {
+            errors_theta.push_back(std::abs(estimated_angles[i][0] - angles[i][0] - angle_offset[0]));
+            errors_phi.push_back(std::abs(estimated_angles[i][1] - angles[i][1] - angle_offset[1]));
+        }
+
+        std::cout << "Error theta: " << std::accumulate(errors_theta.begin(), errors_theta.end(), 0.0) / errors_theta.size() * 180 / CV_PI
+        << " ± " << Utils::getStdDev(errors_theta) * 180 / CV_PI << "\n";
+
+        std::cout << "Error phi: " << std::accumulate(errors_phi.begin(), errors_phi.end(), 0.0) / errors_phi.size() * 180 / CV_PI
+                  << " ± " << Utils::getStdDev(errors_phi) * 180 / CV_PI << std::endl;
+
+        et::Settings::parameters.user_params[camera_id_]->eye_centre_offset = eye_centre_offset;
+        et::Settings::parameters.user_params[camera_id_]->angles_offset = angle_offset;
+        et::Settings::saveSettings();
 
         Framework::mutex.unlock();
         return eye_centre;

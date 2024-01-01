@@ -491,4 +491,22 @@ namespace et
                           mat.at<double>(0, 2) / mat.at<double>(0, 3)};
         return point;
     }
+
+    void Utils::vectorToAngles(cv::Vec3d vector, cv::Vec2d &angles)
+    {
+        double norm = cv::norm(vector);
+        angles[0] = std::atan2(vector[0], vector[2]);
+        angles[1] = std::asin(vector[1] / norm);
+        if (angles[0] < 0) {
+            angles[0] += 2 * M_PI;
+        }
+    }
+
+    void Utils::anglesToVector(cv::Vec2d angles, cv::Vec3d &vector)
+    {
+        double x = std::sin(angles[0]) * std::cos(angles[1]);
+        double y = std::sin(angles[1]);
+        double z = std::cos(angles[0]) * std::cos(angles[1]);
+        vector = {x, y, z};
+    }
 } // namespace et

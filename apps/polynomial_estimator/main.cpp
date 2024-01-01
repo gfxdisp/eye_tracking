@@ -3,6 +3,7 @@
 #include "eye_tracker/Utils.hpp"
 #include "eye_tracker/optimizers/PolynomialFit.hpp"
 #include "eye_tracker/eye/PolynomialEyeEstimator.hpp"
+#include "eye_tracker/eye/ModelEyeEstimator.hpp"
 
 #include <getopt.h>
 
@@ -55,8 +56,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    cv::Vec3d min_eye_pos = {185.0, 130.0, 750.0};
-    cv::Vec3d max_eye_pos = {205.0, 150.0, 850.0};
+    cv::Vec3d min_eye_pos = {170.0, 95.0, 790.0};
+    cv::Vec3d max_eye_pos = {190.0, 125.0, 850.0};
 
     cv::Vec3d min_marker_pos = {170.0, 90.0, -100.0};
     cv::Vec3d max_marker_pos = {290.0, 210.0, 200.0};
@@ -77,6 +78,7 @@ int main(int argc, char *argv[])
     cv::Point3d optical_axis{};
     cv::Point3d nodal_point{};
     cv::Point3d eye_centre{};
+    cv::Vec2d angle{};
 
     auto settings = std::make_shared<et::Settings>(settings_path);
 
@@ -84,8 +86,7 @@ int main(int argc, char *argv[])
     std::vector<cv::Point2d> pupils;
     std::vector<cv::RotatedRect> ellipses;
     std::vector<cv::Point3d> eye_centres;
-    std::vector<cv::Point3d> nodal_points;
-    std::vector<cv::Vec3d> visual_axes;
+    std::vector<cv::Vec2d> angles;
     cv::RotatedRect ellipse;
 
     auto optical_axis_optimizer = new et::OpticalAxisOptimizer();
@@ -109,10 +110,12 @@ int main(int argc, char *argv[])
                                               eye_measurements.eye_cornea_dist, eye_centre,
                                               marker_pos);
 
-        cv::Vec3d init_guess = marker_pos - eye_centre;
-        init_guess = init_guess / cv::norm(init_guess);
+        cv::Vec3d gaze_direction = marker_pos - eye_centre;
+        gaze_direction = gaze_direction / cv::norm(gaze_direction);
 
-        cv::Mat x = (cv::Mat_<double>(1, 3) << init_guess[0], init_guess[1], init_guess[2]);
+        et::Utils::vectorToAngles(gaze_direction, angle);
+
+        cv::Mat x = (cv::Mat_<double>(1, 3) << gaze_direction[0], gaze_direction[1], gaze_direction[2]);
         cv::Mat step = cv::Mat::ones(x.rows, x.cols, CV_64F) * 0.1;
         optical_axis_solver->setInitStep(step);
         optical_axis_solver->minimize(x);
@@ -137,11 +140,10 @@ int main(int argc, char *argv[])
         pupils.push_back(eye_info.pupil);
         ellipses.push_back(ellipse);
         eye_centres.push_back(eye_centre);
-        nodal_points.push_back(nodal_point);
-        visual_axes.push_back(visual_axis);
+        angles.push_back(angle);
         std::cout << j << " / 25000" << std::endl;
     }
-    polynomial_eye_estimator.fitModel(pupils, ellipses, eye_centres, nodal_points, visual_axes);
+    polynomial_eye_estimator.fitModel(pupils, ellipses, eye_centres, angles);
 
     et::SetupVariables setup_variables = {
             .cornea_centre_distance = eye_measurements.eye_cornea_dist,

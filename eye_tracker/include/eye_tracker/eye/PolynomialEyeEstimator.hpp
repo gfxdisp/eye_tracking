@@ -7,23 +7,18 @@
 namespace et
 {
 
-    class PolynomialEyeEstimator : public EyeEstimator
-    {
+    class PolynomialEyeEstimator : public EyeEstimator {
     public:
         PolynomialEyeEstimator(int camera_id);
 
-        PolynomialEyeEstimator(int camera_id, std::string user_id);
+        PolynomialEyeEstimator(int camera_id, std::string model_id);
 
         void setModel(std::string user_id);
 
         bool fitModel(std::vector<cv::Point2d> &pupils, std::vector<cv::RotatedRect> &ellipses,
-                      std::vector<cv::Point3d> &eye_centres, std::vector<cv::Point3d> &nodal_points, std::vector<cv::Vec3d> &visual_axes);
+                      std::vector<cv::Point3d> &eye_centres, std::vector<cv::Vec2d> &angles);
 
-        bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre,
-                       cv::Point3d &visual_axis) override;
-
-        bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre,
-                       cv::Point3d &visual_axis, double alpha, double beta);
+        bool detectEye(EyeInfo &eye_info, cv::Point3d &eye_centre, cv::Vec2d &angles) override;
 
         void invertEye(cv::Point3d &nodal_point, cv::Point3d &eye_centre, EyeInfo &eye_info);
 
@@ -32,9 +27,8 @@ namespace et
         std::shared_ptr<PolynomialFit> eye_centre_pos_x_fit{};
         std::shared_ptr<PolynomialFit> eye_centre_pos_y_fit{};
         std::shared_ptr<PolynomialFit> eye_centre_pos_z_fit{};
-        std::shared_ptr<PolynomialFit> nodal_point_x_fit{};
-        std::shared_ptr<PolynomialFit> nodal_point_y_fit{};
-        std::shared_ptr<PolynomialFit> nodal_point_z_fit{};
+        std::shared_ptr<PolynomialFit> theta_fit{};
+        std::shared_ptr<PolynomialFit> phi_fit{};
 
         std::shared_ptr<PolynomialFit> pupil_x_fit{};
         std::shared_ptr<PolynomialFit> pupil_y_fit{};
@@ -46,6 +40,7 @@ namespace et
 
     private:
         void coeffsToMat(cv::Mat &mat);
+
         cv::Mat *camera_to_blender_{};
     };
 

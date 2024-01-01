@@ -19,8 +19,7 @@ namespace et
         solver_->setInitStep(step);
     }
 
-    bool ModelEyeEstimator::detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre,
-                                      cv::Point3d &visual_axis)
+    bool ModelEyeEstimator::detectEye(EyeInfo &eye_info, cv::Point3d &eye_centre, cv::Vec2d &angles)
     {
         cv::Vec3d pupil_position{ICStoCCS(eye_info.pupil)};
 
@@ -91,7 +90,7 @@ namespace et
         solver_->minimize(x);
         double k = x.at<double>(0, 0);
         cv::Vec3d nodal_point_vec = camera_nodal_point_ + avg_np2c_dir * k;
-        nodal_point = nodal_point_vec;
+        cv::Point3d nodal_point = nodal_point_vec;
 
         cv::Vec3d pupil = calculatePositionOnPupil(pupil_position, nodal_point_vec);
 
@@ -113,7 +112,8 @@ namespace et
         cv::Point3d optical_axis_p = nodal_point - eye_centre;
         cv::Vec3d optical_axis = optical_axis_p;
         cv::normalize(optical_axis, optical_axis);
-        visual_axis = Utils::opticalToVisualAxis(optical_axis, setup_variables_->alpha, setup_variables_->beta);
+        cv::Point3d visual_axis = Utils::opticalToVisualAxis(optical_axis, setup_variables_->alpha, setup_variables_->beta);
+        Utils::vectorToAngles(visual_axis, angles);
 
         if (eye_centre_vec == cv::Vec3d()) {
             return false;

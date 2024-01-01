@@ -34,11 +34,12 @@ namespace et
         cv::Point3d cornea_centre;
         cv::Point3d eye_centre;
         cv::Point2d pupil;
-        cv::RotatedRect ellipse;
+        cv::Vec3d gaze_direction;
         cv::Vec2d pupil_glint_vector;
         double pupil_diameter;
-        cv::Vec3d gaze_direction;
+        cv::RotatedRect ellipse;
         int frame_num;
+        char padding[8];
     };
 
     struct EyeDataToReceive
@@ -46,6 +47,7 @@ namespace et
         std::vector<cv::Point3d> front_corners = std::vector<cv::Point3d>(4);
         std::vector<cv::Point3d> back_corners = std::vector<cv::Point3d>(4);
         cv::Point3d marker_position;
+        double timer;
     };
 
 /**

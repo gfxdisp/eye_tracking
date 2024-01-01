@@ -23,7 +23,7 @@ namespace et
     public:
         EyeEstimator(int camera_id);
 
-        virtual bool detectEye(EyeInfo &eye_info, cv::Point3d &nodal_point, cv::Point3d &eye_centre, cv::Point3d &visual_axis) = 0;
+        virtual bool detectEye(EyeInfo &eye_info, cv::Point3d &eye_centre, cv::Vec2d &angles) = 0;
 
         virtual bool
         findPupilDiameter(cv::Point2d pupil_pix_position, int pupil_px_radius, const cv::Vec3d &cornea_centre_position,
@@ -124,6 +124,8 @@ namespace et
         cv::Mat extrinsic_matrix_{};
 
         cv::Size2i *dimensions_{};
+
+        FeaturesParams *features_params_{};
 
         SetupVariables *setup_variables_{};
 

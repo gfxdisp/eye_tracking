@@ -5,7 +5,9 @@ namespace et
 {
     EyeEstimator::EyeEstimator(int camera_id) : camera_id_{camera_id}
     {
+        features_params_ = Settings::parameters.user_params[camera_id];
         setup_variables_ = &Settings::parameters.user_polynomial_params[camera_id]->setup_variables;
+
         intrinsic_matrix_ = &Settings::parameters.camera_params[camera_id].intrinsic_matrix;
         capture_offset_ = &Settings::parameters.camera_params[camera_id].capture_offset;
         dimensions_ = &Settings::parameters.camera_params[camera_id].dimensions;
@@ -214,16 +216,21 @@ namespace et
 
     bool EyeEstimator::findEye(EyeInfo &eye_info)
     {
-        cv::Point3d nodal_point{}, eye_centre{}, visual_axis{};
+        cv::Point3d eye_centre{};
         cv::Point2d eye_centre_pixel{}, cornea_centre_pixel{};
+        cv::Vec2d angle{};
         double pupil_diameter{};
         cv::Vec3d gaze_direction{};
 
-        bool result = detectEye(eye_info, nodal_point, eye_centre, visual_axis);
+        bool result = detectEye(eye_info, eye_centre, angle);
+
+        Utils::anglesToVector(angle, gaze_direction);
+        // It's not a real nodal point, but it's close enough.
+        cv::Point3d nodal_point = eye_centre + static_cast<cv::Point3d>(gaze_direction) * eye_cornea_distance_;
+
         eye_centre_pixel = WCStoICS(eye_centre);
         cornea_centre_pixel = WCStoICS(nodal_point);
         findPupilDiameter(eye_info.pupil, eye_info.pupil_radius, nodal_point, pupil_diameter);
-        getGazeDirection(nodal_point, eye_centre, gaze_direction);
 
         mtx_eye_position_.lock();
         cornea_centre_ = nodal_point;

@@ -69,12 +69,10 @@ namespace et
                 j["extrinsic_matrix"][i * 4 + k] = camera_params.extrinsic_matrix.at<double>(cv::Point(i, k));
             }
         }
-        for (int i = 0; i < camera_params.distortion_coefficients.size(); i++)
-        {
+        for (int i = 0; i < camera_params.distortion_coefficients.size(); i++) {
             j["distortion_coefficients"][i] = camera_params.distortion_coefficients[i];
         }
-        for (int i = 0; i < 3; i++)
-        {
+        for (int i = 0; i < 3; i++) {
             j["gaze_shift"][i] = camera_params.gaze_shift(i);
         }
     }
@@ -127,24 +125,33 @@ namespace et
 
     void from_json(const json &j, std::unordered_map<std::string, FeaturesParams> &features_params)
     {
-        for (const auto &item: j.items())
-        {
+        for (const auto &item: j.items()) {
             std::string name = item.key();
             auto value = item.value();
             value.at("pupil_threshold").get_to(features_params[name].pupil_threshold);
             value.at("glint_threshold").get_to(features_params[name].glint_threshold);
             value.at("exposure").get_to(features_params[name].exposure);
+            std::vector<double> data{};
+            value.at("eye_centre_offset").get_to(data);
+            features_params[name].eye_centre_offset = {data[0], data[1], data[2]};
+            data.clear();
+            value.at("angles_offset").get_to(data);
+            features_params[name].angles_offset = {data[0], data[1]};
         }
     }
 
     void to_json(json &j, const std::unordered_map<std::string, FeaturesParams> &features_params)
     {
-        for (const auto &item: features_params)
-        {
+        for (const auto &item: features_params) {
             std::string name = item.first;
             j[name]["pupil_threshold"] = features_params.at(name).pupil_threshold;
             j[name]["glint_threshold"] = features_params.at(name).glint_threshold;
             j[name]["exposure"] = features_params.at(name).exposure;
+            j[name]["eye_centre_offset"] = {features_params.at(name).eye_centre_offset.x,
+                                            features_params.at(name).eye_centre_offset.y,
+                                            features_params.at(name).eye_centre_offset.z};
+            j[name]["angles_offset"] = {features_params.at(name).angles_offset[0],
+                                        features_params.at(name).angles_offset[1]};
         }
     }
 
@@ -153,9 +160,8 @@ namespace et
         j.at("eye_centre_pos_x").get_to(coefficients.eye_centre_pos_x);
         j.at("eye_centre_pos_y").get_to(coefficients.eye_centre_pos_y);
         j.at("eye_centre_pos_z").get_to(coefficients.eye_centre_pos_z);
-        j.at("nodal_point_x").get_to(coefficients.nodal_point_x);
-        j.at("nodal_point_y").get_to(coefficients.nodal_point_y);
-        j.at("nodal_point_z").get_to(coefficients.nodal_point_z);
+        j.at("theta").get_to(coefficients.theta);
+        j.at("phi").get_to(coefficients.phi);
         j.at("pupil_x").get_to(coefficients.pupil_x);
         j.at("pupil_y").get_to(coefficients.pupil_y);
         j.at("ellipse_x").get_to(coefficients.ellipse_x);
@@ -170,9 +176,8 @@ namespace et
         j["eye_centre_pos_x"] = coefficients.eye_centre_pos_x;
         j["eye_centre_pos_y"] = coefficients.eye_centre_pos_y;
         j["eye_centre_pos_z"] = coefficients.eye_centre_pos_z;
-        j["nodal_point_x"] = coefficients.nodal_point_x;
-        j["nodal_point_y"] = coefficients.nodal_point_y;
-        j["nodal_point_z"] = coefficients.nodal_point_z;
+        j["theta"] = coefficients.theta;
+        j["phi"] = coefficients.phi;
         j["pupil_x"] = coefficients.pupil_x;
         j["pupil_y"] = coefficients.pupil_y;
         j["ellipse_x"] = coefficients.ellipse_x;
@@ -182,7 +187,8 @@ namespace et
         j["ellipse_angle"] = coefficients.ellipse_angle;
     }
 
-    void from_json(const json &j, SetupVariables &setup_variables) {
+    void from_json(const json &j, SetupVariables &setup_variables)
+    {
         j.at("cornea_centre_distance").get_to(setup_variables.cornea_centre_distance);
         j.at("cornea_curvature_radius").get_to(setup_variables.cornea_curvature_radius);
         j.at("cornea_refraction_index").get_to(setup_variables.cornea_refraction_index);
@@ -190,7 +196,8 @@ namespace et
         j.at("beta").get_to(setup_variables.beta);
     }
 
-    void to_json(json &j, const SetupVariables &setup_variables) {
+    void to_json(json &j, const SetupVariables &setup_variables)
+    {
         j["cornea_centre_distance"] = setup_variables.cornea_centre_distance;
         j["cornea_curvature_radius"] = setup_variables.cornea_curvature_radius;
         j["cornea_refraction_index"] = setup_variables.cornea_refraction_index;
@@ -200,8 +207,7 @@ namespace et
 
     void from_json(const json &j, std::unordered_map<std::string, PolynomialParams> &polynomial_params)
     {
-        for (const auto &item: j.items())
-        {
+        for (const auto &item: j.items()) {
             auto value = item.value();
             value.at("coefficients").get_to(polynomial_params[item.key()].coefficients);
             value.at("setup_variables").get_to(polynomial_params[item.key()].setup_variables);
@@ -211,8 +217,7 @@ namespace et
 
     void to_json(json &j, const std::unordered_map<std::string, PolynomialParams> &polynomial_params)
     {
-        for (const auto &item: polynomial_params)
-        {
+        for (const auto &item: polynomial_params) {
             j[item.first]["coefficients"] = polynomial_params.at(item.first).coefficients;
             j[item.first]["setup_variables"] = polynomial_params.at(item.first).setup_variables;
         }
@@ -224,12 +229,10 @@ namespace et
         j.at("camera_params").at("right").get_to(parameters.camera_params[1]);
 
         std::string_view side_names[] = {"left", "right"};
-        for (int i = 0; i < 2; i++)
-        {
+        for (int i = 0; i < 2; i++) {
             std::vector<std::vector<double>> data{};
             j.at("led_positions").at(side_names[i]).get_to(data);
-            for (const auto &item: data)
-            {
+            for (const auto &item: data) {
                 parameters.leds_positions[i].push_back({item[0], item[1], item[2]});
             }
             data.clear();
@@ -248,8 +251,7 @@ namespace et
         j["camera_params"]["left"] = parameters.camera_params[0];
         j["camera_params"]["right"] = parameters.camera_params[1];
         std::vector<std::vector<double>> data{};
-        for (int i = 0; i < parameters.leds_positions[0].size(); i++)
-        {
+        for (int i = 0; i < parameters.leds_positions[0].size(); i++) {
             j["led_positions"]["left"][i] = {parameters.leds_positions[0][i](0), parameters.leds_positions[0][i](1),
                                              parameters.leds_positions[0][i](2)};
             j["led_positions"]["right"][i] = {parameters.leds_positions[1][i](0), parameters.leds_positions[1][i](1),
@@ -280,8 +282,8 @@ namespace et
         file >> j;
         file.close();
         parameters = j.get<Parameters>();
-        parameters.user_polynomial_params[0] = &parameters.polynomial_params[0]["0"];
-        parameters.user_polynomial_params[1] = &parameters.polynomial_params[1]["0"];
+        parameters.user_polynomial_params[0] = &parameters.polynomial_params[0]["default"];
+        parameters.user_polynomial_params[1] = &parameters.polynomial_params[1]["default"];
         parameters.user_params[0] = &parameters.features_params[0]["default"];
         parameters.user_params[1] = &parameters.features_params[1]["default"];
     }
