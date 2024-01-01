@@ -47,9 +47,9 @@ namespace et
         static cv::Point3d
         calculateNodalPointPosition(cv::Point3d observed_point, cv::Point3d eye_centre, double nodal_dist = 5.3);
 
-        static cv::Mat findTransformationMatrix(const cv::Mat &mat_from, const cv::Mat &mat_to);
-
         static cv::Mat convertToHomogeneous(cv::Mat mat);
+
+        static cv::Mat convertToHomogeneous(cv::Point3d point, double w = 1.0);
 
 
         /**
@@ -98,7 +98,11 @@ namespace et
 
         static double getPercentile(const std::vector<double>& values, double percentile);
 
-       private:
+        static cv::Mat getTransformationBetweenMatrices(std::vector<cv::Point3d> from, std::vector<cv::Point3d> to);
+
+        static cv::Point3d convertFromHomogeneous(cv::Mat mat);
+
+    private:
         static std::mt19937::result_type seed;
         static std::mt19937 gen;
     };

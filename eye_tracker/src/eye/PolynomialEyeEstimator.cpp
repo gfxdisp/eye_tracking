@@ -265,53 +265,13 @@ namespace et
     {
         std::vector<double> input_data(6);
 
-        EyeInfo corrected_eye_info{};
-        static int samples_per_ellipse = 20;
-        cv::Mat camera_features(samples_per_ellipse + 1, 4, CV_64F);
-        camera_features.at<double>(0, 0) = eye_info.pupil.x;
-        camera_features.at<double>(0, 1) = eye_info.pupil.y;
-        camera_features.at<double>(0, 2) = 0.0;
-        camera_features.at<double>(0, 3) = 1.0;
-        for (int j = 0; j < samples_per_ellipse; j++) {
-            // Get angle on ellipse between 0 and 2pi
-            double angle = (double) j / samples_per_ellipse * 2 * CV_PI;
-
-            // Find intersection between ellipse and line with angle
-            cv::Point2d intersection = Utils::findEllipseIntersection(eye_info.ellipse, angle);
-            camera_features.at<double>(j + 1, 0) = intersection.x;
-            camera_features.at<double>(j + 1, 1) = intersection.y;
-            camera_features.at<double>(j + 1, 2) = 0.0;
-            camera_features.at<double>(j + 1, 3) = 1.0;
-        }
-
-        cv::Mat blender_features = camera_features * *camera_to_blender_;
-        corrected_eye_info.pupil.x = blender_features.at<double>(0, 0);
-        corrected_eye_info.pupil.y = blender_features.at<double>(0, 1);
-
-        std::vector<cv::Point2f> ellipse_points{};
-        for (int j = 0; j < samples_per_ellipse; j++) {
-            cv::Point2f point;
-            point.x = blender_features.at<double>(j + 1, 0) / blender_features.at<double>(j + 1, 3);
-            point.y = blender_features.at<double>(j + 1, 1) / blender_features.at<double>(j + 1, 3);
-
-            if (point.x == point.x && point.y == point.y) {
-
-                ellipse_points.push_back(point);
-            }
-        }
-        if (ellipse_points.size() < 5) {
-            corrected_eye_info.ellipse = eye_info.ellipse;
-        } else {
-            corrected_eye_info.ellipse = cv::fitEllipse(ellipse_points);
-        }
-
         // Uses different sets of data for different estimated parameters.
-        input_data[0] = corrected_eye_info.pupil.x;
-        input_data[1] = corrected_eye_info.pupil.y;
-        input_data[2] = corrected_eye_info.ellipse.center.x;
-        input_data[3] = corrected_eye_info.ellipse.center.y;
-        input_data[4] = corrected_eye_info.ellipse.size.width;
-        input_data[5] = corrected_eye_info.ellipse.size.height;
+        input_data[0] = eye_info.pupil.x;
+        input_data[1] = eye_info.pupil.y;
+        input_data[2] = eye_info.ellipse.center.x;
+        input_data[3] = eye_info.ellipse.center.y;
+        input_data[4] = eye_info.ellipse.size.width;
+        input_data[5] = eye_info.ellipse.size.height;
         eye_centre.x = eye_centre_pos_x_fit->getEstimation(input_data);
         nodal_point.x = nodal_point_x_fit->getEstimation(input_data);
         eye_centre.y = eye_centre_pos_y_fit->getEstimation(input_data);
@@ -321,6 +281,9 @@ namespace et
 
         cv::Point3d optical_axis = nodal_point - eye_centre;
         optical_axis = optical_axis / cv::norm(optical_axis);
+
+        cv::Mat corrected_nodal_point = Utils::convertToHomogeneous(nodal_point) * (*camera_to_blender_);
+        nodal_point = Utils::convertFromHomogeneous(corrected_nodal_point);
 
         visual_axis = Utils::opticalToVisualAxis(optical_axis, alpha, beta);
         return true;

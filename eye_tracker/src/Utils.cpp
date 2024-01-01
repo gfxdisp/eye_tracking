@@ -139,17 +139,6 @@ namespace et
         return nodal_point;
     }
 
-    cv::Mat Utils::findTransformationMatrix(const cv::Mat &mat_from, const cv::Mat &mat_to)
-    {
-        // Calculate pseudo inverse of mat_from
-        cv::Mat mat_from_inv{};
-        cv::invert(mat_from, mat_from_inv, cv::DECOMP_SVD);
-
-        // Calculate transformation matrix -> mat_from * transformation_matrix = mat_to
-        cv::Mat transformation_matrix = mat_from_inv * mat_to;
-        return transformation_matrix;
-    }
-
     cv::Mat Utils::convertToHomogeneous(cv::Mat mat)
     {
         cv::Mat mat_homogeneous(mat.rows, mat.cols + 1, CV_64F);
@@ -160,6 +149,16 @@ namespace et
             mat_homogeneous.at<double>(i, 2) = mat.at<double>(i, 2);
             mat_homogeneous.at<double>(i, 3) = 1.0;
         }
+        return mat_homogeneous;
+    }
+
+    cv::Mat Utils::convertToHomogeneous(cv::Point3d point, double w)
+    {
+        cv::Mat mat_homogeneous(1, 4, CV_64F);
+        mat_homogeneous.at<double>(0, 0) = point.x;
+        mat_homogeneous.at<double>(0, 1) = point.y;
+        mat_homogeneous.at<double>(0, 2) = point.z;
+        mat_homogeneous.at<double>(0, 3) = w;
         return mat_homogeneous;
     }
 
@@ -470,5 +469,26 @@ namespace et
         solver->minimize(x);
         alpha = -x.at<double>(0, 0);
         beta = -x.at<double>(0, 1);
+    }
+
+    cv::Mat Utils::getTransformationBetweenMatrices(std::vector<cv::Point3d> from, std::vector<cv::Point3d> to)
+    {
+        cv::Mat from_mat = cv::Mat(from).reshape(1);
+        cv::Mat to_mat = cv::Mat(to).reshape(1);
+
+        from_mat = Utils::convertToHomogeneous(from_mat);
+        to_mat = Utils::convertToHomogeneous(to_mat);
+
+        cv::Mat transformation_matrix = from_mat.inv(cv::DECOMP_SVD) * to_mat;
+        return transformation_matrix;
+
+    }
+
+    cv::Point3d Utils::convertFromHomogeneous(cv::Mat mat)
+    {
+        cv::Point3d point{mat.at<double>(0, 0) / mat.at<double>(0, 3),
+                          mat.at<double>(0, 1) / mat.at<double>(0, 3),
+                          mat.at<double>(0, 2) / mat.at<double>(0, 3)};
+        return point;
     }
 } // namespace et

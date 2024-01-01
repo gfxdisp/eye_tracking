@@ -55,8 +55,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    cv::Vec3d min_eye_pos = {190.0, 135.0, 880.0};
-    cv::Vec3d max_eye_pos = {204.0, 151.0, 920.0};
+    cv::Vec3d min_eye_pos = {185.0, 130.0, 750.0};
+    cv::Vec3d max_eye_pos = {205.0, 150.0, 850.0};
 
     cv::Vec3d min_marker_pos = {170.0, 90.0, -100.0};
     cv::Vec3d max_marker_pos = {290.0, 210.0, 200.0};
