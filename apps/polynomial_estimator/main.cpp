@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    cv::Vec3d min_eye_pos = {170.0, 95.0, 790.0};
+    cv::Vec3d min_eye_pos = {170.0, 95.0, 800.0};
     cv::Vec3d max_eye_pos = {190.0, 125.0, 850.0};
 
     cv::Vec3d min_marker_pos = {170.0, 90.0, -100.0};
@@ -105,6 +105,11 @@ int main(int argc, char *argv[])
     for (int j = 0; j < 25000; j++) {
         marker_pos = {dis_marker_x(gen), dis_marker_y(gen), dis_marker_z(gen)};
         eye_centre = {dis_eye_x(gen), dis_eye_y(gen), dis_eye_z(gen)};
+
+        if (j == 0) {
+            eye_centre = {179.7799, 106.3562, 834.0974};
+            marker_pos = {180.0, 100.0, 100.0};
+        }
 
         optical_axis_optimizer->setParameters(alpha, beta,
                                               eye_measurements.eye_cornea_dist, eye_centre,

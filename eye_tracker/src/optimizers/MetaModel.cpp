@@ -161,15 +161,23 @@ namespace et
         angle_offset[1] /= (int)(estimated_eye_centres.size());
         std::cout << "Eye centre offset: " << eye_centre_offset << "\n";
 
-        std::vector<double> errors{};
+        std::vector<double> errors_x{};
+        std::vector<double> errors_y{};
+        std::vector<double> errors_z{};
         std::vector<double> errors_theta{};
         std::vector<double> errors_phi{};
         for (int i = 0; i < estimated_eye_centres.size(); i++) {
-            errors.push_back(cv::norm(estimated_eye_centres[i] - eye_centres[i] - eye_centre_offset));
+            errors_x.push_back(cv::norm(estimated_eye_centres[i].x - eye_centres[i].x - eye_centre_offset.x));
+            errors_y.push_back(cv::norm(estimated_eye_centres[i].y - eye_centres[i].y - eye_centre_offset.y));
+            errors_z.push_back(cv::norm(estimated_eye_centres[i].z - eye_centres[i].z - eye_centre_offset.z));
         }
 
-        std::cout << "Mean error: " << std::accumulate(errors.begin(), errors.end(), 0.0) / errors.size()
-        << " ± " << Utils::getStdDev(errors) << "\n";
+        std::cout << "Mean error X: " << std::accumulate(errors_x.begin(), errors_x.end(), 0.0) / errors_x.size()
+        << " ± " << Utils::getStdDev(errors_x) << "\n";
+        std::cout << "Mean error Y: " << std::accumulate(errors_y.begin(), errors_y.end(), 0.0) / errors_y.size()
+                  << " ± " << Utils::getStdDev(errors_y) << "\n";
+        std::cout << "Mean error Z: " << std::accumulate(errors_z.begin(), errors_z.end(), 0.0) / errors_z.size()
+                  << " ± " << Utils::getStdDev(errors_z) << "\n";
 
         std::cout << "Angles offset: " << angle_offset * 180 / CV_PI << "\n";
         for (int i = 0; i < estimated_angles.size(); i++) {

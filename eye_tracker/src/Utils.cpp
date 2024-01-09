@@ -497,7 +497,7 @@ namespace et
         double norm = cv::norm(vector);
         angles[0] = std::atan2(vector[0], vector[2]);
         angles[1] = std::asin(vector[1] / norm);
-        if (angles[0] < 0) {
+        if (angles[0] < -M_PI / 2) {
             angles[0] += 2 * M_PI;
         }
     }

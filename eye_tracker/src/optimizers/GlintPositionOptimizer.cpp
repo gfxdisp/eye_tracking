@@ -18,7 +18,7 @@ namespace et
         cv::normalize(v1, v1);
         cv::Vec3d v2 = camera_position_ - nodal_point_;
         cv::normalize(v2, v2);
-        cv::Vec3d v3 = v1 + (v2 - v1) * x[0];
+        cv::Vec3d v3 = v1 + (v2 - v1) * tanh(x[0]);
         cv::normalize(v3, v3);
 
         cv::Vec3d glint_position = static_cast<cv::Vec3d>(nodal_point_) + v3 * cornea_radius_;

@@ -7,8 +7,7 @@
 
 namespace et
 {
-    struct EyeImage
-    {
+    struct EyeImage {
         cv::Mat pupil;
         cv::Mat glints;
         int frame_num{0};
@@ -17,8 +16,7 @@ namespace et
 /**
  * Abstract class for image gathering.
  */
-    class ImageProvider
-    {
+    class ImageProvider {
     public:
         ImageProvider() = default;
 

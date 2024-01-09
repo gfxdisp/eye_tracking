@@ -18,7 +18,6 @@ namespace et
         ellipse_width_fit = std::make_shared<PolynomialFit>(5, 3);
         ellipse_height_fit = std::make_shared<PolynomialFit>(5, 3);
         ellipse_angle_fit = std::make_shared<PolynomialFit>(5, 3);
-        setModel("default");
     }
 
     PolynomialEyeEstimator::PolynomialEyeEstimator(int camera_id, std::string model_id) : EyeEstimator(camera_id)
@@ -183,6 +182,25 @@ namespace et
                           << " ± " << std_error << std::endl;
             }
         }
+
+//        cv::Point3d test_eye_centre = {179.7799, 106.3562, 834.0974};
+//        cv::Point3d test_marker_pos = {180.0, 100.0, 100.0};
+//
+//        EyeInfo test_eye_info{};
+//        cv::Vec2d test_angles{};
+//
+//        cv::Vec3d gaze_dir = test_marker_pos - test_eye_centre;
+//        gaze_dir = gaze_dir / cv::norm(gaze_dir);
+//
+//        Utils::vectorToAngles(gaze_dir, test_angles);
+//        detectEye(test_eye_info, test_eye_centre, test_angles);
+//        std::vector<cv::Point2f> test_glints{};
+//        for (const auto &glint: test_eye_info.glints) {
+//            test_glints.push_back(glint);
+//        }
+//        cv::RotatedRect test_ellipse = cv::fitEllipse(test_glints);
+
+
 
         if (!result) {
             return false;
