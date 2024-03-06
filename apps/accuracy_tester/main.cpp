@@ -53,8 +53,8 @@ int main(int argc, char *argv[])
 
     auto settings = std::make_shared<et::Settings>(settings_path);
 
-    cv::Vec3d min_eye_pos = {190.0, 135.0, 815.0};
-    cv::Vec3d max_eye_pos = {204.0, 151.0, 830.0};
+    cv::Vec3d min_eye_pos = {50.0, 60.0, 830.0};
+    cv::Vec3d max_eye_pos = {200.0, 200.0, 880.0};
 
     cv::Vec3d min_marker_pos = {170.0, 90.0, -100.0};
     cv::Vec3d max_marker_pos = {290.0, 210.0, 100.0};

@@ -128,15 +128,12 @@ namespace et
 
     cv::KalmanFilter ContinuousTemporalFilterer::createPixelKalmanFilter(const cv::Size2i &resolution, double framerate)
     {
-        // Expected average saccade time.
-        double saccade_length_sec = 0.1;
-        double saccade_per_frame = std::fmin(saccade_length_sec / (1.0 / framerate), 1.0);
-        double velocity_decay = 1.0f - saccade_per_frame;
+        double velocity_decay = 0.9f;
         cv::Mat transition_matrix{(cv::Mat_<double>(4, 4) << 1, 0, 1.0 / framerate, 0, 0, 1, 0, 1.0 /
                                                                                                 framerate, 0, velocity_decay, 0, 0, 0, 0, 0, velocity_decay)};
         cv::Mat measurement_matrix{(cv::Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 1, 0, 0)};
         cv::Mat process_noise_cov{cv::Mat::eye(4, 4, CV_64F) * 2};
-        cv::Mat measurement_noise_cov{cv::Mat::eye(2, 2, CV_64F) * 5};
+        cv::Mat measurement_noise_cov{cv::Mat::eye(2, 2, CV_64F) * 1};
         cv::Mat error_cov_post{cv::Mat::eye(4, 4, CV_64F)};
         cv::Mat state_post{(cv::Mat_<double>(4, 1) << resolution.width / 2, resolution.height / 2, 0, 0)};
 
@@ -156,13 +153,11 @@ namespace et
     ContinuousTemporalFilterer::createRadiusKalmanFilter(const double &min_radius, const double &max_radius,
                                                          double framerate)
     {
-        double radius_change_time_sec = 1.0;
-        double radius_change_per_frame = std::fmin(radius_change_time_sec / (1.0 / framerate), 1.0);
-        double velocity_decay = 1.0 - radius_change_per_frame;
+        double velocity_decay = 0.9f;
         cv::Mat transition_matrix{(cv::Mat_<double>(2, 2) << 1, 1.0 / framerate, 0, velocity_decay)};
         cv::Mat measurement_matrix{(cv::Mat_<double>(1, 2) << 1, 0)};
         cv::Mat process_noise_cov{cv::Mat::eye(2, 2, CV_64F) * 2};
-        cv::Mat measurement_noise_cov{(cv::Mat_<double>(1, 1) << 5)};
+        cv::Mat measurement_noise_cov{(cv::Mat_<double>(1, 1) << 1)};
         cv::Mat error_cov_post{cv::Mat::eye(2, 2, CV_64F)};
         cv::Mat state_post{(cv::Mat_<double>(2, 1) << (max_radius - min_radius) / 2, 0)};
 
@@ -181,10 +176,7 @@ namespace et
     cv::KalmanFilter
     ContinuousTemporalFilterer::createEllipseKalmanFilter(const cv::Size2i &resolution, double framerate)
     {
-        // Expected average saccade time.
-        double saccade_length_sec = 0.1;
-        double saccade_per_frame = std::fmin(saccade_length_sec / (1.0 / framerate), 1.0);
-        double velocity_decay = 1.0 - saccade_per_frame;
+        double velocity_decay = 0.9f;
         cv::Mat transition_matrix{
                 (cv::Mat_<double>(10, 10) << 1, 0, 0, 0, 0, 1.0 / framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1.0 /
                                                                                                            framerate, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,

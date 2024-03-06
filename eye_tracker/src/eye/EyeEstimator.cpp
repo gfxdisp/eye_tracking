@@ -6,7 +6,7 @@ namespace et
     EyeEstimator::EyeEstimator(int camera_id) : camera_id_{camera_id}
     {
         features_params_ = Settings::parameters.user_params[camera_id];
-        setup_variables_ = &Settings::parameters.user_polynomial_params[camera_id]->setup_variables;
+        eye_measurements_ = &Settings::parameters.polynomial_params[camera_id].eye_measurements;
 
         intrinsic_matrix_ = &Settings::parameters.camera_params[camera_id].intrinsic_matrix;
         capture_offset_ = &Settings::parameters.camera_params[camera_id].capture_offset;
@@ -180,7 +180,7 @@ namespace et
     {
         cv::Vec3d optical_axis = nodal_point - eye_centre;
         cv::normalize(optical_axis, optical_axis);
-        gaze_direction = Utils::opticalToVisualAxis(optical_axis, setup_variables_->alpha, setup_variables_->beta);
+        gaze_direction = Utils::opticalToVisualAxis(optical_axis, eye_measurements_->alpha, eye_measurements_->beta);
     }
 
     void EyeEstimator::getEyeCentrePosition(cv::Point3d &eye_centre)
@@ -206,12 +206,12 @@ namespace et
 
     cv::Point2d EyeEstimator::getCorneaCurvaturePixelPosition()
     {
-        return eye_centre_pixel_;
+        return cornea_centre_pixel_;
     }
 
     cv::Point2d EyeEstimator::getEyeCentrePixelPosition()
     {
-        return cornea_centre_pixel_;
+        return eye_centre_pixel_;
     }
 
     bool EyeEstimator::findEye(EyeInfo &eye_info)

@@ -16,7 +16,7 @@ namespace et
     std::mt19937::result_type Utils::seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::mt19937 Utils::gen = std::mt19937(seed);
 
-    std::vector<std::vector<double>> Utils::readFloatColumnsCsv(const std::string &filename, bool ignore_first_line)
+    std::vector<std::vector<double>> Utils::readFloatColumnsCsv(const std::string& filename, bool ignore_first_line)
     {
         std::ifstream input_file{filename};
         if (!input_file.is_open())
@@ -53,7 +53,7 @@ namespace et
         return csv_data;
     }
 
-    std::vector<std::vector<double>> Utils::readFloatRowsCsv(const std::string &filename, bool ignore_first_line)
+    std::vector<std::vector<double>> Utils::readFloatRowsCsv(const std::string& filename, bool ignore_first_line)
     {
         std::ifstream input_file{filename};
         if (!input_file.is_open())
@@ -84,10 +84,10 @@ namespace et
         return csv_data;
     }
 
-    void Utils::writeFloatCsv(std::vector<std::vector<double>> &data, const std::string &filename)
+    void Utils::writeFloatCsv(std::vector<std::vector<double>>& data, const std::string& filename)
     {
         std::ofstream file{filename};
-        for (auto &row: data)
+        for (auto& row : data)
         {
             for (int i = 0; i < row.size(); i++)
             {
@@ -163,8 +163,8 @@ namespace et
     }
 
     bool
-    Utils::getRaySphereIntersection(const cv::Vec3d &ray_pos, const cv::Vec3d &ray_dir, const cv::Vec3d &sphere_pos,
-                                    double sphere_radius, double &t)
+    Utils::getRaySphereIntersection(const cv::Vec3d& ray_pos, const cv::Vec3d& ray_dir, const cv::Vec3d& sphere_pos,
+                                    double sphere_radius, double& t)
     {
         double A{ray_dir.dot(ray_dir)};
         cv::Vec3d v{ray_pos - sphere_pos};
@@ -191,10 +191,10 @@ namespace et
         return (delta > 0);
     }
 
-    cv::Point3d Utils::visualToOpticalAxis(const cv::Point3d &visual_axis, double alpha, double beta)
+    cv::Point3d Utils::visualToOpticalAxis(const cv::Point3d& visual_axis, double alpha, double beta)
     {
         static int initialized = false;
-        static OpticalFromVisualAxisOptimizer *optimizer{};
+        static OpticalFromVisualAxisOptimizer* optimizer{};
         static cv::Ptr<cv::DownhillSolver::Function> minimizer_function{};
         static cv::Ptr<cv::DownhillSolver> solver{};
         if (!initialized)
@@ -205,6 +205,8 @@ namespace et
             solver->setFunction(minimizer_function);
             cv::Mat step = (cv::Mat_<double>(1, 2) << 0.1, 0.1);
             solver->setInitStep(step);
+            solver->setTermCriteria(cv::TermCriteria((cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS), 150,
+                                                     std::numeric_limits<double>::min()));
             initialized = true;
         }
 
@@ -221,7 +223,38 @@ namespace et
         return optical_axis;
     }
 
-    cv::Point3d Utils::opticalToVisualAxis(const cv::Point3d &optical_axis, double alpha, double beta)
+    cv::Point3d Utils::visualToOpticalAxis2(const cv::Point3d& visual_axis, double alpha, double beta)
+    {
+        static int initialized = false;
+        static OpticalFromVisualAxisOptimizer* optimizer{};
+        static cv::Ptr<cv::DownhillSolver::Function> minimizer_function{};
+        static cv::Ptr<cv::DownhillSolver> solver{};
+        if (!initialized)
+        {
+            optimizer = new OpticalFromVisualAxisOptimizer();
+            minimizer_function = cv::Ptr<cv::DownhillSolver::Function>{optimizer};
+            solver = cv::DownhillSolver::create();
+            solver->setFunction(minimizer_function);
+            cv::Mat step = (cv::Mat_<double>(1, 2) << 0.1, 0.1);
+            solver->setInitStep(step);
+            solver->setTermCriteria(cv::TermCriteria((cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS), 1e3, 1e-12));
+            initialized = true;
+        }
+
+        optimizer->setParameters(alpha, beta, visual_axis);
+        cv::Mat x = (cv::Mat_<double>(1, 2) << 0, 0);
+        solver->minimize(x);
+        double phi = x.at<double>(0, 0);
+        double theta = x.at<double>(0, 1);
+        cv::Mat R = Utils::getRotY(theta) * Utils::getRotX(phi);
+        cv::Mat optical_axis_mat = R * (cv::Mat_<double>(3, 1) << 0, 0, -1);
+        cv::Point3d optical_axis = cv::Point3d(optical_axis_mat.at<double>(0, 0), optical_axis_mat.at<double>(1, 0),
+                                               optical_axis_mat.at<double>(2, 0));
+        optical_axis = optical_axis / cv::norm(optical_axis);
+        return optical_axis;
+    }
+
+    cv::Point3d Utils::opticalToVisualAxis(const cv::Point3d& optical_axis, double alpha, double beta)
     {
         cv::Point3d norm_optical_axis = optical_axis / cv::norm(optical_axis);
 
@@ -245,6 +278,143 @@ namespace et
         return visual_axis;
     }
 
+    cv::Point3d Utils::opticalToVisualAxis2(const cv::Point3d& optical_axis, double alpha, double beta)
+    {
+        cv::Point3d norm_optical_axis = optical_axis / cv::norm(optical_axis);
+
+
+        cv::Point3d visual_axis;
+        visual_axis.x = std::cos(-beta * M_PI / 180) * std::cos(alpha * M_PI / 180);
+        visual_axis.y = std::sin(-beta * M_PI / 180);
+        visual_axis.z = std::cos(-beta * M_PI / 180) * std::sin(alpha * M_PI / 180);
+
+        return visual_axis;
+    }
+
+    static std::complex<double> complex_sqrt(const std::complex<double>& z)
+    {
+        return pow(z, 1. / 2.);
+    }
+
+    static std::complex<double> complex_cbrt(const std::complex<double>& z)
+    {
+        return pow(z, 1. / 3.);
+    }
+
+    int Utils::solveQuartic(double r0, double r1, double r2, double r3, double r4, double* roots)
+    {
+        // Solve the quartic equation r4 * x^4 + r3 * x^3 + r2 * x^2 + r1 * x + r0 = 0
+
+        const std::complex<double> a = std::complex<double>(r4, 0);
+        const std::complex<double> b = r3 / a;
+        const std::complex<double> c = r2 / a;
+        const std::complex<double> d = r1 / a;
+        const std::complex<double> e = r0 / a;
+
+        const std::complex<double> Q1 = c * c - 3. * b * d + 12. * e;
+        const std::complex<double> Q2 = 2. * c * c * c - 9. * b * c * d + 27. * d * d + 27. * b * b * e - 72. * c * e;
+        const std::complex<double> Q3 = 8. * b * c - 16. * d - 2. * b * b * b;
+        const std::complex<double> Q4 = 3. * b * b - 8. * c;
+
+        const std::complex<double> Q5 = complex_cbrt(Q2 / 2. + complex_sqrt(Q2 * Q2 / 4. - Q1 * Q1 * Q1));
+        const std::complex<double> Q6 = (Q1 / Q5 + Q5) / 3.;
+        const std::complex<double> Q7 = 2. * complex_sqrt(Q4 / 12. + Q6);
+
+        std::complex<double> roots_complex[4];
+
+        roots_complex[0] = (-b - Q7 - complex_sqrt(4. * Q4 / 6. - 4. * Q6 - Q3 / Q7)) / 4.;
+        roots_complex[1] = (-b - Q7 + complex_sqrt(4. * Q4 / 6. - 4. * Q6 - Q3 / Q7)) / 4.;
+        roots_complex[2] = (-b + Q7 - complex_sqrt(4. * Q4 / 6. - 4. * Q6 + Q3 / Q7)) / 4.;
+        roots_complex[3] = (-b + Q7 + complex_sqrt(4. * Q4 / 6. - 4. * Q6 + Q3 / Q7)) / 4.;
+
+        int n_real_roots = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            if (std::abs(roots_complex[i].imag()) < 1e-10)
+            {
+                roots[n_real_roots] = roots_complex[i].real();
+                n_real_roots++;
+            }
+        }
+        return n_real_roots;
+    }
+
+    cv::Vec2d Utils::project3Dto2D(cv::Vec3d point, cv::Vec3d normal)
+    {
+        cv::Vec3d x = {1, 0, 0};
+        cv::Vec3d projected_x = x - x.dot(normal) * normal;
+        projected_x /= cv::norm(projected_x);
+        cv::Vec3d projected_y = normal.cross(projected_x);
+        cv::Vec2d point2d = {projected_x.dot(point), projected_y.dot(point)};
+        return point2d;
+    }
+
+    cv::Vec3d Utils::unproject2Dto3D(cv::Vec2d point, cv::Vec3d normal, double depth)
+    {
+        cv::Vec3d x = {1, 0, 0};
+        cv::Vec3d projected_x = x - x.dot(normal) * normal;
+        projected_x /= cv::norm(projected_x);
+        cv::Vec3d projected_y = normal.cross(projected_x);
+
+        cv::Mat A = (cv::Mat_<double>(3, 3) << projected_x[0], projected_x[1], projected_x[2], projected_y[0],
+            projected_y[1], projected_y[2], normal[0], normal[1], normal[2]);
+
+
+        cv::Mat point3d_mat = A.inv(cv::DECOMP_SVD) * (cv::Mat_<double>(2, 1) << point[0], point[1], depth);
+        cv::Vec3d point3d = {point3d_mat.at<double>(0, 0), point3d_mat.at<double>(1, 0), point3d_mat.at<double>(2, 0)};
+        return point3d;
+    }
+
+    cv::Point2d Utils::getReflectionPoint(cv::Vec2d source, cv::Vec2d destination)
+    {
+        cv::Vec2d A = {source[0], source[1]};
+        cv::Vec2d B = {destination[0], destination[1]};
+
+
+        double u = A[0] * A[0] + A[1] * A[1];
+        double v = A[0] * B[0] + A[1] * B[1];
+        double w = B[0] * B[0] + B[1] * B[1];
+
+        double r0 = w - 1;
+        double r1 = 2 * (w - v);
+        double r2 = u + 2 * v + w - 4 * u * w;
+        double r3 = 4 * (v * v - u * w);
+        double r4 = 4 * u * (u * w - v * v);
+        double roots[4];
+        int roots_num = Utils::solveQuartic(r0, r1, r2, r3, r4, roots);
+        double x, y;
+        for (int i = 0; i < roots_num; i++)
+        {
+            x = roots[i];
+            if (x > 0)
+            {
+                y = (1 + x - 2 * u * x * x) / (1 + 2 * v * x);
+                if (y > 0)
+                {
+                    break;
+                }
+            }
+        }
+
+        return x * A + y * B;
+    }
+
+    cv::Point3d Utils::getReflectionPoint(cv::Vec3d source, cv::Vec3d sphere_centre,
+                                          cv::Vec3d destination, double radius)
+    {
+        source = (source - sphere_centre) / radius;
+        destination = (destination - sphere_centre) / radius;
+        cv::Vec3d plane_normal = (source - destination).cross(source);
+        plane_normal /= cv::norm(plane_normal);
+        double depth = plane_normal.dot(source);
+
+        cv::Vec2d source_2d = project3Dto2D(source, plane_normal);
+        cv::Vec2d destination_2d = project3Dto2D(destination, plane_normal);
+        cv::Vec2d reflection_2d = getReflectionPoint(source_2d, destination_2d);
+        cv::Vec3d reflection = unproject2Dto3D(reflection_2d, plane_normal, depth) * radius + sphere_centre;
+        return reflection;
+    }
+
     double Utils::pointToLineDistance(cv::Vec3d origin, cv::Vec3d direction, cv::Vec3d point)
     {
         cv::Vec3d V = origin - point;
@@ -252,7 +422,7 @@ namespace et
         return cv::norm(V - projection);
     }
 
-    cv::Point2d Utils::findEllipseIntersection(cv::RotatedRect &ellipse, double angle)
+    cv::Point2d Utils::findEllipseIntersection(cv::RotatedRect& ellipse, double angle)
     {
         double a = ellipse.size.width / 2.0;
         double b = ellipse.size.height / 2.0;
@@ -280,7 +450,7 @@ namespace et
         return atan2(det, dot);
     }
 
-    void Utils::getCrossValidationIndices(std::vector<int> &indices, int n_data_points, int n_folds)
+    void Utils::getCrossValidationIndices(std::vector<int>& indices, int n_data_points, int n_folds)
     {
         indices.resize(n_data_points);
         for (int i = 0; i < n_data_points; i++)
@@ -291,7 +461,7 @@ namespace et
     }
 
     cv::Point3d
-    Utils::findGridIntersection(std::vector<cv::Point3d> &front_corners, std::vector<cv::Point3d> &back_corners)
+    Utils::findGridIntersection(std::vector<cv::Point3d>& front_corners, std::vector<cv::Point3d>& back_corners)
     {
         int n = front_corners.size();
         cv::Mat S = cv::Mat::zeros(3, 3, CV_64F);
@@ -301,10 +471,12 @@ namespace et
 
         for (int i = 0; i < n; i++)
         {
-            cv::Vec3d optical_axis = {back_corners[i].x - front_corners[i].x, back_corners[i].y - front_corners[i].y,
-                                      back_corners[i].z - front_corners[i].z};
+            cv::Vec3d optical_axis = {
+                back_corners[i].x - front_corners[i].x, back_corners[i].y - front_corners[i].y,
+                back_corners[i].z - front_corners[i].z
+            };
             double norm = std::sqrt(optical_axis[0] * optical_axis[0] + optical_axis[1] * optical_axis[1] +
-                                    optical_axis[2] * optical_axis[2]);
+                optical_axis[2] * optical_axis[2]);
             optical_axis[0] /= norm;
             optical_axis[1] /= norm;
             optical_axis[2] /= norm;
@@ -326,8 +498,10 @@ namespace et
         }
 
         cv::Mat intersection = S.inv(cv::DECOMP_SVD) * C;
-        cv::Point3d cross_point = {intersection.at<double>(0, 0), intersection.at<double>(1, 0),
-                                   intersection.at<double>(2, 0)};
+        cv::Point3d cross_point = {
+            intersection.at<double>(0, 0), intersection.at<double>(1, 0),
+            intersection.at<double>(2, 0)
+        };
         return cross_point;
     }
 
@@ -341,6 +515,11 @@ namespace et
         return rot_x;
     }
 
+    cv::Mat Utils::getRotXd(double angle)
+    {
+        return getRotX(angle * M_PI / 180);
+    }
+
     cv::Mat Utils::getRotY(double angle)
     {
         cv::Mat rot_y = cv::Mat::eye(3, 3, CV_64F);
@@ -349,6 +528,11 @@ namespace et
         rot_y.at<double>(2, 0) = -std::sin(angle);
         rot_y.at<double>(2, 2) = std::cos(angle);
         return rot_y;
+    }
+
+    cv::Mat Utils::getRotYd(double angle)
+    {
+        return getRotY(angle * M_PI / 180);
     }
 
     cv::Mat Utils::getRotZ(double angle)
@@ -361,26 +545,37 @@ namespace et
         return rot_z;
     }
 
+    cv::Mat Utils::getRotZd(double angle)
+    {
+        return getRotZ(angle * M_PI / 180);
+    }
+
     cv::Mat Utils::convertAxisAngleToRotationMatrix(cv::Mat axis, double angle)
     {
-        cv::Mat K = cv::Mat::zeros(3, 3, CV_64F);
-        K.at<double>(0, 1) = -axis.at<double>(2);
-        K.at<double>(0, 2) = axis.at<double>(1);
-        K.at<double>(1, 0) = axis.at<double>(2);
-        K.at<double>(1, 2) = -axis.at<double>(0);
-        K.at<double>(2, 0) = -axis.at<double>(1);
-        K.at<double>(2, 1) = axis.at<double>(0);
+        return convertAxisAngleToRotationMatrix(cv::Point3d(axis.at<double>(0, 0), axis.at<double>(1, 0), axis.at<double>(2, 0)), angle);
+    }
 
-        cv::Mat R = cv::Mat::eye(3, 3, CV_64F) + std::sin(angle) * K + (1 - std::cos(angle)) * K * K;
+    cv::Mat Utils::convertAxisAngleToRotationMatrix(cv::Point3d axis, double angle)
+    {
+        cv::Mat R = cv::Mat::eye(3, 3, CV_64F);
+        R.at<double>(0, 0) = std::cos(angle) + axis.x * axis.x * (1 - std::cos(angle));
+        R.at<double>(0, 1) = axis.x * axis.y * (1 - std::cos(angle)) - axis.z * std::sin(angle);
+        R.at<double>(0, 2) = axis.x * axis.z * (1 - std::cos(angle)) + axis.y * std::sin(angle);
+        R.at<double>(1, 0) = axis.y * axis.x * (1 - std::cos(angle)) + axis.z * std::sin(angle);
+        R.at<double>(1, 1) = std::cos(angle) + axis.y * axis.y * (1 - std::cos(angle));
+        R.at<double>(1, 2) = axis.y * axis.z * (1 - std::cos(angle)) - axis.x * std::sin(angle);
+        R.at<double>(2, 0) = axis.z * axis.x * (1 - std::cos(angle)) - axis.y * std::sin(angle);
+        R.at<double>(2, 1) = axis.z * axis.y * (1 - std::cos(angle)) + axis.x * std::sin(angle);
+        R.at<double>(2, 2) = std::cos(angle) + axis.z * axis.z * (1 - std::cos(angle));
         return R;
     }
 
-    cv::Vec3d Utils::getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index)
+    cv::Vec3d Utils::getRefractedRay(const cv::Vec3d& direction, const cv::Vec3d& normal, double refraction_index)
     {
         double nr{1 / refraction_index};
         double m_cos{(-direction).dot(normal)};
         double m_sin{nr * nr * (1 - m_cos * m_cos)};
-        cv::Vec3d t{nr * direction + (nr * m_cos - std::sqrt(1 - m_sin)) * normal};
+        cv::Vec3d t{nr * (direction + m_cos * normal) - std::sqrt(1 - m_sin) * normal};
         cv::normalize(t, t);
         return t;
     }
@@ -400,57 +595,55 @@ namespace et
 
     double Utils::getPercentile(const std::vector<double>& values, double percentile)
     {
-        int index = (int) (percentile * values.size());
+        int index = (int)(percentile * values.size());
         std::vector<double> sorted_values = values;
         std::sort(sorted_values.begin(), sorted_values.end());
         return sorted_values[index];
     }
 
-    void Utils::getAnglesBetweenVectors(cv::Vec3d a, cv::Vec3d b, double &alpha, double &beta)
+    void Utils::getAnglesBetweenVectors(cv::Vec3d a, cv::Vec3d b, double& alpha, double& beta)
     {
-        double dot = a.dot(b);
-        double det = a[2] * b[1] - a[1] * b[2];
-        if (dot == 0 && det == 0)
+        cv::Vec2d a_xz = {a[0], a[2]};
+        cv::Vec2d b_xz = {b[0], b[2]};
+        a_xz = a_xz / cv::norm(a_xz);
+        b_xz = b_xz / cv::norm(b_xz);
+
+        alpha = std::acos(a_xz.dot(b_xz)) * 180 / M_PI;
+        if (a_xz[0] * b_xz[1] - a_xz[1] * b_xz[0] < 0)
         {
-            alpha = M_PI;
-            beta = M_PI;
-            return;
+            alpha = -alpha;
         }
 
-        beta = atan2(det, dot);
-
-        dot = a.dot(b);
-        det = a[0] * b[2] - a[2] * b[0];
-        if (dot == 0 && det == 0)
+        cv::Vec2d a_yz = {a[1], a[2]};
+        cv::Vec2d b_yz = {b[1], b[2]};
+        a_yz = a_yz / cv::norm(a_yz);
+        b_yz = b_yz / cv::norm(b_yz);
+        beta = std::acos(a_yz.dot(b_yz)) * 180 / M_PI;
+        if (a_yz[0] * b_yz[1] - a_yz[1] * b_yz[0] < 0)
         {
-            alpha = M_PI;
-            beta = M_PI;
-            return;
+            beta = -beta;
         }
+    }
 
-        alpha = atan2(det, dot);
+    void Utils::getVectorFromAngles(double alpha, double beta, cv::Vec3d& vector)
+    {
+        auto forward = cv::Mat{cv::Vec3d{0, 0, 1}};
+        auto right = cv::Mat{cv::Vec3d{-1, 0, 0}};
+        auto up = cv::Mat{cv::Vec3d{0, 1, 0}};
 
-        alpha = alpha * 180 / M_PI;
-        beta = beta * 180 / M_PI;
+        cv::Mat R = convertAxisAngleToRotationMatrix(up, alpha * M_PI / 180);
+        forward = R * forward;
+        right = R * right;
 
-        if (alpha < -90) {
-            alpha += 180;
-        }
-        if (alpha > 90) {
-            alpha -= 180;
-        }
-        if (beta < -90) {
-            beta += 180;
-        }
-        if (beta > 90) {
-            beta -= 180;
-        }
+        R = convertAxisAngleToRotationMatrix(right, beta * M_PI / 180);
+        forward = R * forward;
+        vector = {forward.at<double>(0, 0), forward.at<double>(1, 0), forward.at<double>(2, 0)};
     }
 
     void Utils::getAnglesBetweenVectorsAlt(cv::Vec3d visual_axis, cv::Vec3d optical_axis, double& alpha, double& beta)
     {
         static int initialized = false;
-        static EyeAnglesOptimizer *optimizer{};
+        static EyeAnglesOptimizer* optimizer{};
         static cv::Ptr<cv::DownhillSolver::Function> minimizer_function{};
         static cv::Ptr<cv::DownhillSolver> solver{};
         if (!initialized)
@@ -481,28 +674,32 @@ namespace et
 
         cv::Mat transformation_matrix = from_mat.inv(cv::DECOMP_SVD) * to_mat;
         return transformation_matrix;
-
     }
 
     cv::Point3d Utils::convertFromHomogeneous(cv::Mat mat)
     {
-        cv::Point3d point{mat.at<double>(0, 0) / mat.at<double>(0, 3),
-                          mat.at<double>(0, 1) / mat.at<double>(0, 3),
-                          mat.at<double>(0, 2) / mat.at<double>(0, 3)};
+        cv::Point3d point{
+            mat.at<double>(0, 0) / mat.at<double>(0, 3),
+            mat.at<double>(0, 1) / mat.at<double>(0, 3),
+            mat.at<double>(0, 2) / mat.at<double>(0, 3)
+        };
         return point;
     }
 
-    void Utils::vectorToAngles(cv::Vec3d vector, cv::Vec2d &angles)
+    void Utils::vectorToAngles(cv::Vec3d vector, cv::Vec2d& angles)
     {
         double norm = cv::norm(vector);
         angles[0] = std::atan2(vector[0], vector[2]);
         angles[1] = std::asin(vector[1] / norm);
-        if (angles[0] < -M_PI / 2) {
+        if (angles[0] < -M_PI / 2)
+        {
             angles[0] += 2 * M_PI;
         }
+        angles[0] *= 180 / M_PI;
+        angles[1] *= 180 / M_PI;
     }
 
-    void Utils::anglesToVector(cv::Vec2d angles, cv::Vec3d &vector)
+    void Utils::anglesToVector(cv::Vec2d angles, cv::Vec3d& vector)
     {
         double x = std::sin(angles[0]) * std::cos(angles[1]);
         double y = std::sin(angles[1]);

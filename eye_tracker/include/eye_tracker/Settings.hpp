@@ -89,10 +89,14 @@ struct FeaturesParams {
     int glint_threshold{};
     // Exposure of the camera in milliseconds.
     double exposure{};
-    // Offset between the real eye position and the one estimated by the polynomial / model.
-    cv::Point3d eye_centre_offset{};
-    // Offset between the real visual axis and the one estimated by the polynomial / model.
-    cv::Vec2d angles_offset{};
+    // Offset between the real eye position and the one estimated by the polynomial.
+    cv::Point3d poly_eye_centre_offset{};
+    // Offset between the real visual axis and the one estimated by the polynomial.
+    cv::Vec2d poly_angles_offset{};
+    // Offset between the real eye position and the one estimated by the model.
+    cv::Point3d model_eye_centre_offset{};
+    // Offset between the real visual axis and the one estimated by the model.
+    cv::Vec2d model_angles_offset{};
 };
 
 
@@ -107,28 +111,20 @@ struct Coefficients {
     std::vector<double> theta{};
     // Polynomial coefficients estimating y-axis direction of the gaze.
     std::vector<double> phi{};
-
-    std::vector<double> pupil_x{};
-    std::vector<double> pupil_y{};
-    std::vector<double> ellipse_x{};
-    std::vector<double> ellipse_y{};
-    std::vector<double> ellipse_width{};
-    std::vector<double> ellipse_height{};
-    std::vector<double> ellipse_angle{};
 };
 
-struct SetupVariables {
+struct EyeMeasurements {
     double cornea_centre_distance{};
     double cornea_curvature_radius{};
     double cornea_refraction_index{};
+    double pupil_cornea_distance{};
     double alpha{};
     double beta{};
 };
 
 struct PolynomialParams {
     Coefficients coefficients{};
-    SetupVariables setup_variables{};
-    cv::Mat camera_to_blender{};
+    EyeMeasurements eye_measurements{};
 };
 
 /**
@@ -137,18 +133,21 @@ struct PolynomialParams {
 struct Parameters {
     // Internal camera parameters. One struct per eye.
     CameraParams camera_params[2]{};
+
     // Vector of LED positions. One per eye.
     std::vector<cv::Vec3d> leds_positions[2]{};
+
     // Parameters used to increase the eye features detection precision.
     // One struct per eye.
     DetectionParams detection_params[2]{};
+
     // Detection parameters calibrated individually per person. One set per user.
     std::unordered_map<std::string, FeaturesParams> features_params[2]{};
     // Detection parameters for the current user.
     FeaturesParams *user_params[2]{};
 
-    std::unordered_map<std::string, PolynomialParams> polynomial_params[2]{};
-    PolynomialParams *user_polynomial_params[2]{};
+    // Default polynomial parameters.
+    PolynomialParams polynomial_params[2]{};
 };
 
 /**

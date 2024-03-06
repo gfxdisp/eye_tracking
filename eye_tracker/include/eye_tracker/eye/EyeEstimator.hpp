@@ -127,7 +127,7 @@ namespace et
 
         FeaturesParams *features_params_{};
 
-        SetupVariables *setup_variables_{};
+        EyeMeasurements *eye_measurements_{};
 
         int camera_id_{};
 

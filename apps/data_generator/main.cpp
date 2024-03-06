@@ -63,8 +63,8 @@ int main(int argc, char *argv[])
     };
 
     eye_centre = {179.7799, 106.3562, 834.0974};
-    double alpha = 5.0;
-    double beta = 1.5;
+    double alpha = 0.0;
+    double beta = 0.0;
 
     et::EyeMeasurements eye_measurements = {
             .eye_cornea_dist = 5.3, .pupil_cornea_dist = 4.2,

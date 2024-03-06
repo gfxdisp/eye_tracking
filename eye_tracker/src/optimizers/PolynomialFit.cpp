@@ -63,7 +63,6 @@ namespace et
         try
         {
             scaled_coeffs = A.inv(cv::DECOMP_SVD) * scaled_output;
-
         } catch (cv::Exception &e)
         {
             return false;

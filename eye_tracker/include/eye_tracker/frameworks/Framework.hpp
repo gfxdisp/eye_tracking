@@ -42,14 +42,6 @@ namespace et
         char padding[8];
     };
 
-    struct EyeDataToReceive
-    {
-        std::vector<cv::Point3d> front_corners = std::vector<cv::Point3d>(4);
-        std::vector<cv::Point3d> back_corners = std::vector<cv::Point3d>(4);
-        cv::Point3d marker_position;
-        double timer;
-    };
-
 /**
  * Pulls images from the camera (or video/folder), detects
  * eye features, and estimates eye position. It also controls the state of the
@@ -152,18 +144,22 @@ namespace et
 
         /**
          * Starts a recording of eyes through a remote application.
-         * @param folder_name Folder to which the videos will be saved.
+         * @param eye_position Folder to which the videos will be saved.
          */
-        std::string startEyeVideoRecording(const std::string &folder_name);
+        void startCalibration(const cv::Point3d& eye_position);
+
+        void loadOldCalibrationData(const std::string &path);
+
+        void stopCalibration();
 
         /**
          * Stops a video recording started through startEyeVideoRecording().
          */
         void stopEyeVideoRecording();
 
-        void addEyeVideoData(const EyeDataToReceive &eye_data);
+        void addEyeVideoData(const cv::Point3d &marker_position);
 
-        cv::Point3d setMetaModel(const std::string &input_path, const std::string &user_id);
+        void dumpCalibrationData(const std::string &video_path);
 
         bool wereFeaturesFound();
 
@@ -202,10 +198,16 @@ namespace et
 
         // Objects writing raw camera images to output, captured through a remote app.
         cv::VideoWriter eye_video_{};
+
         // Objects for writing external data to file, synchronized with eye_video_.
         std::ofstream eye_data_{};
         // Counts number of frames and rows written to eye_video_ and eye_data_.
         int eye_frame_counter_{};
+
+        CalibrationData calibration_data_{};
+        bool calibration_running_{false};
+        time_t calibration_start_time_{};
+        cv::VideoWriter calib_video_{};
 
         int camera_id_{};
 

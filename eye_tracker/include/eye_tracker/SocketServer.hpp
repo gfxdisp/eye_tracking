@@ -68,7 +68,9 @@ namespace et
         // Add data to the video and csv.
         static constexpr int MSG_ADD_CALIBRATION_DATA = 4;
         // Saves current camera image to png file along with the calibrated eye positions.
-        static constexpr int MSG_SET_META_MODEL = 5;
+        static constexpr int MSG_DUMP_CALIBRATION_DATA = 5;
+
+         static constexpr int MSG_LOAD_OLD_CALIBRATION_DATA = 6;
 
         std::shared_ptr<Framework> eye_trackers_[2]{};
 
@@ -81,7 +83,6 @@ namespace et
         std::vector<cv::Point2d> glint_locations_{};
 
         EyeDataToSend eye_data_to_send_{};
-        EyeDataToReceive eye_data_to_receive_{};
 
         // Address of an opened socket server.
         sockaddr_in address_{};

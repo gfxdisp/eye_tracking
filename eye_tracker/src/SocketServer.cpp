@@ -38,7 +38,7 @@ namespace et
         address_.sin_addr.s_addr = inet_addr("127.0.0.1");
         address_.sin_port = htons(8080);
 
-        if (bind(server_handle_, (sockaddr *) &address_, sizeof(address_)) < 0)
+        if (bind(server_handle_, (sockaddr*)&address_, sizeof(address_)) < 0)
         {
             std::clog << "Failed to bind a socket address.\n";
             close(server_handle_);
@@ -62,7 +62,8 @@ namespace et
             int address_length = sizeof(address_);
             while (socket_handle_ < 0 && !finished)
             {
-                socket_handle_ = accept(server_handle_, (struct sockaddr *) &address_, (socklen_t *) &address_length);
+                socket_handle_ = accept(server_handle_, reinterpret_cast<struct sockaddr*>(&address_),
+                                        reinterpret_cast<socklen_t*>(&address_length));
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
 
@@ -74,12 +75,12 @@ namespace et
                 }
                 switch (buffer[0])
                 {
-                    case MSG_CLOSE_CONNECTION:
+                case MSG_CLOSE_CONNECTION:
                     {
                         finished = true;
                         break;
                     }
-                    case MSG_GET_EYE_DATA:
+                case MSG_GET_EYE_DATA:
                     {
                         char camera_id;
                         if (!readAll(&camera_id, sizeof(camera_id)))
@@ -99,7 +100,70 @@ namespace et
                         }
                         break;
                     }
-                    case MSG_START_CALIBRATION:
+                case MSG_START_CALIBRATION:
+                    {
+                        char camera_id;
+                        if (!readAll(&camera_id, sizeof(camera_id)))
+                        {
+                            goto connect_failure;
+                        }
+
+                        if (camera_id != 0 && camera_id != 1)
+                        {
+                            goto connect_failure;
+                        }
+
+                        cv::Point3d eye_position{};
+                        if (!readAll(&eye_position, sizeof(eye_position)))
+                        {
+                            goto connect_failure;
+                        }
+                        eye_trackers_[camera_id]->startCalibration(eye_position);
+                        break;
+                    }
+                case MSG_STOP_CALIBRATION:
+                    {
+                        char camera_id;
+                        if (!readAll(&camera_id, sizeof(camera_id)))
+                        {
+                            goto connect_failure;
+                        }
+
+                        if (camera_id != 0 && camera_id != 1)
+                        {
+                            goto connect_failure;
+                        }
+                        eye_trackers_[camera_id]->stopCalibration();
+                        char done = 1;
+                        if (!sendAll(&done, sizeof(done)))
+                        {
+                            goto connect_failure;
+                        }
+                        break;
+                    }
+                case MSG_ADD_CALIBRATION_DATA:
+                    {
+                        char camera_id;
+                        if (!readAll(&camera_id, sizeof(camera_id)))
+                        {
+                            goto connect_failure;
+                        }
+
+                        if (camera_id != 0 && camera_id != 1)
+                        {
+                            goto connect_failure;
+                        }
+
+                        cv::Point3d marker_position;
+                        if (!readAll(&marker_position, sizeof(marker_position)))
+                        {
+                            goto connect_failure;
+                        }
+
+                        eye_trackers_[camera_id]->addEyeVideoData(marker_position);
+                        break;
+                    }
+                case MSG_DUMP_CALIBRATION_DATA:
                     {
                         char camera_id;
                         if (!readAll(&camera_id, sizeof(camera_id)))
@@ -122,73 +186,12 @@ namespace et
                             goto connect_failure;
                         }
                         message_buffer_[path_length] = '\0';
-                        std::string video_folder = eye_trackers_[camera_id]->startEyeVideoRecording(message_buffer_);
-                        int video_folder_length = video_folder.length();
-                        if (!sendAll(&video_folder_length, sizeof(video_folder_length)))
-                        {
-                            goto connect_failure;
-                        }
-                        if (!sendAll((void *) video_folder.c_str(), video_folder_length))
-                        {
-                            goto connect_failure;
-                        }
+                        std::string video_path = std::string(message_buffer_);
+
+                        eye_trackers_[camera_id]->dumpCalibrationData(video_path);
                         break;
                     }
-                    case MSG_STOP_CALIBRATION:
-                    {
-                        char camera_id;
-                        if (!readAll(&camera_id, sizeof(camera_id)))
-                        {
-                            goto connect_failure;
-                        }
-
-                        if (camera_id != 0 && camera_id != 1)
-                        {
-                            goto connect_failure;
-                        }
-                        eye_trackers_[camera_id]->stopEyeVideoRecording();
-                        break;
-                    }
-                    case MSG_ADD_CALIBRATION_DATA:
-                    {
-                        char camera_id;
-                        if (!readAll(&camera_id, sizeof(camera_id)))
-                        {
-                            goto connect_failure;
-                        }
-
-                        if (camera_id != 0 && camera_id != 1)
-                        {
-                            goto connect_failure;
-                        }
-
-                        if (!readAll(eye_data_to_receive_.front_corners.data(), eye_data_to_receive_.front_corners.size() *
-                                                                          sizeof(eye_data_to_receive_.front_corners[0])))
-                        {
-                            goto connect_failure;
-                        }
-
-                        if (!readAll(eye_data_to_receive_.back_corners.data(), eye_data_to_receive_.back_corners.size() *
-                                                                                sizeof(eye_data_to_receive_.back_corners[0])))
-                        {
-                            goto connect_failure;
-                        }
-
-                        if (!readAll(&eye_data_to_receive_.marker_position, sizeof(eye_data_to_receive_.marker_position)))
-                        {
-                            goto connect_failure;
-                        }
-
-                        if (!readAll(&eye_data_to_receive_.timer, sizeof(eye_data_to_receive_.timer)))
-                        {
-                            goto connect_failure;
-                        }
-
-                        eye_trackers_[camera_id]->addEyeVideoData(eye_data_to_receive_);
-                        break;
-                    }
-
-                    case MSG_SET_META_MODEL:
+                case MSG_LOAD_OLD_CALIBRATION_DATA:
                     {
                         char camera_id;
                         if (!readAll(&camera_id, sizeof(camera_id)))
@@ -210,22 +213,12 @@ namespace et
                         {
                             goto connect_failure;
                         }
-                        std::string meta_model_path = message_buffer_;
+                        message_buffer_[path_length] = '\0';
+                        std::string path = std::string(message_buffer_);
 
-                        int user_id_length{};
-                        if (!readAll(&user_id_length, sizeof(user_id_length)))
-                        {
-                            goto connect_failure;
-                        }
-                        if (!readAll(message_buffer_, user_id_length))
-                        {
-                            goto connect_failure;
-                        }
-
-                        message_buffer_[user_id_length] = '\0';
-                        std::string user_id = message_buffer_;
-                        cv::Point3d eye_centre = eye_trackers_[camera_id]->setMetaModel(meta_model_path, user_id);
-                        if (!sendAll(&eye_centre, sizeof(eye_centre)))
+                        eye_trackers_[camera_id]->loadOldCalibrationData(path);
+                        char done = 1;
+                        if (!sendAll(&done, sizeof(done)))
                         {
                             goto connect_failure;
                         }
@@ -233,7 +226,7 @@ namespace et
                     }
                 }
             }
-            connect_failure:
+        connect_failure:
             close(socket_handle_);
         }
 
@@ -251,13 +244,13 @@ namespace et
         return socket_handle_ > -1 && !finished;
     }
 
-    bool SocketServer::sendAll(void *input, size_t bytes_count) const
+    bool SocketServer::sendAll(void* input, size_t bytes_count) const
     {
         size_t size_to_send = bytes_count;
         size_t sent_bytes = 0;
         while (sent_bytes < size_to_send)
         {
-            ssize_t new_bytes = send(socket_handle_, (char *) input + sent_bytes, size_to_send - sent_bytes, 0);
+            ssize_t new_bytes = send(socket_handle_, (char*)input + sent_bytes, size_to_send - sent_bytes, 0);
             if (new_bytes < 0)
             {
                 return false;
@@ -267,13 +260,13 @@ namespace et
         return true;
     }
 
-    bool SocketServer::readAll(void *output, size_t bytes_count) const
+    bool SocketServer::readAll(void* output, size_t bytes_count) const
     {
         size_t size_to_read = bytes_count;
         size_t read_bytes = 0;
         while (read_bytes < size_to_read)
         {
-            ssize_t new_bytes = read(socket_handle_, (char *) output + read_bytes, size_to_read - read_bytes);
+            ssize_t new_bytes = read(socket_handle_, (char*)output + read_bytes, size_to_read - read_bytes);
             if (new_bytes < 0)
             {
                 return false;
@@ -290,5 +283,4 @@ namespace et
             server_thread_.join();
         }
     }
-
 } // namespace et

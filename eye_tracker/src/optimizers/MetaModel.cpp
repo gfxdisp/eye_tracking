@@ -31,171 +31,251 @@ namespace et
         eye_centre_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(eye_centre_optimizer_);
         eye_centre_solver_ = cv::DownhillSolver::create();
         eye_centre_solver_->setFunction(eye_centre_minimizer_function_);
+
+        cornea_optimizer_ = new CorneaOptimizer();
+        cornea_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(cornea_optimizer_);
+        cornea_solver_ = cv::DownhillSolver::create();
+        cornea_solver_->setFunction(cornea_minimizer_function_);
+        cornea_solver_->setTermCriteria(cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 1000, std::numeric_limits<float>::min()));
     }
 
-    cv::Point3d MetaModel::findMetaModel(std::shared_ptr<ImageProvider> image_provider,
-                                         std::shared_ptr<FeatureAnalyser> feature_analyser, std::string path_to_csv,
-                                         std::string user_id)
+    void MetaModel::findMetaModel(const CalibrationData& calibration_data)
     {
-        Framework::mutex.lock();
+        et::Settings::parameters.user_params[camera_id_]->poly_eye_centre_offset = {0.0, 0.0, 0.0};
+        et::Settings::parameters.user_params[camera_id_]->model_eye_centre_offset = {0.0, 0.0, 0.0};
+        et::Settings::parameters.user_params[camera_id_]->poly_angles_offset = {0.0, 0.0};
+        et::Settings::parameters.user_params[camera_id_]->model_angles_offset = {0.0, 0.0};
 
-        // Open CSV for reading
-        auto csv_file = Utils::readFloatRowsCsv(path_to_csv);
-        int current_row = 0;
+        std::vector<std::vector<double>> data{};
 
-        std::vector<cv::Point3d> all_marker_positions{};
-        std::vector<cv::Point2d> camera_pupils{};
-        std::vector<cv::RotatedRect> camera_ellipses{};
+        bool one_sample_per_marker = true;
 
-        auto user_profile = &Settings::parameters.polynomial_params[camera_id_][user_id];
-        double alpha = user_profile->setup_variables.alpha;
-        double beta = user_profile->setup_variables.beta;
-
-        std::vector<cv::Point3d> eye_centres{};
-        std::vector<cv::Vec2d> angles{};
-
-        std::vector<cv::Point3d> estimated_eye_centres{};
-        std::vector<cv::Vec2d> estimated_angles{};
-
-        std::vector<cv::Vec3d> optical_axes{};
-        std::vector<cv::Vec3d> visual_axes{};
-        std::vector<cv::Point3d> front_corners{};
-        std::vector<cv::Point3d> back_corners{};
-        for (int i = 0; i < 4; i++) {
-            front_corners.push_back({csv_file[0][1 + i * 3], csv_file[0][2 + i * 3], csv_file[0][3 + i * 3]});
-        }
-        for (int i = 0; i < 4; i++) {
-            back_corners.push_back({csv_file[0][13 + i * 3], csv_file[0][14 + i * 3], csv_file[0][15 + i * 3]});
-        }
-
-        for (int i = 0; i < 4; i++) {
-            cv::Vec3d visual_axis = back_corners[i] - front_corners[i];
-            visual_axis = visual_axis / cv::norm(visual_axis);
-            visual_axes.push_back(visual_axis);
-            cv::Vec3d optical_axis = Utils::visualToOpticalAxis(visual_axis, alpha, beta);
-            optical_axes.push_back(optical_axis);
-        }
-
-        cv::Point3d cross_point = Utils::findGridIntersection(front_corners, back_corners);
-        auto model_eye_estimator = std::make_shared<ModelEyeEstimator>(camera_id_);
         auto polynomial_estimator = std::make_shared<PolynomialEyeEstimator>(camera_id_);
-        polynomial_estimator->setModel("default");
+        auto model_estimator = std::make_shared<ModelEyeEstimator>(camera_id_);
+        std::vector<cv::Point3d> poly_estimated_eye_positions{};
+        std::vector<cv::Point3d> model_estimated_eye_positions{};
+        std::vector<cv::Vec2d> poly_estimated_angles{};
+        std::vector<cv::Vec2d> model_estimated_angles{};
+        std::vector<cv::Vec2d> real_angles{};
 
-        et::Settings::parameters.user_params[camera_id_]->eye_centre_offset = {0.0, 0.0, 0.0};
-        et::Settings::parameters.user_params[camera_id_]->angles_offset = {0.0, 0.0};
+        auto eye_measurements = Settings::parameters.polynomial_params[camera_id_].eye_measurements;
 
-        eye_centre_optimizer_->setParameters(cross_point, visual_axes, optical_axes,
-                                             user_profile->setup_variables.cornea_centre_distance);
-        cv::Mat x = (cv::Mat_<double>(1, 3) << cross_point.x, cross_point.y, cross_point.z);
-        eye_centre_solver_->setInitStep(cv::Mat::ones(x.rows, x.cols, CV_64F) * 0.1);
-        eye_centre_solver_->minimize(x);
-
-        cv::Point3d eye_centre = cv::Point3d(x.at<double>(0, 0), x.at<double>(0, 1), x.at<double>(0, 2));
-
-        current_row = 0;
-        while (true) {
-            auto analyzed_frame_ = image_provider->grabImage();
-            if (analyzed_frame_.pupil.empty() || analyzed_frame_.glints.empty()) {
-                break;
-            }
-
-            while (current_row < csv_file.size() && csv_file[current_row][0] < analyzed_frame_.frame_num) {
-                current_row++;
-            }
-
-            if (current_row != analyzed_frame_.frame_num) {
+        double current_timer = 0;
+        EyeInfo eye_info{};
+        std::vector<EyeInfo> eye_infos{};
+        current_timer = calibration_data.timestamps[0];
+        for (int i = 0; i <= calibration_data.marker_positions.size(); i++)
+        {
+            if (i < calibration_data.marker_positions.size() && calibration_data.timestamps[i] - current_timer < 1.0)
+            {
                 continue;
             }
 
-            feature_analyser->preprocessImage(analyzed_frame_);
-            bool features_found = feature_analyser->findPupil() && feature_analyser->findEllipsePoints();
-            if (!features_found) {
+            if (i != 0 && !eye_infos.empty() && (!one_sample_per_marker || i == calibration_data.marker_positions.size() || calibration_data.marker_positions[i - 1] != calibration_data.marker_positions[i]))
+            {
+                EyeInfo mean_eye_info{};
+                mean_eye_info.pupil = std::accumulate(eye_infos.begin(), eye_infos.end(), cv::Point2d(0, 0),
+                                                      [](cv::Point2d a, EyeInfo b) { return a + b.pupil; }) / static_cast<int>(eye_infos.size());
+                mean_eye_info.ellipse.center = std::accumulate(eye_infos.begin(), eye_infos.end(), cv::Point2f(0, 0),
+                                                               [](cv::Point2f a, EyeInfo b) { return a + b.ellipse.center; }) / static_cast<int>(eye_infos.size());
+                mean_eye_info.ellipse.size = cv::Point2f(std::accumulate(eye_infos.begin(), eye_infos.end(), cv::Size2f(0, 0),
+                                                                         [](cv::Size2f a, EyeInfo b) { return a + b.ellipse.size; })) / static_cast<int>(eye_infos.size());
+                cv::Point2d mean_top_left_glint = std::accumulate(eye_infos.begin(), eye_infos.end(), cv::Point2d(0, 0),
+                                                                  [](cv::Point2d a, EyeInfo b) { return a + b.glints[0]; }) / static_cast<int>(eye_infos.size());
+                cv::Point2d mean_bottom_right_glint = std::accumulate(eye_infos.begin(), eye_infos.end(), cv::Point2d(0, 0),
+                                                                      [](cv::Point2d a, EyeInfo b) { return a + b.glints[1]; }) / static_cast<int>(eye_infos.size());
+                mean_eye_info.glints = {mean_top_left_glint, mean_bottom_right_glint};
+                cv::Point3d estimated_eye_position{};
+                cv::Vec2d estimated_angle{};
+                polynomial_estimator->detectEye(mean_eye_info, estimated_eye_position, estimated_angle);
+                poly_estimated_eye_positions.push_back(estimated_eye_position);
+                poly_estimated_angles.push_back(estimated_angle);
+
+                model_estimator->detectEye(mean_eye_info, estimated_eye_position, estimated_angle);
+                model_estimated_eye_positions.push_back(estimated_eye_position);
+                model_estimated_angles.push_back(estimated_angle);
+
+                cv::Mat x = (cv::Mat_<double>(1, 2) << 0.0, 0.0);
+                cv::Mat step = cv::Mat::ones(x.rows, x.cols, CV_64F) * 0.1;
+                cv::Point3d nodal_point{};
+                cornea_solver_->setInitStep(step);
+                cornea_solver_->minimize(x);
+                nodal_point.x = calibration_data.eye_position.x -
+                                eye_measurements.cornea_curvature_radius * sin(x.at<double>(0, 0)) * cos(x.at<double>(0, 1));
+                nodal_point.y = calibration_data.eye_position.y + eye_measurements.cornea_curvature_radius * sin(x.at<double>(0, 1));
+                nodal_point.z = calibration_data.eye_position.z -
+                                eye_measurements.cornea_curvature_radius * cos(x.at<double>(0, 0)) * cos(x.at<double>(0, 1));
+
+                cv::Vec3d visual_axis = calibration_data.marker_positions[i] - nodal_point;
+                cv::normalize(visual_axis, visual_axis);
+                cv::Vec2d angle{};
+                Utils::vectorToAngles(visual_axis, angle);
+
+                real_angles.push_back(angle);
+
+                if (i == calibration_data.marker_positions.size())
+                {
+                    break;
+                }
+                eye_infos.clear();
+
+                data.push_back({calibration_data.eye_position.x, calibration_data.eye_position.y, calibration_data.eye_position.z,
+                                calibration_data.marker_positions[i].x, calibration_data.marker_positions[i].y, calibration_data.marker_positions[i].z,
+                                poly_estimated_eye_positions.back().x, poly_estimated_eye_positions.back().y, poly_estimated_eye_positions.back().z,
+                                model_estimated_eye_positions.back().x, model_estimated_eye_positions.back().y, model_estimated_eye_positions.back().z,
+                                poly_estimated_angles.back()[0], poly_estimated_angles.back()[1], model_estimated_angles.back()[0], model_estimated_angles.back()[1],
+                                real_angles.back()[0], real_angles.back()[1]});
+            }
+
+            if (i != 0 && calibration_data.marker_positions[i - 1] != calibration_data.marker_positions[i]) {
+                current_timer = calibration_data.timestamps[i];
                 continue;
             }
 
-            cv::Point2d pupil = feature_analyser->getPupilUndistorted();
-            cv::RotatedRect ellipse = feature_analyser->getEllipseUndistorted();
+            eye_info.pupil = calibration_data.pupil_positions[i];
+            eye_info.ellipse = calibration_data.glint_ellipses[i];
+            eye_info.glints = {calibration_data.top_left_glints[i], calibration_data.bottom_right_glints[i]};
+            eye_infos.push_back(eye_info);
+        }
+        Utils::writeFloatCsv(data, "data.csv");
 
-            if (csv_file[current_row][28] < 1.0) {
-                continue;
+        std::cout << "Total samples: " << poly_estimated_eye_positions.size() << "\n";
+
+        int data_points_num = poly_estimated_eye_positions.size();
+        int cross_folds = 5;
+        std::vector<int> indices(data_points_num);
+        Utils::getCrossValidationIndices(indices, data_points_num, 5);
+        std::vector<double> poly_errors_x{};
+        std::vector<double> model_errors_x{};
+        std::vector<double> poly_errors_y{};
+        std::vector<double> model_errors_y{};
+        std::vector<double> poly_errors_z{};
+        std::vector<double> model_errors_z{};
+        std::vector<double> poly_errors_theta{};
+        std::vector<double> model_errors_theta{};
+        std::vector<double> poly_errors_phi{};
+        std::vector<double> model_errors_phi{};
+        cv::Point3d poly_eye_centre_offset{};
+        cv::Point3d model_eye_centre_offset{};
+        cv::Vec2d poly_angle_offset{};
+        cv::Vec2d model_angle_offset{};
+        for (int i = 0; i <= cross_folds; i++)
+        {
+            poly_eye_centre_offset = {0, 0, 0};
+            model_eye_centre_offset = {0, 0, 0};
+            poly_angle_offset = {0, 0};
+            model_angle_offset = {0, 0};
+            int counter = 0;
+            for (int j = 0; j < poly_estimated_eye_positions.size(); j++)
+            {
+                if (indices[j] == i)
+                {
+                    continue;
+                }
+                poly_eye_centre_offset += poly_estimated_eye_positions[j] - calibration_data.eye_position;
+                model_eye_centre_offset += model_estimated_eye_positions[j] - calibration_data.eye_position;
+                poly_angle_offset += poly_estimated_angles[j] - real_angles[j];
+                model_angle_offset += model_estimated_angles[j] - real_angles[j];
+                counter++;
+            }
+            poly_eye_centre_offset = poly_eye_centre_offset / counter;
+            model_eye_centre_offset = model_eye_centre_offset / counter;
+            poly_angle_offset = poly_angle_offset / counter;
+            model_angle_offset = model_angle_offset / counter;
+
+            for (int j = 0; j < poly_estimated_eye_positions.size(); j++)
+            {
+                if (indices[j] != i && i != cross_folds)
+                {
+                    continue;
+                }
+                poly_errors_x.push_back(
+                    cv::norm(poly_estimated_eye_positions[j].x - calibration_data.eye_position.x - poly_eye_centre_offset.x));
+                model_errors_x.push_back(
+                        cv::norm(model_estimated_eye_positions[j].x - calibration_data.eye_position.x - model_eye_centre_offset.x));
+
+                poly_errors_y.push_back(
+                    cv::norm(poly_estimated_eye_positions[j].y - calibration_data.eye_position.y - poly_eye_centre_offset.y));
+                model_errors_y.push_back(
+                        cv::norm(model_estimated_eye_positions[j].y - calibration_data.eye_position.y - model_eye_centre_offset.y));
+
+                poly_errors_z.push_back(
+                    cv::norm(poly_estimated_eye_positions[j].z - calibration_data.eye_position.z - poly_eye_centre_offset.z));
+                model_errors_z.push_back(
+                        cv::norm(model_estimated_eye_positions[j].z - calibration_data.eye_position.z - model_eye_centre_offset.z));
+
+                poly_errors_theta.push_back(std::abs(poly_estimated_angles[j][0] - real_angles[j][0] - poly_angle_offset[0]));
+                model_errors_theta.push_back(std::abs(model_estimated_angles[j][0] - real_angles[j][0] - model_angle_offset[0]));
+
+                poly_errors_phi.push_back(std::abs(poly_estimated_angles[j][1] - real_angles[j][1] - poly_angle_offset[1]));
+                model_errors_phi.push_back(std::abs(model_estimated_angles[j][1] - real_angles[j][1] - model_angle_offset[1]));
             }
 
-            all_marker_positions.push_back({
-                                                   csv_file[current_row][25], csv_file[current_row][26],
-                                                   csv_file[current_row][27]
-                                           });
-            camera_pupils.push_back(pupil);
-            camera_ellipses.push_back(ellipse);
+            if (i >= cross_folds - 1) {
+                if (i == cross_folds - 1) {
+                    std::cout << "Cross validation results:\n";
+                } else {
+                    std::cout << "Full data results:\n";
+                }
 
-            cv::Point3d gaze_direction = all_marker_positions.back() - eye_centre;
-            gaze_direction = gaze_direction / cv::norm(gaze_direction);
+                std::cout << "Polynomial mean error X: "
+                          << std::accumulate(poly_errors_x.begin(), poly_errors_x.end(), 0.0) / poly_errors_x.size() <<
+                          " ± " << Utils::getStdDev(poly_errors_x) << "\n";
+                std::cout << "Model mean error X: "
+                          << std::accumulate(model_errors_x.begin(), model_errors_x.end(), 0.0) / model_errors_x.size() <<
+                          " ± " << Utils::getStdDev(model_errors_x) << "\n";
 
-            cv::Vec2d angle{};
-            Utils::vectorToAngles(gaze_direction, angle);
-            eye_centres.push_back(eye_centre);
-            angles.push_back(angle);
+                std::cout << "Polynomial mean error Y: "
+                          << std::accumulate(poly_errors_y.begin(), poly_errors_y.end(), 0.0) / poly_errors_y.size() <<
+                          " ± " << Utils::getStdDev(poly_errors_y) << "\n";
+                std::cout << "Model mean error Y: "
+                          << std::accumulate(model_errors_y.begin(), model_errors_y.end(), 0.0) / model_errors_y.size() <<
+                          " ± " << Utils::getStdDev(model_errors_y) << "\n";
 
-            EyeInfo eye_info = {
-                    .pupil = pupil,
-                    .ellipse = ellipse,
-            };
+                std::cout << "Polynomial mean error Z: "
+                          << std::accumulate(poly_errors_z.begin(), poly_errors_z.end(), 0.0) / poly_errors_z.size() <<
+                          " ± " << Utils::getStdDev(poly_errors_z) << "\n";
+                std::cout << "Model mean error Z: "
+                          << std::accumulate(model_errors_z.begin(), model_errors_z.end(), 0.0) / model_errors_z.size() <<
+                          " ± " << Utils::getStdDev(model_errors_z) << "\n";
 
-            cv::Point3d estimated_eye_centre;
-            cv::Vec2d estimated_angle{};
-            polynomial_estimator->detectEye(eye_info, estimated_eye_centre, estimated_angle);
-            estimated_eye_centres.push_back(estimated_eye_centre);
-            estimated_angles.push_back(estimated_angle);
+                std::cout << "Polynomial error theta: "
+                          << std::accumulate(poly_errors_theta.begin(), poly_errors_theta.end(), 0.0) / poly_errors_theta.
+                                  size() << " ± " << Utils::getStdDev(poly_errors_theta) << "\n";
+                std::cout << "Model error theta: "
+                          << std::accumulate(model_errors_theta.begin(), model_errors_theta.end(), 0.0) / model_errors_theta.
+                                  size() << " ± " << Utils::getStdDev(model_errors_theta) << "\n";
+
+                std::cout << "Polynomial error phi: "
+                          << std::accumulate(poly_errors_phi.begin(), poly_errors_phi.end(), 0.0) / poly_errors_phi.size() << " ± "
+                          << Utils::getStdDev(poly_errors_phi) << std::endl;
+                std::cout << "Model error phi: "
+                          << std::accumulate(model_errors_phi.begin(), model_errors_phi.end(), 0.0) / model_errors_phi.size() << " ± "
+                          << Utils::getStdDev(model_errors_phi) << std::endl;
+
+                poly_errors_x.clear();
+                model_errors_x.clear();
+
+                poly_errors_y.clear();
+                model_errors_y.clear();
+
+                poly_errors_z.clear();
+                model_errors_z.clear();
+
+                poly_errors_theta.clear();
+                model_errors_theta.clear();
+
+                poly_errors_phi.clear();
+                model_errors_phi.clear();
+            }
         }
 
-        cv::Point3d eye_centre_offset{};
-        cv::Vec2d angle_offset{};
-
-        for (int i = 0; i < estimated_eye_centres.size(); i++) {
-            eye_centre_offset += estimated_eye_centres[i] - eye_centres[i];
-            angle_offset += estimated_angles[i] - angles[i];
-        }
-        eye_centre_offset.x /= (int)(estimated_eye_centres.size());
-        eye_centre_offset.y /= (int)(estimated_eye_centres.size());
-        eye_centre_offset.z /= (int)(estimated_eye_centres.size());
-        angle_offset[0] /= (int)(estimated_eye_centres.size());
-        angle_offset[1] /= (int)(estimated_eye_centres.size());
-        std::cout << "Eye centre offset: " << eye_centre_offset << "\n";
-
-        std::vector<double> errors_x{};
-        std::vector<double> errors_y{};
-        std::vector<double> errors_z{};
-        std::vector<double> errors_theta{};
-        std::vector<double> errors_phi{};
-        for (int i = 0; i < estimated_eye_centres.size(); i++) {
-            errors_x.push_back(cv::norm(estimated_eye_centres[i].x - eye_centres[i].x - eye_centre_offset.x));
-            errors_y.push_back(cv::norm(estimated_eye_centres[i].y - eye_centres[i].y - eye_centre_offset.y));
-            errors_z.push_back(cv::norm(estimated_eye_centres[i].z - eye_centres[i].z - eye_centre_offset.z));
-        }
-
-        std::cout << "Mean error X: " << std::accumulate(errors_x.begin(), errors_x.end(), 0.0) / errors_x.size()
-        << " ± " << Utils::getStdDev(errors_x) << "\n";
-        std::cout << "Mean error Y: " << std::accumulate(errors_y.begin(), errors_y.end(), 0.0) / errors_y.size()
-                  << " ± " << Utils::getStdDev(errors_y) << "\n";
-        std::cout << "Mean error Z: " << std::accumulate(errors_z.begin(), errors_z.end(), 0.0) / errors_z.size()
-                  << " ± " << Utils::getStdDev(errors_z) << "\n";
-
-        std::cout << "Angles offset: " << angle_offset * 180 / CV_PI << "\n";
-        for (int i = 0; i < estimated_angles.size(); i++) {
-            errors_theta.push_back(std::abs(estimated_angles[i][0] - angles[i][0] - angle_offset[0]));
-            errors_phi.push_back(std::abs(estimated_angles[i][1] - angles[i][1] - angle_offset[1]));
-        }
-
-        std::cout << "Error theta: " << std::accumulate(errors_theta.begin(), errors_theta.end(), 0.0) / errors_theta.size() * 180 / CV_PI
-        << " ± " << Utils::getStdDev(errors_theta) * 180 / CV_PI << "\n";
-
-        std::cout << "Error phi: " << std::accumulate(errors_phi.begin(), errors_phi.end(), 0.0) / errors_phi.size() * 180 / CV_PI
-                  << " ± " << Utils::getStdDev(errors_phi) * 180 / CV_PI << std::endl;
-
-        et::Settings::parameters.user_params[camera_id_]->eye_centre_offset = eye_centre_offset;
-        et::Settings::parameters.user_params[camera_id_]->angles_offset = angle_offset;
+        Framework::mutex.lock();
+        et::Settings::parameters.user_params[camera_id_]->poly_eye_centre_offset = poly_eye_centre_offset;
+        et::Settings::parameters.user_params[camera_id_]->model_eye_centre_offset = model_eye_centre_offset;
+        et::Settings::parameters.user_params[camera_id_]->poly_angles_offset = poly_angle_offset;
+        et::Settings::parameters.user_params[camera_id_]->model_angles_offset = model_angle_offset;
         et::Settings::saveSettings();
-
         Framework::mutex.unlock();
-        return eye_centre;
     }
 } // et

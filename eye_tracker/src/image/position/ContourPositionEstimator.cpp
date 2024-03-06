@@ -70,6 +70,7 @@ namespace et
 
     bool ContourPositionEstimator::findGlints(cv::Mat &image, std::vector<cv::Point2f> &glints)
     {
+        contours_.clear();
         cv::findContours(image, contours_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
         glints.clear();

@@ -67,13 +67,30 @@ namespace et
 
         static cv::Point3d visualToOpticalAxis(const cv::Point3d &visual_axis, double alpha, double beta);
 
+        static cv::Point3d visualToOpticalAxis2(const cv::Point3d &visual_axis, double alpha, double beta);
+
         static cv::Point3d opticalToVisualAxis(const cv::Point3d &optical_axis, double alpha, double beta);
+
+        static cv::Point3d opticalToVisualAxis2(const cv::Point3d &optical_axis, double alpha, double beta);
+
+        static int solveQuartic(double r0, double r1, double r2, double r3, double r4, double* roots);
+
+        static cv::Vec2d project3Dto2D(cv::Vec3d point, cv::Vec3d normal);
+
+        static cv::Vec3d unproject2Dto3D(cv::Vec2d point, cv::Vec3d normal, double depth);
+
+        static cv::Point2d getReflectionPoint(cv::Vec2d source, cv::Vec2d destination);
+
+        static cv::Point3d getReflectionPoint(cv::Vec3d source, cv::Vec3d sphere_centre, cv::Vec3d destination, double radius);
+
 
         static double pointToLineDistance(cv::Vec3d origin, cv::Vec3d direction, cv::Vec3d point);
 
         static cv::Point2d findEllipseIntersection(cv::RotatedRect &ellipse, double angle);
 
         static double getAngleBetweenVectors(cv::Vec3d a, cv::Vec3d b);
+
+        static void getVectorFromAngles(double alpha, double beta, cv::Vec3d& vector);
 
         static void getCrossValidationIndices(std::vector<int> &indices, int n_data_points, int n_folds);
 
@@ -82,9 +99,17 @@ namespace et
 
         static cv::Mat getRotX(double angle);
 
+        static cv::Mat getRotXd(double angle);
+
         static cv::Mat getRotY(double angle);
 
+        static cv::Mat getRotYd(double angle);
+
         static cv::Mat getRotZ(double angle);
+
+        static cv::Mat getRotZd(double angle);
+
+        static cv::Mat convertAxisAngleToRotationMatrix(cv::Point3d axis, double angle);
 
         static cv::Mat convertAxisAngleToRotationMatrix(cv::Mat axis, double angle);
 

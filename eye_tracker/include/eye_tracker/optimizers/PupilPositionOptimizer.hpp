@@ -1,6 +1,7 @@
 #ifndef EYE_TRACKER_PUPILPOSITIONOPTIMIZER_HPP
 #define EYE_TRACKER_PUPILPOSITIONOPTIMIZER_HPP
 
+#include <eye_tracker/Settings.hpp>
 #include <opencv2/opencv.hpp>
 
 namespace et
@@ -9,18 +10,16 @@ namespace et
     class PupilPositionOptimizer : public cv::DownhillSolver::Function
     {
     public:
-        void setParameters(cv::Point3d nodal_point, cv::Point3d pupil_center, cv::Point3d camera_position, double cornea_radius, double refraction_index);
-    private:
+        void setParameters(const cv::Vec3d& nodal_point, const cv::Vec3d& pupil_center, const cv::Vec3d& camera_position, const EyeMeasurements& eye_measurements);
         double calc(const double *x) const override;
 
         int getDims() const override;
+    private:
+        cv::Vec3d nodal_point_{};
+        cv::Vec3d pupil_center_{};
+        cv::Vec3d camera_position_{};
 
-        cv::Point3d nodal_point_{};
-        cv::Point3d pupil_center_{};
-        cv::Point3d camera_position_{};
-
-        double cornea_radius_{};
-        double refraction_index_{};
+        EyeMeasurements eye_measurements_{};
     };
 
 } // et
