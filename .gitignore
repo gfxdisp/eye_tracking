@@ -177,7 +177,6 @@ data/**
 *.mp4
 frame.png
 output/**
-hdrmfs_eye_tracker
 
 .idea/*
 videos/*
