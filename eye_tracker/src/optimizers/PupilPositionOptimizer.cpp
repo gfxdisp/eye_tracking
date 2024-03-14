@@ -25,13 +25,13 @@ namespace et
         double t{};
         double error;
         bool intersection = Utils::getRaySphereIntersection(ray_position, ray_direction, nodal_point_,
-                                                            eye_measurements_.cornea_curvature_radius, t);
+                                                            eye_measurements.cornea_curvature_radius, t);
         if (intersection)
         {
             cv::Vec3d intersection_point = static_cast<cv::Vec3d>(ray_position) + t * ray_direction;
             cv::Vec3d n = intersection_point - nodal_point_;
             cv::normalize(n, n);
-            cv::Vec3d rr = Utils::getRefractedRay(ray_direction, n, eye_measurements_.cornea_refraction_index);
+            cv::Vec3d rr = Utils::getRefractedRay(ray_direction, n, eye_measurements.cornea_refraction_index);
             cv::normalize(rr, rr);
 
             cv::Vec3d vv = intersection_point - pupil_center_;

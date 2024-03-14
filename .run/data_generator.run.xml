@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="data_generator" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="-s /mnt/c/Users/Marek/Documents/Projekty/hdr_display/eye_tracker/resources" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" WORKING_DIR="file://$PROJECT_DIR$/cmake-build-release-wsl" PASS_PARENT_ENVS_2="true" PROJECT_NAME="eye_tracker" TARGET_NAME="data_generator" CONFIG_NAME="Debug-WSL" RUN_TARGET_PROJECT_NAME="eye_tracker" RUN_TARGET_NAME="data_generator">
+  <configuration default="false" name="data_generator" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="-s /mnt/c/Users/Marek/Documents/Projects/hdr_display/eye_tracker/resources" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" WORKING_DIR="file://$PROJECT_DIR$/cmake-build-release" PASS_PARENT_ENVS_2="true" PROJECT_NAME="eye_tracker" TARGET_NAME="data_generator" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="eye_tracker" RUN_TARGET_NAME="data_generator">
     <method v="2">
       <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
     </method>

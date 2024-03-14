@@ -96,7 +96,7 @@ namespace et
         if (nodal_point_optimizer_)
         {
             nodal_point_optimizer_->setParameters(avg_np2c_dir, glint_positions.data(), leds, camera_nodal_point_,
-                                                  cornea_radius_);
+                                                  eye_measurements.cornea_curvature_radius);
         }
         cv::Mat x = (cv::Mat_<double>(1, 2) << 300, 300);
         // Finds the best candidate for cornea centre.
@@ -114,11 +114,11 @@ namespace et
             cv::normalize(pupil_direction, pupil_direction);
             // Eye centre lies in the same vector as cornea centre and pupil centre.
 
-            eye_centre_vec = nodal_point_vec + eye_cornea_distance_ * pupil_direction;
+            eye_centre_vec = nodal_point_vec + eye_measurements.cornea_centre_distance * pupil_direction;
         }
         else
         {
-            eye_centre_vec = nodal_point_vec + eye_cornea_distance_ * cv::Vec3d{0, 0, -1};
+            eye_centre_vec = nodal_point_vec + eye_measurements.cornea_centre_distance * cv::Vec3d{0, 0, -1};
         }
         eye_centre = eye_centre_vec;
 
@@ -128,8 +128,8 @@ namespace et
         cv::Point3d optical_axis_p = nodal_point - eye_centre;
         cv::Vec3d optical_axis = optical_axis_p;
         cv::normalize(optical_axis, optical_axis);
-        cv::Point3d visual_axis = Utils::opticalToVisualAxis(optical_axis, eye_measurements_->alpha,
-                                                             eye_measurements_->beta);
+        cv::Point3d visual_axis = Utils::opticalToVisualAxis(optical_axis, eye_measurements.alpha,
+                                                             eye_measurements.beta);
         Utils::vectorToAngles(visual_axis, angles);
 
         eye_centre -= features_params_->model_eye_centre_offset;

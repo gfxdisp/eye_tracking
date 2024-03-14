@@ -582,7 +582,7 @@ namespace et
 
     double Utils::getStdDev(const std::vector<double>& values)
     {
-        double mean = std::accumulate(values.begin(), values.end(), 0.0) / values.size();
+        double mean = Utils::getMean<double>(values);
         double std = 0.0;
         for (int i = 0; i < values.size(); i++)
         {
@@ -706,4 +706,6 @@ namespace et
         double z = std::cos(angles[0]) * std::cos(angles[1]);
         vector = {x, y, z};
     }
+
+
 } // namespace et

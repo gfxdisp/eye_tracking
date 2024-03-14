@@ -6,7 +6,7 @@ namespace et
     EyeEstimator::EyeEstimator(int camera_id) : camera_id_{camera_id}
     {
         features_params_ = Settings::parameters.user_params[camera_id];
-        eye_measurements_ = &Settings::parameters.polynomial_params[camera_id].eye_measurements;
+        eye_measurements = Settings::parameters.polynomial_params[camera_id].eye_measurements;
 
         intrinsic_matrix_ = &Settings::parameters.camera_params[camera_id].intrinsic_matrix;
         capture_offset_ = &Settings::parameters.camera_params[camera_id].capture_offset;
@@ -16,11 +16,6 @@ namespace et
         extrinsic_matrix_ = Settings::parameters.camera_params[camera_id].extrinsic_matrix.t();
 
         camera_nodal_point_ = {0, 0, 0};
-
-        pupil_cornea_distance_ = 4.2;
-        eye_cornea_distance_ = 5.3;
-        cornea_radius_ = 7.8;
-        refraction_index_ = 1.3375;
     }
 
     cv::Vec3d EyeEstimator::ICStoCCS(const cv::Point2d point)
@@ -129,7 +124,7 @@ namespace et
         cv::Vec3d pupil_dir{-pupil_px_position};
         cv::normalize(pupil_dir, pupil_dir);
         bool intersected{Utils::getRaySphereIntersection(cv::Vec3d(0.0), pupil_dir, cornea_centre,
-                                                         cornea_radius_, t)};
+                                                         eye_measurements.cornea_curvature_radius, t)};
 
         if (intersected)
         {
@@ -138,9 +133,9 @@ namespace et
             cv::normalize(nv, nv);
             cv::Vec3d m_dir{-pupil_px_position};
             cv::normalize(m_dir, m_dir);
-            cv::Vec3d direction{Utils::getRefractedRay(m_dir, nv, refraction_index_)};
+            cv::Vec3d direction{Utils::getRefractedRay(m_dir, nv, eye_measurements.cornea_refraction_index)};
             intersected = Utils::getRaySphereIntersection(pupil_on_cornea, direction, cornea_centre,
-                                                          pupil_cornea_distance_, t);
+                                                          eye_measurements.pupil_cornea_distance, t);
             if (intersected)
             {
                 pupil_position = pupil_on_cornea + t * direction;
@@ -180,7 +175,7 @@ namespace et
     {
         cv::Vec3d optical_axis = nodal_point - eye_centre;
         cv::normalize(optical_axis, optical_axis);
-        gaze_direction = Utils::opticalToVisualAxis(optical_axis, eye_measurements_->alpha, eye_measurements_->beta);
+        gaze_direction = Utils::opticalToVisualAxis(optical_axis, eye_measurements.alpha, eye_measurements.beta);
     }
 
     void EyeEstimator::getEyeCentrePosition(cv::Point3d &eye_centre)
@@ -226,7 +221,7 @@ namespace et
 
         Utils::anglesToVector(angle, gaze_direction);
         // It's not a real nodal point, but it's close enough.
-        cv::Point3d nodal_point = eye_centre + static_cast<cv::Point3d>(gaze_direction) * eye_cornea_distance_;
+        cv::Point3d nodal_point = eye_centre + static_cast<cv::Point3d>(gaze_direction) * eye_measurements.cornea_centre_distance;
 
         eye_centre_pixel = WCStoICS(eye_centre);
         cornea_centre_pixel = WCStoICS(nodal_point);

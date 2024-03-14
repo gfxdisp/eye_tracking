@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="blender_renderer" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS=".. left 10000 0 7 8 D:\Blender\same_params" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" WORKING_DIR="file://$PROJECT_DIR$/eye_simulator" PASS_PARENT_ENVS_2="true" PROJECT_NAME="eye_tracker" TARGET_NAME="blender_renderer" CONFIG_NAME="Debug-WSL" RUN_TARGET_PROJECT_NAME="eye_tracker" RUN_TARGET_NAME="blender_renderer">
+  <configuration default="false" name="blender_renderer" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS=".. left 10000 0 7 8 D:\Blender\same_params" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" WORKING_DIR="file://$PROJECT_DIR$/eye_simulator" PASS_PARENT_ENVS_2="true" PROJECT_NAME="eye_tracker" TARGET_NAME="blender_renderer" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="eye_tracker" RUN_TARGET_NAME="blender_renderer">
     <method v="2">
       <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
     </method>

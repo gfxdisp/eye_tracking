@@ -78,6 +78,10 @@ namespace et
          */
         cv::Point2d getEyeCentrePixelPosition();
 
+
+
+        EyeMeasurements eye_measurements{};
+
     protected:
 
         /**
@@ -127,17 +131,7 @@ namespace et
 
         FeaturesParams *features_params_{};
 
-        EyeMeasurements *eye_measurements_{};
-
         int camera_id_{};
-
-        double pupil_cornea_distance_{};
-
-        double eye_cornea_distance_{};
-
-        double cornea_radius_{};
-
-        double refraction_index_{};
 
         // Diameter of the pupil in millimeters.
         double pupil_diameter_{};

@@ -9,8 +9,7 @@
 namespace et
 {
 
-    class Utils
-    {
+    class Utils {
     public:
 
         /**
@@ -73,7 +72,7 @@ namespace et
 
         static cv::Point3d opticalToVisualAxis2(const cv::Point3d &optical_axis, double alpha, double beta);
 
-        static int solveQuartic(double r0, double r1, double r2, double r3, double r4, double* roots);
+        static int solveQuartic(double r0, double r1, double r2, double r3, double r4, double *roots);
 
         static cv::Vec2d project3Dto2D(cv::Vec3d point, cv::Vec3d normal);
 
@@ -90,7 +89,7 @@ namespace et
 
         static double getAngleBetweenVectors(cv::Vec3d a, cv::Vec3d b);
 
-        static void getVectorFromAngles(double alpha, double beta, cv::Vec3d& vector);
+        static void getVectorFromAngles(double alpha, double beta, cv::Vec3d &vector);
 
         static void getCrossValidationIndices(std::vector<int> &indices, int n_data_points, int n_folds);
 
@@ -119,9 +118,30 @@ namespace et
 
         static cv::Vec3d getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index);
 
-        static double getStdDev(const std::vector<double>& values);
+        template<typename T>
+        static T getMean(std::vector<T> values)
+        {
+            T sum = 0;
+            for (auto &value: values) {
+                sum += value;
+            }
+            int n = values.size();
+            return sum / n;
+        }
 
-        static double getPercentile(const std::vector<double>& values, double percentile);
+        static double getStdDev(const std::vector<double> &values);
+
+        template<typename T>
+        static std::vector<double> getDists(const std::vector<T> &points, const T &center)
+        {
+            std::vector<double> dists;
+            for (auto &point: points) {
+                dists.push_back(cv::norm(point - center));
+            }
+            return dists;
+        }
+
+        static double getPercentile(const std::vector<double> &values, double percentile);
 
         static cv::Mat getTransformationBetweenMatrices(std::vector<cv::Point3d> from, std::vector<cv::Point3d> to);
 

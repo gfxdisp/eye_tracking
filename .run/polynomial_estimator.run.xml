@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="polynomial_estimator" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="-s /mnt/c/Users/Marek/Documents/Projekty/hdr_display/eye_tracker/resources -a 5.0 -b 1.5 -e left -i default" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="eye_tracker" TARGET_NAME="polynomial_estimator" CONFIG_NAME="Debug-WSL" RUN_TARGET_PROJECT_NAME="eye_tracker" RUN_TARGET_NAME="polynomial_estimator">
+  <configuration default="false" name="polynomial_estimator" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="-s /mnt/c/Users/Marek/Documents/Projects/hdr_display/eye_tracker/resources -a 5.0 -b 1.5 -e left -i default" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="eye_tracker" TARGET_NAME="polynomial_estimator" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="eye_tracker" RUN_TARGET_NAME="polynomial_estimator">
     <method v="2">
       <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
     </method>

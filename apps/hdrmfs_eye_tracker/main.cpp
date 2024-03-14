@@ -3,6 +3,7 @@
 #include "eye_tracker/image/temporal_filter/ContinuousTemporalFilterer.hpp"
 #include "eye_tracker/SocketServer.hpp"
 #include "eye_tracker/frameworks/OnlineCameraFramework.hpp"
+#include "eye_tracker/frameworks/VideoCameraFramework.hpp"
 
 #include <getopt.h>
 #include <string>
@@ -43,12 +44,13 @@ int main(int argc, char *argv[])
     std::shared_ptr<et::Framework> frameworks[2];
     for (int i = 0; i < 2; i++)
     {
-        if (et::Settings::parameters.features_params[i].contains(user))
+        if (!et::Settings::parameters.features_params[i].contains(user))
         {
-            et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
             et::Settings::parameters.features_params[i][user] = et::Settings::parameters.features_params[i]["default"];
         }
-        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
+        et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
+//        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
+        frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/mnt/d/Downloads/et_test/2024-02-28_17-38-58_0.mp4", true);
     }
 
     auto socket_server = std::make_shared<et::SocketServer>(frameworks[0], frameworks[1]);
