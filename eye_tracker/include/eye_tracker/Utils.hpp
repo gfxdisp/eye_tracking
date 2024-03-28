@@ -119,9 +119,9 @@ namespace et
         static cv::Vec3d getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index);
 
         template<typename T>
-        static T getMean(std::vector<T> values)
+        static T getMean(const std::vector<T> &values)
         {
-            T sum = 0;
+            T sum{};
             for (auto &value: values) {
                 sum += value;
             }
@@ -129,7 +129,23 @@ namespace et
             return sum / n;
         }
 
-        static double getStdDev(const std::vector<double> &values);
+        template<typename T>
+        static T getStdDev(const std::vector<T> &values)
+        {
+            T mean = Utils::getMean<T>(values);
+            T std{};
+            for (int i = 0; i < values.size(); i++)
+            {
+                std += (values[i] - mean) * (values[i] - mean);
+            }
+            std /= values.size();
+            std = std::sqrt(std);
+            return std;
+        }
+
+        static cv::Point3d getStdDev(const std::vector<cv::Point3d>& values);
+
+        static cv::Point2d getStdDev(const std::vector<cv::Point2d>& values);
 
         template<typename T>
         static std::vector<double> getDists(const std::vector<T> &points, const T &center)

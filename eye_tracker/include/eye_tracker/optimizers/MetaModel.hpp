@@ -7,20 +7,25 @@
 #include "eye_tracker/optimizers/OpticalAxisOptimizer.hpp"
 #include "eye_tracker/optimizers/EyeAnglesOptimizer.hpp"
 #include "CorneaOptimizer.hpp"
+#include "eye_tracker/eye/ModelEyeEstimator.hpp"
+#include "eye_tracker/eye/PolynomialEyeEstimator.hpp"
 
 #include <memory>
 
 namespace et
 {
-    struct CalibrationData
+    struct CalibrationSample
     {
         cv::Point3d eye_position;
-        std::vector<cv::Point3d> marker_positions;
-        std::vector<cv::RotatedRect> glint_ellipses;
-        std::vector<cv::Point2d> pupil_positions;
-        std::vector<double> timestamps;
-        std::vector<cv::Point2d> top_left_glints;
-        std::vector<cv::Point2d> bottom_right_glints;
+        bool detected;
+        int marker_id;
+        cv::Point3d marker_position;
+        cv::RotatedRect glint_ellipse;
+        cv::Point2d pupil_position;
+        double timestamp;
+        double marker_time;
+        cv::Point2d top_left_glint;
+        cv::Point2d bottom_right_glint;
     };
 
     class MetaModel
@@ -29,7 +34,7 @@ namespace et
         MetaModel(int camera_id);
 
         void
-        findMetaModel(const CalibrationData& calibration_data);
+        findMetaModel(const std::vector<CalibrationSample>& calibration_data);
 
     private:
         VisualAnglesOptimizer* visual_angles_optimizer_{};
@@ -52,6 +57,7 @@ namespace et
         cv::Ptr<cv::DownhillSolver::Function> cornea_minimizer_function_{};
         cv::Ptr<cv::DownhillSolver> cornea_solver_{};
 
+        std::shared_ptr<EyeEstimator> eye_estimator_{};
 
         int camera_id_{};
     };

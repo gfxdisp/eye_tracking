@@ -204,7 +204,9 @@ namespace et
         // Counts number of frames and rows written to eye_video_ and eye_data_.
         int eye_frame_counter_{};
 
-        CalibrationData calibration_data_{};
+        std::vector<CalibrationSample> calibration_data_{};
+        cv::Point3d calibration_eye_position_{};
+
         bool calibration_running_{false};
         time_t calibration_start_time_{};
         cv::VideoWriter calib_video_{};

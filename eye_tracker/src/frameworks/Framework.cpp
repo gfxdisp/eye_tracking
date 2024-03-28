@@ -57,7 +57,7 @@ namespace et
         if (features_found_)
         {
             EyeInfo eye_info = {
-                .pupil = pupil, .pupil_radius = (double)pupil_radius, .glints = *glints, .ellipse = ellipse
+                    .pupil = pupil, .pupil_radius = (double) pupil_radius, .glints = *glints, .ellipse = ellipse
             };
             eye_estimator_->findEye(eye_info);
             cv::Point3d cornea_centre{};
@@ -129,19 +129,19 @@ namespace et
         visualizer_->calculateFramerate();
         switch (visualization_type_)
         {
-        case VisualizationType::CAMERA_IMAGE:
-            visualizer_->prepareImage(analyzed_frame_.glints);
-            break;
-        case VisualizationType::THRESHOLD_PUPIL:
-            visualizer_->prepareImage(feature_detector_->getThresholdedPupilImage());
-            break;
-        case VisualizationType::THRESHOLD_GLINTS:
-            visualizer_->prepareImage(feature_detector_->getThresholdedGlintsImage());
-            break;
-        case VisualizationType::DISABLED:
-            visualizer_->printFramerateInterval();
-        default:
-            break;
+            case VisualizationType::CAMERA_IMAGE:
+                visualizer_->prepareImage(analyzed_frame_.glints);
+                break;
+            case VisualizationType::THRESHOLD_PUPIL:
+                visualizer_->prepareImage(feature_detector_->getThresholdedPupilImage());
+                break;
+            case VisualizationType::THRESHOLD_GLINTS:
+                visualizer_->prepareImage(feature_detector_->getThresholdedGlintsImage());
+                break;
+            case VisualizationType::DISABLED:
+                visualizer_->printFramerateInterval();
+            default:
+                break;
         }
         if (visualization_type_ != VisualizationType::DISABLED)
         {
@@ -151,7 +151,7 @@ namespace et
                                    feature_detector_->getPupilRadiusDistorted());
             visualizer_->drawEyeCentre(feature_detector_->distort(eye_estimator_->getEyeCentrePixelPosition()));
             visualizer_->drawCorneaCentre(
-                feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition()));
+                    feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition()));
 
             visualizer_->drawGlintEllipse(feature_detector_->getEllipseDistorted());
             visualizer_->drawGlints(feature_detector_->getDistortedGlints());
@@ -202,10 +202,8 @@ namespace et
 
     void Framework::startCalibration(const cv::Point3d& eye_position)
     {
-        calibration_data_.glint_ellipses.clear();
-        calibration_data_.marker_positions.clear();
-        calibration_data_.pupil_positions.clear();
-        calibration_data_.eye_position = eye_position;
+        calibration_data_.clear();
+        calibration_eye_position_ = eye_position;
         calibration_running_ = true;
         const auto now = std::chrono::system_clock::now();
         calibration_start_time_ = std::chrono::system_clock::to_time_t(now);
@@ -217,14 +215,11 @@ namespace et
 
     void Framework::loadOldCalibrationData(const std::string& path)
     {
-        calibration_data_.glint_ellipses.clear();
-        calibration_data_.marker_positions.clear();
-        calibration_data_.pupil_positions.clear();
         std::string csv_path = path + ".csv";
         std::string mp4_path = path + "_" + std::to_string(camera_id_) + ".mp4";
         auto csv_file = Utils::readFloatRowsCsv(csv_path);
-        calibration_data_.eye_position = cv::Point3d(csv_file[0][1 + 3 * camera_id_], csv_file[0][2 + 3 * camera_id_],
-                                                     csv_file[0][3 + 3 * camera_id_]);
+        calibration_eye_position_ = cv::Point3d(csv_file[0][1 + 3 * camera_id_], csv_file[0][2 + 3 * camera_id_],
+                                                csv_file[0][3 + 3 * camera_id_]);
 
         auto image_provider = std::make_shared<InputVideo>(mp4_path);
         auto feature_analyser = std::make_shared<CameraFeatureAnalyser>(camera_id_);
@@ -242,35 +237,36 @@ namespace et
             }
             feature_analyser->preprocessImage(analyzed_frame_);
             bool features_found = feature_analyser->findPupil() && feature_analyser->findEllipsePoints();
-            if (!features_found) {
-                continue;
-            }
 
             cv::Point2d pupil = feature_analyser->getPupilUndistorted();
             auto glints = feature_analyser->getGlints();
             cv::RotatedRect ellipse = feature_analyser->getEllipseUndistorted();
 
             previous_pupil = pupil;
-            calibration_data_.pupil_positions.push_back(pupil);
-            calibration_data_.glint_ellipses.push_back(ellipse);
-            calibration_data_.top_left_glints.push_back(glints->at(0));
-            calibration_data_.bottom_right_glints.push_back(glints->at(1));
+
+            CalibrationSample sample;
+            sample.detected = features_found;
+            sample.eye_position = calibration_eye_position_;
+            sample.pupil_position = pupil;
+            sample.glint_ellipse = ellipse;
+            sample.top_left_glint = glints->at(0);
+            sample.bottom_right_glint = glints->at(1);
+            sample.marker_position = cv::Point3d(csv_file[counter][7], csv_file[counter][8], csv_file[counter][9]);
+            sample.marker_id = markers_count;
+            calibration_data_.push_back(sample);
+
             samples_per_marker++;
-            calibration_data_.marker_positions.push_back(cv::Point3d(csv_file[counter][7], csv_file[counter][8], csv_file[counter][9]));
             counter++;
-            if (counter > 0 && (csv_file[counter][7] != csv_file[counter - 1][7] || csv_file[counter][8] != csv_file[counter - 1][8] || csv_file[counter][9] != csv_file[counter - 1][9]))
+            if (counter >= csv_file.size() || counter > 0 && (csv_file[counter][7] != csv_file[counter - 1][7] || csv_file[counter][8] != csv_file[counter - 1][8] || csv_file[counter][9] != csv_file[counter - 1][9]))
             {
                 for (int i = 0; i < samples_per_marker; i++)
                 {
-                    calibration_data_.timestamps.push_back(i * time_per_marker / samples_per_marker + markers_count * time_per_marker);
+                    calibration_data_[counter - samples_per_marker + i].timestamp = i * time_per_marker / samples_per_marker + markers_count * time_per_marker;
+                    calibration_data_[counter - samples_per_marker + i].marker_time = i * time_per_marker / samples_per_marker;
                 }
                 samples_per_marker = 0;
                 markers_count++;
             }
-        }
-        for (int i = 0; i < samples_per_marker; i++)
-        {
-            calibration_data_.timestamps.push_back(i * time_per_marker / samples_per_marker + markers_count * time_per_marker);
         }
         meta_model_->findMetaModel(calibration_data_);
     }
@@ -301,21 +297,46 @@ namespace et
     {
         if (calibration_running_)
         {
-            calibration_data_.glint_ellipses.push_back(feature_detector_->getEllipseUndistorted());
-            calibration_data_.marker_positions.push_back(marker_position);
-            calibration_data_.pupil_positions.push_back(feature_detector_->getPupilUndistorted());
-
             const auto now = std::chrono::system_clock::now();
             auto current_time = std::chrono::system_clock::to_time_t(now);
+            auto glints = feature_detector_->getGlints();
 
-            calibration_data_.timestamps.push_back(std::difftime(current_time, calibration_start_time_));
+            CalibrationSample sample;
+            sample.timestamp = std::difftime(current_time, calibration_start_time_);
+            sample.marker_position = marker_position;
+            sample.top_left_glint = glints->at(0);
+            sample.bottom_right_glint = glints->at(1);
+            sample.detected = features_found_;
+            sample.glint_ellipse = feature_detector_->getEllipseUndistorted();
+            sample.pupil_position = feature_detector_->getPupilUndistorted();
+            sample.eye_position = calibration_eye_position_;
+            if (!calibration_data_.empty())
+            {
+                auto last_sample = calibration_data_.back();
+                if (last_sample.marker_position != sample.marker_position)
+                {
+                    sample.marker_id = last_sample.marker_id + 1;
+                    sample.marker_time = 0;
+                }
+                else
+                {
+                    sample.marker_id = last_sample.marker_id;
+                    sample.marker_time = last_sample.marker_time + last_sample.timestamp - sample.timestamp;
+                }
+            }
+            else
+            {
+                sample.marker_id = 0;
+                sample.marker_time = 0;
+            }
+            calibration_data_.push_back(sample);
             calib_video_.write(analyzed_frame_.glints);
         }
     }
 
     void Framework::dumpCalibrationData(const std::string& video_path)
     {
-        if (calibration_data_.marker_positions.empty())
+        if (calibration_data_.empty())
         {
             return;
         }
@@ -328,16 +349,15 @@ namespace et
         std::ofstream file;
         file.open(csv_path);
 
-        file << calibration_data_.eye_position.x << ", " << calibration_data_.eye_position.y << ", " <<
-            calibration_data_.eye_position.z << "\n";
-        for (int i = 0; i < calibration_data_.marker_positions.size(); i++)
+        file << "eye_x, eye_y, eye_z, marker_id, marker_x, marker_y, marker_z, pupil_x, pupil_y, glint_x, glint_y, glint_width, glint_height, detected, timestamp, marker_time\n";
+
+        for (auto sample: calibration_data_)
         {
-            file << calibration_data_.marker_positions[i].x << ", " << calibration_data_.marker_positions[i].y << ", "
-                << calibration_data_.marker_positions[i].z << ", " << calibration_data_.pupil_positions[i].x << ", " <<
-                calibration_data_.pupil_positions[i].y << ", " << calibration_data_.glint_ellipses[i].center.x << ", "
-                << calibration_data_.glint_ellipses[i].center.y << ", " << calibration_data_.glint_ellipses[i].size.
-                width << ", " << calibration_data_.glint_ellipses[i].size.height << ", " << calibration_data_.timestamps
-                [i] << "\n";
+            file << sample.eye_position.x << ", " << sample.eye_position.y << ", " << sample.eye_position.z << ", " <<
+                 sample.marker_id << ", " << sample.marker_position.x << ", " << sample.marker_position.y << ", " << sample.marker_position.z << ", " <<
+                 sample.pupil_position.x << ", " << sample.pupil_position.y << ", " <<
+                 sample.glint_ellipse.center.x << ", " << sample.glint_ellipse.center.y << ", " << sample.glint_ellipse.size.width << ", " << sample.glint_ellipse.size.height << ", " <<
+                 sample.detected << ", " << sample.timestamp << ", " << sample.marker_time << "\n";
         }
         file.close();
         if (fs::exists("calib_temp.mp4"))

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
+#include <random>
 #include <sstream>
 #include <numeric>
 #include <iostream>
@@ -457,7 +458,7 @@ namespace et
         {
             indices[i] = i % n_folds;
         }
-        std::random_shuffle(indices.begin(), indices.end());
+        std::shuffle(indices.begin(), indices.end(), std::mt19937(std::random_device()()));
     }
 
     cv::Point3d
@@ -580,25 +581,47 @@ namespace et
         return t;
     }
 
-    double Utils::getStdDev(const std::vector<double>& values)
-    {
-        double mean = Utils::getMean<double>(values);
-        double std = 0.0;
-        for (int i = 0; i < values.size(); i++)
-        {
-            std += (values[i] - mean) * (values[i] - mean);
-        }
-        std /= values.size();
-        std = std::sqrt(std);
-        return std;
-    }
-
     double Utils::getPercentile(const std::vector<double>& values, double percentile)
     {
         int index = (int)(percentile * values.size());
         std::vector<double> sorted_values = values;
         std::sort(sorted_values.begin(), sorted_values.end());
         return sorted_values[index];
+    }
+
+    cv::Point3d Utils::getStdDev(const std::vector<cv::Point3d> &values)
+    {
+        cv::Point3d mean = Utils::getMean<cv::Point3d>(values);
+        cv::Point3d std{};
+        for (int i = 0; i < values.size(); i++)
+        {
+            std.x += (values[i].x - mean.x) * (values[i].x - mean.x);
+            std.y += (values[i].y - mean.y) * (values[i].y - mean.y);
+            std.z += (values[i].z - mean.z) * (values[i].z - mean.z);
+        }
+        std.x /= values.size();
+        std.y /= values.size();
+        std.z /= values.size();
+        std.x = std::sqrt(std.x);
+        std.y = std::sqrt(std.y);
+        std.z = std::sqrt(std.z);
+        return std;
+    }
+
+    cv::Point2d Utils::getStdDev(const std::vector<cv::Point2d> &values)
+    {
+        cv::Point2d mean = Utils::getMean<cv::Point2d>(values);
+        cv::Point2d std{};
+        for (int i = 0; i < values.size(); i++)
+        {
+            std.x += (values[i].x - mean.x) * (values[i].x - mean.x);
+            std.y += (values[i].y - mean.y) * (values[i].y - mean.y);
+        }
+        std.x /= values.size();
+        std.y /= values.size();
+        std.x = std::sqrt(std.x);
+        std.y = std::sqrt(std.y);
+        return std;
     }
 
     void Utils::getAnglesBetweenVectors(cv::Vec3d a, cv::Vec3d b, double& alpha, double& beta)
