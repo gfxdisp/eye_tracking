@@ -85,10 +85,18 @@ namespace et
         return csv_data;
     }
 
-    void Utils::writeFloatCsv(std::vector<std::vector<double>>& data, const std::string& filename)
+    void Utils::writeFloatCsv(std::vector<std::vector<double>>& data, const std::string& filename, bool append)
     {
-        std::ofstream file{filename};
-        for (auto& row : data)
+        std::ofstream file;
+        if (append)
+        {
+            file.open(filename, std::ios_base::app);
+        }
+        else
+        {
+            file.open(filename);
+        }
+        for (auto& row: data)
         {
             for (int i = 0; i < row.size(); i++)
             {
@@ -358,7 +366,7 @@ namespace et
         cv::Vec3d projected_y = normal.cross(projected_x);
 
         cv::Mat A = (cv::Mat_<double>(3, 3) << projected_x[0], projected_x[1], projected_x[2], projected_y[0],
-            projected_y[1], projected_y[2], normal[0], normal[1], normal[2]);
+                projected_y[1], projected_y[2], normal[0], normal[1], normal[2]);
 
 
         cv::Mat point3d_mat = A.inv(cv::DECOMP_SVD) * (cv::Mat_<double>(2, 1) << point[0], point[1], depth);
@@ -473,11 +481,11 @@ namespace et
         for (int i = 0; i < n; i++)
         {
             cv::Vec3d optical_axis = {
-                back_corners[i].x - front_corners[i].x, back_corners[i].y - front_corners[i].y,
-                back_corners[i].z - front_corners[i].z
+                    back_corners[i].x - front_corners[i].x, back_corners[i].y - front_corners[i].y,
+                    back_corners[i].z - front_corners[i].z
             };
             double norm = std::sqrt(optical_axis[0] * optical_axis[0] + optical_axis[1] * optical_axis[1] +
-                optical_axis[2] * optical_axis[2]);
+                                    optical_axis[2] * optical_axis[2]);
             optical_axis[0] /= norm;
             optical_axis[1] /= norm;
             optical_axis[2] /= norm;
@@ -500,8 +508,8 @@ namespace et
 
         cv::Mat intersection = S.inv(cv::DECOMP_SVD) * C;
         cv::Point3d cross_point = {
-            intersection.at<double>(0, 0), intersection.at<double>(1, 0),
-            intersection.at<double>(2, 0)
+                intersection.at<double>(0, 0), intersection.at<double>(1, 0),
+                intersection.at<double>(2, 0)
         };
         return cross_point;
     }
@@ -583,13 +591,13 @@ namespace et
 
     double Utils::getPercentile(const std::vector<double>& values, double percentile)
     {
-        int index = (int)(percentile * values.size());
+        int index = (int) (percentile * values.size());
         std::vector<double> sorted_values = values;
         std::sort(sorted_values.begin(), sorted_values.end());
         return sorted_values[index];
     }
 
-    cv::Point3d Utils::getStdDev(const std::vector<cv::Point3d> &values)
+    cv::Point3d Utils::getStdDev(const std::vector<cv::Point3d>& values)
     {
         cv::Point3d mean = Utils::getMean<cv::Point3d>(values);
         cv::Point3d std{};
@@ -608,7 +616,7 @@ namespace et
         return std;
     }
 
-    cv::Point2d Utils::getStdDev(const std::vector<cv::Point2d> &values)
+    cv::Point2d Utils::getStdDev(const std::vector<cv::Point2d>& values)
     {
         cv::Point2d mean = Utils::getMean<cv::Point2d>(values);
         cv::Point2d std{};
@@ -702,9 +710,9 @@ namespace et
     cv::Point3d Utils::convertFromHomogeneous(cv::Mat mat)
     {
         cv::Point3d point{
-            mat.at<double>(0, 0) / mat.at<double>(0, 3),
-            mat.at<double>(0, 1) / mat.at<double>(0, 3),
-            mat.at<double>(0, 2) / mat.at<double>(0, 3)
+                mat.at<double>(0, 0) / mat.at<double>(0, 3),
+                mat.at<double>(0, 1) / mat.at<double>(0, 3),
+                mat.at<double>(0, 2) / mat.at<double>(0, 3)
         };
         return point;
     }

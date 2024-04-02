@@ -15,7 +15,7 @@ namespace et
 
     bool ContourPositionEstimator::findPupil(cv::Mat &image, cv::Point2d &pupil_position, double &radius)
     {
-        cv::findContours(image, contours_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        cv::findContours(image, contours_, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
         cv::Point2d best_pupil_position{};
         double best_radius{};
         double best_rating{0};

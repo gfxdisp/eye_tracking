@@ -9,7 +9,8 @@
 namespace et
 {
 
-    class Utils {
+    class Utils
+    {
     public:
 
         /**
@@ -18,7 +19,7 @@ namespace et
          * @return Vector of columns of the CSV content.
          */
         static std::vector<std::vector<double>>
-        readFloatColumnsCsv(const std::string &filename, bool ignore_first_line = false);
+        readFloatColumnsCsv(const std::string& filename, bool ignore_first_line = false);
 
         /**
          * Reads the CSV file with float values in the row-major order.
@@ -26,14 +27,14 @@ namespace et
          * @return Vector of rows of the CSV content.
          */
         static std::vector<std::vector<double>>
-        readFloatRowsCsv(const std::string &filename, bool ignore_first_line = false);
+        readFloatRowsCsv(const std::string& filename, bool ignore_first_line = false);
 
         /**
          * Writes the float matrix to CSV file in row-major order.
          * @param data Matrix with the float data.
          * @param filename Path to CSV file to be saved.
          */
-        static void writeFloatCsv(std::vector<std::vector<double>> &data, const std::string &filename);
+        static void writeFloatCsv(std::vector<std::vector<double>>& data, const std::string& filename, bool append = false);
 
         /**
          * Converts current timestamp to a human-readable format.
@@ -61,18 +62,18 @@ namespace et
          * @return True if the intersection is found. False otherwise.
          */
         static bool
-        getRaySphereIntersection(const cv::Vec3d &ray_pos, const cv::Vec3d &ray_dir, const cv::Vec3d &sphere_pos,
-                                 double sphere_radius, double &t);
+        getRaySphereIntersection(const cv::Vec3d& ray_pos, const cv::Vec3d& ray_dir, const cv::Vec3d& sphere_pos,
+                                 double sphere_radius, double& t);
 
-        static cv::Point3d visualToOpticalAxis(const cv::Point3d &visual_axis, double alpha, double beta);
+        static cv::Point3d visualToOpticalAxis(const cv::Point3d& visual_axis, double alpha, double beta);
 
-        static cv::Point3d visualToOpticalAxis2(const cv::Point3d &visual_axis, double alpha, double beta);
+        static cv::Point3d visualToOpticalAxis2(const cv::Point3d& visual_axis, double alpha, double beta);
 
-        static cv::Point3d opticalToVisualAxis(const cv::Point3d &optical_axis, double alpha, double beta);
+        static cv::Point3d opticalToVisualAxis(const cv::Point3d& optical_axis, double alpha, double beta);
 
-        static cv::Point3d opticalToVisualAxis2(const cv::Point3d &optical_axis, double alpha, double beta);
+        static cv::Point3d opticalToVisualAxis2(const cv::Point3d& optical_axis, double alpha, double beta);
 
-        static int solveQuartic(double r0, double r1, double r2, double r3, double r4, double *roots);
+        static int solveQuartic(double r0, double r1, double r2, double r3, double r4, double* roots);
 
         static cv::Vec2d project3Dto2D(cv::Vec3d point, cv::Vec3d normal);
 
@@ -85,16 +86,16 @@ namespace et
 
         static double pointToLineDistance(cv::Vec3d origin, cv::Vec3d direction, cv::Vec3d point);
 
-        static cv::Point2d findEllipseIntersection(cv::RotatedRect &ellipse, double angle);
+        static cv::Point2d findEllipseIntersection(cv::RotatedRect& ellipse, double angle);
 
         static double getAngleBetweenVectors(cv::Vec3d a, cv::Vec3d b);
 
-        static void getVectorFromAngles(double alpha, double beta, cv::Vec3d &vector);
+        static void getVectorFromAngles(double alpha, double beta, cv::Vec3d& vector);
 
-        static void getCrossValidationIndices(std::vector<int> &indices, int n_data_points, int n_folds);
+        static void getCrossValidationIndices(std::vector<int>& indices, int n_data_points, int n_folds);
 
         static cv::Point3d
-        findGridIntersection(std::vector<cv::Point3d> &front_corners, std::vector<cv::Point3d> &back_corners);
+        findGridIntersection(std::vector<cv::Point3d>& front_corners, std::vector<cv::Point3d>& back_corners);
 
         static cv::Mat getRotX(double angle);
 
@@ -112,17 +113,18 @@ namespace et
 
         static cv::Mat convertAxisAngleToRotationMatrix(cv::Mat axis, double angle);
 
-        static void getAnglesBetweenVectors(cv::Vec3d a, cv::Vec3d b, double &alpha, double &beta);
+        static void getAnglesBetweenVectors(cv::Vec3d a, cv::Vec3d b, double& alpha, double& beta);
 
-        static void getAnglesBetweenVectorsAlt(cv::Vec3d visual_axis, cv::Vec3d optical_axis, double &alpha, double &beta);
+        static void getAnglesBetweenVectorsAlt(cv::Vec3d visual_axis, cv::Vec3d optical_axis, double& alpha, double& beta);
 
-        static cv::Vec3d getRefractedRay(const cv::Vec3d &direction, const cv::Vec3d &normal, double refraction_index);
+        static cv::Vec3d getRefractedRay(const cv::Vec3d& direction, const cv::Vec3d& normal, double refraction_index);
 
         template<typename T>
-        static T getMean(const std::vector<T> &values)
+        static T getMean(const std::vector<T>& values)
         {
             T sum{};
-            for (auto &value: values) {
+            for (auto& value: values)
+            {
                 sum += value;
             }
             int n = values.size();
@@ -130,7 +132,7 @@ namespace et
         }
 
         template<typename T>
-        static T getStdDev(const std::vector<T> &values)
+        static T getStdDev(const std::vector<T>& values)
         {
             T mean = Utils::getMean<T>(values);
             T std{};
@@ -148,24 +150,25 @@ namespace et
         static cv::Point2d getStdDev(const std::vector<cv::Point2d>& values);
 
         template<typename T>
-        static std::vector<double> getDists(const std::vector<T> &points, const T &center)
+        static std::vector<double> getDists(const std::vector<T>& points, const T& center)
         {
             std::vector<double> dists;
-            for (auto &point: points) {
+            for (auto& point: points)
+            {
                 dists.push_back(cv::norm(point - center));
             }
             return dists;
         }
 
-        static double getPercentile(const std::vector<double> &values, double percentile);
+        static double getPercentile(const std::vector<double>& values, double percentile);
 
         static cv::Mat getTransformationBetweenMatrices(std::vector<cv::Point3d> from, std::vector<cv::Point3d> to);
 
         static cv::Point3d convertFromHomogeneous(cv::Mat mat);
 
-        static void vectorToAngles(cv::Vec3d vector, cv::Vec2d &angles);
+        static void vectorToAngles(cv::Vec3d vector, cv::Vec2d& angles);
 
-        static void anglesToVector(cv::Vec2d angles, cv::Vec3d &vector);
+        static void anglesToVector(cv::Vec2d angles, cv::Vec3d& vector);
 
     private:
         static std::mt19937::result_type seed;

@@ -78,11 +78,11 @@ namespace et
             std::vector<cv::Point3d> predicted_positions{};
             std::vector<cv::Point2d> predicted_angles{};
 
-            std::shared_ptr<PolynomialFit> polynomial_fit_x = std::make_shared<PolynomialFit>(2, 1);
-            std::shared_ptr<PolynomialFit> polynomial_fit_y = std::make_shared<PolynomialFit>(2, 1);
+            std::shared_ptr<PolynomialFit> polynomial_fit_x = std::make_shared<PolynomialFit>(2, 2);
+            std::shared_ptr<PolynomialFit> polynomial_fit_y = std::make_shared<PolynomialFit>(2, 2);
 
-            std::shared_ptr<PolynomialFit> polynomial_fit_theta = std::make_shared<PolynomialFit>(2, 1);
-            std::shared_ptr<PolynomialFit> polynomial_fit_phi = std::make_shared<PolynomialFit>(2, 1);
+            std::shared_ptr<PolynomialFit> polynomial_fit_theta = std::make_shared<PolynomialFit>(2, 2);
+            std::shared_ptr<PolynomialFit> polynomial_fit_phi = std::make_shared<PolynomialFit>(2, 2);
 
             std::vector<std::vector<double>> train_input_x_y{};
             std::vector<std::vector<double>> test_input_x_y{};
@@ -220,7 +220,7 @@ namespace et
             }
         }
 
-        Utils::writeFloatCsv(full_data, "meta_model_data.csv");
+        Utils::writeFloatCsv(full_data, "meta_model_data_old_intrinsic.csv");
 
         cv::Point3d mean_position_error = Utils::getMean<cv::Point3d>(position_errors);
         cv::Point3d std_position_error = Utils::getStdDev(position_errors);
