@@ -12,10 +12,8 @@
 
 #include <memory>
 
-namespace et
-{
-    struct CalibrationSample
-    {
+namespace et {
+    struct CalibrationSample {
         cv::Point3d eye_position;
         bool detected;
         int marker_id;
@@ -28,13 +26,11 @@ namespace et
         cv::Point2d bottom_right_glint;
     };
 
-    class MetaModel
-    {
+    class MetaModel {
     public:
         MetaModel(int camera_id);
 
-        void
-        findMetaModel(const std::vector<CalibrationSample>& calibration_data);
+        void findMetaModel(const std::vector<CalibrationSample>& calibration_data, bool from_scratch);
 
     private:
         VisualAnglesOptimizer* visual_angles_optimizer_{};

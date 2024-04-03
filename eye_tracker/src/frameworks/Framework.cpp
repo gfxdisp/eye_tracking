@@ -213,8 +213,9 @@ namespace et
                           et::Settings::parameters.camera_params[camera_id_].region_of_interest, false);
     }
 
-    void Framework::loadOldCalibrationData(const std::string& path)
+    void Framework::loadOldCalibrationData(const std::string& path, bool calibrate_from_scratch)
     {
+        calibration_data_.clear();
         std::string csv_path = path + ".csv";
         std::string mp4_path = path + "_" + std::to_string(camera_id_) + ".mp4";
         auto csv_file = Utils::readFloatRowsCsv(csv_path);
@@ -268,14 +269,14 @@ namespace et
                 markers_count++;
             }
         }
-        meta_model_->findMetaModel(calibration_data_);
+        meta_model_->findMetaModel(calibration_data_, calibrate_from_scratch);
     }
 
-    void Framework::stopCalibration()
+    void Framework::stopCalibration(bool calibrate_from_scratch)
     {
         calibration_running_ = false;
         calib_video_.release();
-        meta_model_->findMetaModel(calibration_data_);
+        meta_model_->findMetaModel(calibration_data_, calibrate_from_scratch);
     }
 
     void Framework::stopEyeVideoRecording()

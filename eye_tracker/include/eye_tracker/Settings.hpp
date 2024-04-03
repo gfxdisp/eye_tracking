@@ -89,14 +89,18 @@ struct FeaturesParams {
     int glint_threshold{};
     // Exposure of the camera in milliseconds.
     double exposure{};
-    // Offset between the real eye position and the one estimated by the polynomial.
-    cv::Point3d poly_eye_centre_offset{};
-    // Offset between the real visual axis and the one estimated by the polynomial.
-    cv::Vec2d poly_angles_offset{};
-    // Offset between the real eye position and the one estimated by the model.
-    cv::Point3d model_eye_centre_offset{};
-    // Offset between the real visual axis and the one estimated by the model.
-    cv::Vec2d model_angles_offset{};
+
+    cv::Point3d position_offset{};
+
+    cv::Point2d angle_offset{};
+
+    std::vector<double> polynomial_x{};
+
+    std::vector<double> polynomial_y{};
+
+    std::vector<double> polynomial_theta{};
+
+    std::vector<double> polynomial_phi{};
 };
 
 

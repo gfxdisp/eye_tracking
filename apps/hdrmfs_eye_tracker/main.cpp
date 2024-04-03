@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
         }
         et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
 //        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
-        frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/mnt/d/Downloads/et_videos_1_5_24/2024-04-01_12-49-53_0.mp4", true);
+        frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/mnt/d/Downloads/et_videos_1_5_24/2024-04-01_12-49-53_1.mp4", true);
 //        frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/mnt/d/Downloads/et_test/2024-02-28_17-38-58_0.mp4", true);
     }
 

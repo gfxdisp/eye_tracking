@@ -4,10 +4,8 @@
 
 #include <fstream>
 
-namespace et
-{
-    MetaModel::MetaModel(int camera_id) : camera_id_(camera_id)
-    {
+namespace et {
+    MetaModel::MetaModel(int camera_id) : camera_id_(camera_id) {
         visual_angles_optimizer_ = new VisualAnglesOptimizer();
         visual_angles_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(visual_angles_optimizer_);
         visual_angles_solver_ = cv::DownhillSolver::create();
@@ -37,13 +35,7 @@ namespace et
         eye_estimator_ = std::make_shared<ModelEyeEstimator>(camera_id);
     }
 
-    void MetaModel::findMetaModel(const std::vector<CalibrationSample>& calibration_data)
-    {
-        et::Settings::parameters.user_params[camera_id_]->poly_eye_centre_offset = {0.0, 0.0, 0.0};
-        et::Settings::parameters.user_params[camera_id_]->model_eye_centre_offset = {0.0, 0.0, 0.0};
-        et::Settings::parameters.user_params[camera_id_]->poly_angles_offset = {0.0, 0.0};
-        et::Settings::parameters.user_params[camera_id_]->model_angles_offset = {0.0, 0.0};
-
+    void MetaModel::findMetaModel(const std::vector<CalibrationSample>& calibration_data, bool from_scratch) {
         auto eye_measurements = Settings::parameters.polynomial_params[camera_id_].eye_measurements;
 
         std::vector<int> indices{};
@@ -57,12 +49,10 @@ namespace et
 
         std::vector<std::vector<double>> full_data{};
 
-        for (int i = 0; i < 5; i++)
-        {
+        for (int i = 0; i < 1; i++) {
             std::vector<bool> train_markers(marker_count);
             std::vector<bool> test_markers(marker_count);
-            for (int j = 0; j < marker_count; j++)
-            {
+            for (int j = 0; j < marker_count; j++) {
 //                train_markers[j] = (indices[j] != i);
                 train_markers[j] = true;
 //                test_markers[j] = (indices[j] == i);
@@ -78,11 +68,11 @@ namespace et
             std::vector<cv::Point3d> predicted_positions{};
             std::vector<cv::Point2d> predicted_angles{};
 
-            std::shared_ptr<PolynomialFit> polynomial_fit_x = std::make_shared<PolynomialFit>(2, 2);
-            std::shared_ptr<PolynomialFit> polynomial_fit_y = std::make_shared<PolynomialFit>(2, 2);
+            std::shared_ptr<PolynomialFit> polynomial_fit_x = std::make_shared<PolynomialFit>(2, 1);
+            std::shared_ptr<PolynomialFit> polynomial_fit_y = std::make_shared<PolynomialFit>(2, 1);
 
-            std::shared_ptr<PolynomialFit> polynomial_fit_theta = std::make_shared<PolynomialFit>(2, 2);
-            std::shared_ptr<PolynomialFit> polynomial_fit_phi = std::make_shared<PolynomialFit>(2, 2);
+            std::shared_ptr<PolynomialFit> polynomial_fit_theta = std::make_shared<PolynomialFit>(2, 1);
+            std::shared_ptr<PolynomialFit> polynomial_fit_phi = std::make_shared<PolynomialFit>(2, 1);
 
             std::vector<std::vector<double>> train_input_x_y{};
             std::vector<std::vector<double>> test_input_x_y{};
@@ -96,10 +86,8 @@ namespace et
             std::vector<double> output_theta{};
             std::vector<double> output_phi{};
 
-            for (auto const& sample: calibration_data)
-            {
-                if (!sample.detected || sample.marker_time < 1.0)
-                {
+            for (auto const& sample: calibration_data) {
+                if (!sample.detected || sample.marker_time < 1.0) {
                     continue;
                 }
 
@@ -126,8 +114,7 @@ namespace et
                 cv::Vec2d real_angle{};
                 Utils::vectorToAngles(visual_axis, real_angle);
 
-                if (train_markers[sample.marker_id])
-                {
+                if (train_markers[sample.marker_id]) {
                     positions_offsets.push_back(sample.eye_position - predicted_eye_position);
                     angles_offsets.emplace_back(real_angle - predicted_angle);
 
@@ -139,8 +126,7 @@ namespace et
                     output_theta.push_back(real_angle[0]);
                     output_phi.push_back(real_angle[1]);
                 }
-                if (test_markers[sample.marker_id])
-                {
+                if (test_markers[sample.marker_id]) {
                     predicted_positions.push_back(predicted_eye_position);
                     real_positions.push_back(sample.eye_position);
 
@@ -163,8 +149,24 @@ namespace et
             std::cout << "Position offset: " << position_offset << std::endl;
             std::cout << "Angle offset: " << angle_offset << std::endl;
 
-            for (int j = 0; j < predicted_positions.size(); j++)
-            {
+            if (from_scratch) {
+                et::Settings::parameters.user_params[camera_id_]->position_offset = position_offset;
+                et::Settings::parameters.user_params[camera_id_]->angle_offset = angle_offset;
+                et::Settings::parameters.user_params[camera_id_]->polynomial_x = polynomial_fit_x->getCoefficients();
+                et::Settings::parameters.user_params[camera_id_]->polynomial_y = polynomial_fit_y->getCoefficients();
+                et::Settings::parameters.user_params[camera_id_]->polynomial_theta = polynomial_fit_theta->getCoefficients();
+                et::Settings::parameters.user_params[camera_id_]->polynomial_phi = polynomial_fit_phi->getCoefficients();
+                et::Settings::saveSettings();
+            } else {
+                position_offset = et::Settings::parameters.user_params[camera_id_]->position_offset;
+                angle_offset = et::Settings::parameters.user_params[camera_id_]->angle_offset;
+                polynomial_fit_x->setCoefficients(et::Settings::parameters.user_params[camera_id_]->polynomial_x);
+                polynomial_fit_y->setCoefficients(et::Settings::parameters.user_params[camera_id_]->polynomial_y);
+                polynomial_fit_theta->setCoefficients(et::Settings::parameters.user_params[camera_id_]->polynomial_theta);
+                polynomial_fit_phi->setCoefficients(et::Settings::parameters.user_params[camera_id_]->polynomial_phi);
+            }
+
+            for (int j = 0; j < predicted_positions.size(); j++) {
                 std::vector<double> data_point{};
                 cv::Point3d marker_position = {polynomial_fit_x->getEstimation(test_input_x_y[j]), polynomial_fit_y->getEstimation(test_input_x_y[j]), 180.0};
 

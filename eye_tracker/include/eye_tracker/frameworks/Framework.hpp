@@ -148,9 +148,9 @@ namespace et
          */
         void startCalibration(const cv::Point3d& eye_position);
 
-        void loadOldCalibrationData(const std::string &path);
+        void loadOldCalibrationData(const std::string& path, bool calibrate_from_scratch);
 
-        void stopCalibration();
+        void stopCalibration(bool calibrate_from_scratch);
 
         /**
          * Stops a video recording started through startEyeVideoRecording().

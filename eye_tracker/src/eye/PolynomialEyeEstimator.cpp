@@ -189,9 +189,6 @@ namespace et
         eye_centre.z = eye_centre_pos_z_fit->getEstimation(input_data);
         angles[0] = theta_fit->getEstimation(input_data);
         angles[1] = phi_fit->getEstimation(input_data);
-
-        eye_centre -= features_params_->poly_eye_centre_offset;
-        angles -= features_params_->poly_angles_offset;
 //
 //        eye_centre = cv::Point3d(128.428925, 151.086770, 870.013819);
 //        eye_centre = cv::Point3d(88,  138,   1000);

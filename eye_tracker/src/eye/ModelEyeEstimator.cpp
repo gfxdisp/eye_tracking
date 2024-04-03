@@ -132,9 +132,6 @@ namespace et
                                                              eye_measurements.beta);
         Utils::vectorToAngles(visual_axis, angles);
 
-        eye_centre -= features_params_->model_eye_centre_offset;
-        angles -= features_params_->model_angles_offset;
-
         if (eye_centre_vec == cv::Vec3d())
         {
             return false;
