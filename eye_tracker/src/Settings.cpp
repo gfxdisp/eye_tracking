@@ -214,6 +214,20 @@ namespace et {
                 parameters.leds_positions[i].push_back({item[0], item[1], item[2]});
             }
             data.clear();
+            std::vector<cv::Point2f> ellipse_points{};
+            for (int k = 0; k < parameters.leds_positions[i].size(); k++) {
+                ellipse_points.emplace_back(parameters.leds_positions[i][k](0),
+                                            parameters.leds_positions[i][k](1));
+            }
+            auto ellipse = cv::fitEllipse(ellipse_points);
+            std::sort(parameters.leds_positions[i].begin(), parameters.leds_positions[i].end(),
+                      [&ellipse](const cv::Vec3d& a, const cv::Vec3d& b) {
+                          if ((a(0) < ellipse.center.x && b(0) < ellipse.center.x) || (a(0) > ellipse.center.x && b(0) > ellipse.center.x)) {
+                              return a(1) < b(1);
+                          } else {
+                              return a(0) < b(0);
+                          }
+                      });
         }
 
         j.at("detection_params").at("left").get_to(parameters.detection_params[0]);

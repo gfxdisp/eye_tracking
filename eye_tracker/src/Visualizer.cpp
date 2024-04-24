@@ -144,14 +144,22 @@ namespace et
 
     void Visualizer::drawPupil(cv::Point2d pupil, int radius)
     {
-        cv::circle(image_, pupil, radius, cv::Scalar(0xFF, 0xFF, 0x00), 1);
+        cv::circle(image_, pupil, radius, cv::Scalar(0xFF, 0xFF, 0x00), 2);
     }
 
-    void Visualizer::drawGlints(std::vector<cv::Point2d> *glints)
+    void Visualizer::drawGlints(std::vector<cv::Point2d> *glints, std::vector<bool> *glints_validity)
     {
-        for (const auto &glint: (*glints))
+        for (int i = 0; i < glints->size(); i++)
         {
-            cv::circle(image_, glint, 5, cv::Scalar(0x00, 0x00, 0xFF), 1);
+            if (glints_validity->at(i))
+            {
+                cv::circle(image_, (*glints)[i], 5, cv::Scalar(0x00, 0xFF, 0x00), 2);
+            }
+            else
+            {
+                cv::line(image_, cv::Point2d((*glints)[i].x - 3.5, (*glints)[i].y - 3.5), cv::Point2d((*glints)[i].x + 3.5, (*glints)[i].y + 3.5), cv::Scalar(0x00, 0x00, 0xFF), 2);
+                cv::line(image_, cv::Point2d((*glints)[i].x + 3.5, (*glints)[i].y - 3.5), cv::Point2d((*glints)[i].x - 3.5, (*glints)[i].y + 3.5), cv::Scalar(0x00, 0x00, 0xFF), 2);
+            }
         }
     }
 

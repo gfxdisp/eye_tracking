@@ -15,6 +15,7 @@ namespace et
         cv::Point2d pupil;
         double pupil_radius;
         std::vector<cv::Point2d> glints;
+        std::vector<bool> glints_validity;
         cv::RotatedRect ellipse;
     };
 

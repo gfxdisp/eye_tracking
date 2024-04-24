@@ -84,7 +84,8 @@ namespace et {
             EyeInfo eye_info;
             cv::Point3d predicted_eye_position{};
             cv::Vec2d predicted_angle{};
-            eye_info.glints = {sample.top_left_glint, sample.bottom_right_glint};
+            eye_info.glints = sample.glints;
+            eye_info.glints_validity = sample.glints_validity;
             eye_info.pupil = sample.pupil_position;
             eye_info.ellipse = sample.glint_ellipse;
             eye_estimator_->detectEye(eye_info, predicted_eye_position, predicted_angle);
@@ -121,6 +122,30 @@ namespace et {
 
             predicted_angles.emplace_back(predicted_angle);
             real_angles.emplace_back(real_angle);
+        }
+
+        std::vector<int> position_outliers = Utils::getOutliers(positions_offsets, 2.0);
+        std::vector<int> angle_outliers = Utils::getOutliers(angles_offsets, 2.0);
+        std::vector<int> all_outliers{};
+        all_outliers.insert(all_outliers.end(), position_outliers.begin(), position_outliers.end());
+        all_outliers.insert(all_outliers.end(), angle_outliers.begin(), angle_outliers.end());
+        std::sort(all_outliers.begin(), all_outliers.end());
+        all_outliers.erase(std::unique(all_outliers.begin(), all_outliers.end()), all_outliers.end());
+
+        for (int i = 0; i < all_outliers.size(); i++) {
+            int index = all_outliers[i] - i; // -i to correct for the fact that the vector is shrinking
+            positions_offsets.erase(positions_offsets.begin() + index);
+            angles_offsets.erase(angles_offsets.begin() + index);
+            input_x_y.erase(input_x_y.begin() + index);
+            input_theta_phi.erase(input_theta_phi.begin() + index);
+            output_x.erase(output_x.begin() + index);
+            output_y.erase(output_y.begin() + index);
+            output_theta.erase(output_theta.begin() + index);
+            output_phi.erase(output_phi.begin() + index);
+            predicted_positions.erase(predicted_positions.begin() + index);
+            real_positions.erase(real_positions.begin() + index);
+            predicted_angles.erase(predicted_angles.begin() + index);
+            real_angles.erase(real_angles.begin() + index);
         }
 
         std::vector<bool> best_x_y_samples{};
@@ -260,13 +285,13 @@ namespace et {
         }
 
         for (int j = 0; j < predicted_positions.size(); j++) {
-//            if (!best_x_y_samples[j]) {
-//                continue;
-//            }
+            if (from_scratch && !best_x_y_samples[j]) {
+                continue;
+            }
 
-//            if (!best_theta_phi_samples[j]) {
-//                continue;
-//            }
+            if (from_scratch && !best_theta_phi_samples[j]) {
+                continue;
+            }
 
             std::vector<double> data_point{};
             cv::Point3d marker_position = {polynomial_fit_x->getEstimation(input_x_y[j]), polynomial_fit_y->getEstimation(input_x_y[j]), 180.0};
@@ -324,12 +349,16 @@ namespace et {
 
         Utils::writeFloatCsv(full_data, "meta_model_data_full.csv");
 
+        std::cout << std::setprecision(3) << std::fixed;
+
         cv::Point3d mean_position_error = Utils::getMean<cv::Point3d>(position_errors);
         cv::Point3d std_position_error = Utils::getStdDev(position_errors);
 
         std::cout << "x: " << mean_position_error.x << " ± " << std_position_error.x << std::endl;
         std::cout << "y: " << mean_position_error.y << " ± " << std_position_error.y << std::endl;
         std::cout << "z: " << mean_position_error.z << " ± " << std_position_error.z << std::endl;
+        std::cout << "total xy: " << cv::norm(cv::Point2d(mean_position_error.x, mean_position_error.y)) << " ± " << cv::norm(cv::Point2d(std_position_error.x, std_position_error.y)) << std::endl;
+        std::cout << "total: " << cv::norm(mean_position_error) << " ± " << cv::norm(std_position_error) << std::endl;
 
         cv::Point2d mean_angle_error = Utils::getMean<cv::Point2d>(angle_errors_model_offset);
         cv::Point2d std_angle_error = Utils::getStdDev(angle_errors_model_offset);
@@ -337,6 +366,7 @@ namespace et {
         std::cout << "Offset error:" << std::endl;
         std::cout << "theta: " << mean_angle_error.x << " ± " << std_angle_error.x << std::endl;
         std::cout << "phi: " << mean_angle_error.y << " ± " << std_angle_error.y << std::endl;
+        std::cout << "total: " << cv::norm(mean_angle_error) << " ± " << cv::norm(std_angle_error) << std::endl;
 
         mean_angle_error = Utils::getMean<cv::Point2d>(angle_errors_model_poly_fit);
         std_angle_error = Utils::getStdDev(angle_errors_model_poly_fit);
@@ -344,6 +374,7 @@ namespace et {
         std::cout << "Polynomial fit error:" << std::endl;
         std::cout << "theta: " << mean_angle_error.x << " ± " << std_angle_error.x << std::endl;
         std::cout << "phi: " << mean_angle_error.y << " ± " << std_angle_error.y << std::endl;
+        std::cout << "total: " << cv::norm(mean_angle_error) << " ± " << cv::norm(std_angle_error) << std::endl;
 
         mean_angle_error = Utils::getMean<cv::Point2d>(angle_errors_vog);
         std_angle_error = Utils::getStdDev(angle_errors_vog);
@@ -351,5 +382,6 @@ namespace et {
         std::cout << "Glint-pupil error:" << std::endl;
         std::cout << "theta: " << mean_angle_error.x << " ± " << std_angle_error.x << std::endl;
         std::cout << "phi: " << mean_angle_error.y << " ± " << std_angle_error.y << std::endl;
+        std::cout << "total: " << cv::norm(mean_angle_error) << " ± " << cv::norm(std_angle_error) << std::endl;
     }
 } // et

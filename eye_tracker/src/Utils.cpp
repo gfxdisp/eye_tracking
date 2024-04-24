@@ -589,6 +589,93 @@ namespace et
         return t;
     }
 
+    cv::Vec3d Utils::getTrimmmedMean(std::vector<cv::Vec3d> const& values, double trim_ratio) {
+        std::vector<double> x_values;
+        std::vector<double> y_values;
+        std::vector<double> z_values;
+        for (auto const& value : values) {
+            x_values.push_back(value[0]);
+            y_values.push_back(value[1]);
+            z_values.push_back(value[2]);
+        }
+        std::sort(x_values.begin(), x_values.end());
+        std::sort(y_values.begin(), y_values.end());
+        std::sort(z_values.begin(), z_values.end());
+        int trim_size = (int) (values.size() * trim_ratio / 2);
+        x_values.erase(x_values.begin(), x_values.begin() + trim_size);
+        x_values.erase(x_values.end() - trim_size, x_values.end());
+        y_values.erase(y_values.begin(), y_values.begin() + trim_size);
+        y_values.erase(y_values.end() - trim_size, y_values.end());
+        z_values.erase(z_values.begin(), z_values.begin() + trim_size);
+        z_values.erase(z_values.end() - trim_size, z_values.end());
+        return {Utils::getMean(x_values), Utils::getMean(y_values), Utils::getMean(z_values)};
+    }
+
+    cv::Point3d Utils::getTrimmmedMean(std::vector<cv::Point3d> const& values, double trim_ratio) {
+        std::vector<double> x_values;
+        std::vector<double> y_values;
+        std::vector<double> z_values;
+        for (auto const& value : values) {
+            x_values.push_back(value.x);
+            y_values.push_back(value.y);
+            z_values.push_back(value.z);
+        }
+        std::sort(x_values.begin(), x_values.end());
+        std::sort(y_values.begin(), y_values.end());
+        std::sort(z_values.begin(), z_values.end());
+        int trim_size = (int) (values.size() * trim_ratio / 2);
+        x_values.erase(x_values.begin(), x_values.begin() + trim_size);
+        x_values.erase(x_values.end() - trim_size, x_values.end());
+        y_values.erase(y_values.begin(), y_values.begin() + trim_size);
+        y_values.erase(y_values.end() - trim_size, y_values.end());
+        z_values.erase(z_values.begin(), z_values.begin() + trim_size);
+        z_values.erase(z_values.end() - trim_size, z_values.end());
+        return {Utils::getMean(x_values), Utils::getMean(y_values), Utils::getMean(z_values)};
+    }
+
+
+    std::vector<int> Utils::getOutliers(std::vector<cv::Point3d> const& values, double threshold) {
+        std::vector<int> outliers{};
+        cv::Point3d mean = Utils::getMean<cv::Point3d>(values);
+        cv::Point3d std = Utils::getStdDev(values);
+        for (int i = 0; i < values.size(); i++) {
+            if (std::abs(values[i].x - mean.x) > threshold * std.x ||
+                std::abs(values[i].y - mean.y) > threshold * std.y ||
+                std::abs(values[i].z - mean.z) > threshold * std.z) {
+                outliers.push_back(i);
+            }
+        }
+        return outliers;
+    }
+
+    std::vector<int> Utils::getOutliers(std::vector<cv::Point2d> const& values, double threshold) {
+        std::vector<int> outliers{};
+        cv::Point2d mean = Utils::getMean<cv::Point2d>(values);
+        cv::Point2d std = Utils::getStdDev(values);
+        for (int i = 0; i < values.size(); i++) {
+            if (std::abs(values[i].x - mean.x) > threshold * std.x ||
+                std::abs(values[i].y - mean.y) > threshold * std.y) {
+                outliers.push_back(i);
+            }
+        }
+        return outliers;
+    }
+
+    cv::Vec3d Utils::getMedian(std::vector<cv::Vec3d> const& values) {
+        std::vector<double> x_values;
+        std::vector<double> y_values;
+        std::vector<double> z_values;
+        for (auto const& value : values) {
+            x_values.push_back(value[0]);
+            y_values.push_back(value[1]);
+            z_values.push_back(value[2]);
+        }
+        std::sort(x_values.begin(), x_values.end());
+        std::sort(y_values.begin(), y_values.end());
+        std::sort(z_values.begin(), z_values.end());
+        return cv::Point3d(x_values[values.size() / 2], y_values[values.size() / 2], z_values[values.size() / 2]);
+    }
+
     double Utils::getPercentile(const std::vector<double>& values, double percentile)
     {
         int index = (int) (percentile * values.size());
@@ -737,6 +824,8 @@ namespace et
         double z = std::cos(angles[0]) * std::cos(angles[1]);
         vector = {x, y, z};
     }
+
+
 
 
 } // namespace et

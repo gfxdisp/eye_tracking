@@ -12,6 +12,9 @@ namespace et
         glints_template_.upload(glints_template_cpu);
         template_matcher_ = cv::cuda::createTemplateMatching(CV_8UC1, cv::TM_CCOEFF);
         template_crop_ = (cv::Mat_<double>(2, 3) << 1, 0, glints_template_.cols / 2, 0, 1, glints_template_.rows / 2);
+
+        close_filter_ = cv::cuda::createMorphologyFilter(cv::MORPH_CLOSE, CV_8UC1, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5)));
+        open_filter_ = cv::cuda::createMorphologyFilter(cv::MORPH_OPEN, CV_8UC1, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5)));
     }
 
     void CameraImagePreprocessor::preprocess(const EyeImage &input, EyeImage &output)
@@ -19,6 +22,8 @@ namespace et
         gpu_image_.upload(input.pupil);
 
         cv::cuda::threshold(gpu_image_, pupil_thresholded_image_gpu_, *pupil_threshold_, 255, cv::THRESH_BINARY_INV);
+//        open_filter_->apply(pupil_thresholded_image_gpu_, pupil_thresholded_image_gpu_);
+//        close_filter_->apply(pupil_thresholded_image_gpu_, pupil_thresholded_image_gpu_);
 
         gpu_image_.upload(input.glints);
 

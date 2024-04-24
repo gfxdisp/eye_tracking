@@ -22,8 +22,8 @@ namespace et {
         cv::Point2d pupil_position;
         double timestamp;
         double marker_time;
-        cv::Point2d top_left_glint;
-        cv::Point2d bottom_right_glint;
+        std::vector<cv::Point2d> glints;
+        std::vector<bool> glints_validity;
     };
 
     class MetaModel {

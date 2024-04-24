@@ -40,7 +40,7 @@ namespace et
          * with prepareImage().
          * @param glints Vector of glints to draw.
          */
-        void drawGlints(std::vector<cv::Point2d> *glints);
+        void drawGlints(std::vector<cv::Point2d> *glints, std::vector<bool> *glints_validity);
 
         /**
          * Draws a circle around the hole in the view piece in the image loaded

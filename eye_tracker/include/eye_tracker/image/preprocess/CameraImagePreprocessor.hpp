@@ -21,6 +21,9 @@ namespace et
         // Affine warping matrix used to translate correlation matrix to align with
         // the original image.
         cv::Mat template_crop_{};
+
+        cv::Ptr<cv::cuda::Filter> close_filter_{};
+        cv::Ptr<cv::cuda::Filter> open_filter_{};
     };
 
 } // et

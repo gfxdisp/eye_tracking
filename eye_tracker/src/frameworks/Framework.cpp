@@ -92,10 +92,10 @@ namespace et
             auto current_time = Utils::getCurrentTimeText();
             std::string filename = "videos/" + current_time + "_" + std::to_string(camera_id_) + ".mp4";
             std::clog << "Saving video to " << filename << "\n";
-            output_video_.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+            output_video_.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 10,
                                et::Settings::parameters.camera_params[camera_id_].region_of_interest, false);
             filename = "videos/" + current_time + "_" + std::to_string(camera_id_) + "_ui.mp4";
-            output_video_ui_.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+            output_video_ui_.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 10,
                                   et::Settings::parameters.camera_params[camera_id_].region_of_interest, true);
         }
     }
@@ -154,7 +154,7 @@ namespace et
                     feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition()));
 
             visualizer_->drawGlintEllipse(feature_detector_->getEllipseDistorted());
-            visualizer_->drawGlints(feature_detector_->getDistortedGlints());
+            visualizer_->drawGlints(feature_detector_->getDistortedGlints(), feature_detector_->getGlintsValidity());
 
             visualizer_->drawFps();
             visualizer_->show();
@@ -241,6 +241,7 @@ namespace et
 
             cv::Point2d pupil = feature_analyser->getPupilUndistorted();
             auto glints = feature_analyser->getGlints();
+            auto glints_validity = feature_analyser->getGlintsValidity();
             cv::RotatedRect ellipse = feature_analyser->getEllipseUndistorted();
 
             previous_pupil = pupil;
@@ -250,8 +251,8 @@ namespace et
             sample.eye_position = calibration_eye_position_;
             sample.pupil_position = pupil;
             sample.glint_ellipse = ellipse;
-            sample.top_left_glint = glints->at(0);
-            sample.bottom_right_glint = glints->at(1);
+            std::copy(glints->begin(), glints->end(), std::back_inserter(sample.glints));
+            std::copy(glints_validity->begin(), glints_validity->end(), std::back_inserter(sample.glints_validity));
             sample.marker_position = cv::Point3d(csv_file[counter][7], csv_file[counter][8], csv_file[counter][9]);
             sample.marker_id = markers_count;
             calibration_data_.push_back(sample);
@@ -301,12 +302,13 @@ namespace et
             const auto now = std::chrono::system_clock::now();
             auto current_time = std::chrono::system_clock::to_time_t(now);
             auto glints = feature_detector_->getGlints();
+            auto glints_validity = feature_detector_->getGlintsValidity();
 
             CalibrationSample sample;
             sample.timestamp = std::difftime(current_time, calibration_start_time_);
             sample.marker_position = marker_position;
-            sample.top_left_glint = glints->at(0);
-            sample.bottom_right_glint = glints->at(1);
+            std::copy(glints->begin(), glints->end(), std::back_inserter(sample.glints));
+            std::copy(glints_validity->begin(), glints_validity->end(), std::back_inserter(sample.glints_validity));
             sample.detected = features_found_;
             sample.glint_ellipse = feature_detector_->getEllipseUndistorted();
             sample.pupil_position = feature_detector_->getPupilUndistorted();

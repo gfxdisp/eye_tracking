@@ -131,6 +131,16 @@ namespace et
             return sum / n;
         }
 
+        static cv::Vec3d getTrimmmedMean(const std::vector<cv::Vec3d>& values, double trim_ratio);
+
+        static cv::Point3d getTrimmmedMean(const std::vector<cv::Point3d>& values, double trim_ratio);
+
+        static std::vector<int> getOutliers(const std::vector<cv::Point3d>& values, double threshold);
+
+        static std::vector<int> getOutliers(const std::vector<cv::Point2d>& values, double threshold);
+
+        static cv::Vec3d getMedian(const std::vector<cv::Vec3d>& values);
+
         template<typename T>
         static T getStdDev(const std::vector<T>& values)
         {

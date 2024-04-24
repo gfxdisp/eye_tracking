@@ -50,9 +50,12 @@ int main(int argc, char *argv[])
         }
         et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
 //        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
-        frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/mnt/d/Downloads/et_videos_1_5_24/2024-04-01_12-49-53_1.mp4", true);
 //        frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/mnt/d/Downloads/et_test/2024-02-28_17-38-58_0.mp4", true);
     }
+
+
+    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/et_videos_2024-04-20_1/2024-04-20_16-07-35_0.mp4", true);
+    frameworks[1] = std::make_shared<et::VideoCameraFramework>(1, headless, "/mnt/d/Downloads/et_videos_2024-04-20_1/2024-04-20_16-22-52_1.mp4", true);
 
     auto socket_server = std::make_shared<et::SocketServer>(frameworks[0], frameworks[1]);
     socket_server->startServer();
