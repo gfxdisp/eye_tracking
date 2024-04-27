@@ -88,12 +88,12 @@ namespace et
          * elements added to it (fps counter, eye position, etc.). Videos will be
          * saved to the videos/ directory at the location from which the app was run.
          */
-        void switchVideoRecordingState();
+        void startRecording(std::string const& name="");
 
         /**
          * Stops any enabled video recordings and saves the results.
          */
-        void stopVideoRecording();
+        void stopRecording();
 
         /**
          * Captures the image from the current video feed. It will be
@@ -147,6 +147,10 @@ namespace et
          * @param eye_position Folder to which the videos will be saved.
          */
         void startCalibration(const cv::Point3d& eye_position);
+
+        void startOnlineCalibration();
+
+        void stopOnlineCalibration(const CalibrationOutput& calibration_output, bool calibrate_from_scratch);
 
         void loadOldCalibrationData(const std::string& path, bool calibrate_from_scratch);
 
@@ -207,8 +211,11 @@ namespace et
         std::vector<CalibrationSample> calibration_data_{};
         cv::Point3d calibration_eye_position_{};
 
+        std::vector<CalibrationInput> calibration_input_{};
+
         bool calibration_running_{false};
-        time_t calibration_start_time_{};
+        bool online_calibration_running_{false};
+        std::chrono::high_resolution_clock::time_point calibration_start_time_{};
         cv::VideoWriter calib_video_{};
 
         int camera_id_{};

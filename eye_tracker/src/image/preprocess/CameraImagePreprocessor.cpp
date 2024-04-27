@@ -40,6 +40,6 @@ namespace et
         cv::Size2i image_size = cv::Size2i(input.pupil.cols, input.pupil.rows);
 
         // Moves the correlation map so that it is centered in the image.
-        cv::warpAffine(output.glints, output.glints, template_crop_, image_size);
+//        cv::warpAffine(output.glints, output.glints, template_crop_, image_size);
     }
 } // et

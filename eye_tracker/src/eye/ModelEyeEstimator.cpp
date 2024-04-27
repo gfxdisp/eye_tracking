@@ -19,7 +19,7 @@ namespace et {
         solver_->setInitStep(step);
     }
 
-    bool ModelEyeEstimator::detectEye(EyeInfo& eye_info, cv::Point3d& eye_centre, cv::Vec2d& angles) {
+    bool ModelEyeEstimator::detectEye(EyeInfo& eye_info, cv::Point3d& eye_centre, cv::Point3d& nodal_point, cv::Vec2d& angles) {
         cv::Vec3d pupil_position{ICStoCCS(eye_info.pupil)};
 
         std::vector<cv::Vec3d> glint_positions{};
@@ -71,6 +71,17 @@ namespace et {
         int counter{0};
         for (int i = 0; i < v1v2s.size(); i++) {
             for (int j = i + 1; j < v1v2s.size(); j++) {
+                double angle = Utils::getAngleBetweenVectors(v1v2s[i], v1v2s[j]) * 180 / M_PI;
+                if (angle < 0) {
+                    angle += 180;
+                }
+                if (angle > 90) {
+                    angle = 180 - angle;
+                }
+                if (angle < 45) {
+                    continue;
+                }
+
                 cv::Vec3d np2c_dir{v1v2s[i].cross(v1v2s[j])};
                 cv::normalize(np2c_dir, np2c_dir);
                 if (np2c_dir(2) < 0) {
@@ -80,7 +91,6 @@ namespace et {
                 if (np2c_dir != np2c_dir) {
                     continue;
                 }
-
                 np2c_dirs.push_back(np2c_dir);
                 counter++;
             }
@@ -90,8 +100,7 @@ namespace et {
             return false;
         }
 
-        cv::Vec3d avg_np2c_dir = Utils::getTrimmmedMean(np2c_dirs, 0.95);
-//        cv::Vec3d avg_np2c_dir = Utils::getMedian(np2c_dirs);
+        cv::Vec3d avg_np2c_dir = Utils::getMean(np2c_dirs);
         avg_np2c_dir = cv::normalize(avg_np2c_dir);
 
         if (nodal_point_optimizer_) {
@@ -103,7 +112,7 @@ namespace et {
         solver_->minimize(x);
         double k = x.at<double>(0, 0);
         cv::Vec3d nodal_point_vec = camera_nodal_point_ + avg_np2c_dir * k;
-        cv::Point3d nodal_point = nodal_point_vec;
+        nodal_point = nodal_point_vec;
 
         cv::Vec3d pupil = calculatePositionOnPupil(pupil_position, nodal_point_vec);
 
@@ -195,7 +204,7 @@ namespace et {
         // cv::normalize(ray_direction, ray_direction);
         //
         // double t{};
-        // Utils::getRaySphereIntersection(wcs_camera_nodal_point, ray_direction, nodal_point,
+        // Utils::getRaySphereIntersection(wcs_camera_nodal_point, ray_direction, cornea_position,
         //                                 measurements.cornea_curvature_radius, t);
         //
         // pupil_position = static_cast<cv::Vec3d>(wcs_camera_nodal_point) + t * ray_direction;

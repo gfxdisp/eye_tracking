@@ -8,16 +8,14 @@
 #include <vector>
 #include <thread>
 
-namespace et
-{
+namespace et {
 
 
 /**
  * Communicates with a client to exchange eye parameters and tracking
  * parameters.
  */
-    class SocketServer
-    {
+    class SocketServer {
     public:
         /**
          * Assigns loaded EyeTracker object to the Socket server.
@@ -53,9 +51,9 @@ namespace et
         bool finished{false};
 
     private:
-        bool sendAll(void *input, size_t bytes_count) const;
+        bool sendAll(void* input, size_t bytes_count) const;
 
-        bool readAll(void *output, size_t bytes_count) const;
+        bool readAll(void* output, size_t bytes_count) const;
 
         // Request code to close connection and the application.
         static constexpr int MSG_CLOSE_CONNECTION = 0;
@@ -70,7 +68,15 @@ namespace et
         // Saves current camera image to png file along with the calibrated eye positions.
         static constexpr int MSG_DUMP_CALIBRATION_DATA = 5;
 
-         static constexpr int MSG_LOAD_OLD_CALIBRATION_DATA = 6;
+        static constexpr int MSG_LOAD_OLD_CALIBRATION_DATA = 6;
+
+        static constexpr int MSG_START_ONLINE_CALIBRATION = 7;
+
+        static constexpr int MSG_STOP_ONLINE_CALIBRATION = 8;
+
+        static constexpr int MSG_START_RECORDING = 9;
+
+        static constexpr int MSG_STOP_RECORDING = 10;
 
         std::shared_ptr<Framework> eye_trackers_[2]{};
 
@@ -83,6 +89,7 @@ namespace et
         std::vector<cv::Point2d> glint_locations_{};
 
         EyeDataToSend eye_data_to_send_{};
+        CalibrationOutput online_calibration_data_received_{};
 
         // Address of an opened socket server.
         sockaddr_in address_{};

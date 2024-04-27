@@ -813,8 +813,6 @@ namespace et
         {
             angles[0] += 2 * M_PI;
         }
-        angles[0] *= 180 / M_PI;
-        angles[1] *= 180 / M_PI;
     }
 
     void Utils::anglesToVector(cv::Vec2d angles, cv::Vec3d& vector)

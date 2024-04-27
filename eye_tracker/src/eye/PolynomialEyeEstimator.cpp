@@ -2,10 +2,8 @@
 #include "eye_tracker/eye/PolynomialEyeEstimator.hpp"
 #include "eye_tracker/Utils.hpp"
 
-namespace et
-{
-    PolynomialEyeEstimator::PolynomialEyeEstimator(int camera_id) : EyeEstimator(camera_id)
-    {
+namespace et {
+    PolynomialEyeEstimator::PolynomialEyeEstimator(int camera_id) : EyeEstimator(camera_id) {
         eye_centre_pos_x_fit = std::make_shared<PolynomialFit>(8, 4);
         eye_centre_pos_y_fit = std::make_shared<PolynomialFit>(8, 4);
         eye_centre_pos_z_fit = std::make_shared<PolynomialFit>(8, 4);
@@ -27,8 +25,7 @@ namespace et
     }
 
     bool PolynomialEyeEstimator::fitModel(std::vector<cv::Point2d>& pupils, std::vector<cv::RotatedRect>& ellipses,
-                                          std::vector<cv::Point3d>& eye_centres, std::vector<cv::Vec2d>& angles)
-    {
+                                          std::vector<cv::Point3d>& eye_centres, std::vector<cv::Vec2d>& angles) {
         bool result = true;
         std::vector<double> pupil_x{};
         std::vector<double> pupil_y{};
@@ -44,8 +41,7 @@ namespace et
         std::vector<double> eye_centre_pos_z{};
         std::vector<double> thetas{};
         std::vector<double> phis{};
-        for (int i = 0; i < pupils.size(); i++)
-        {
+        for (int i = 0; i < pupils.size(); i++) {
             pupil_x.push_back(pupils[i].x);
             pupil_y.push_back(pupils[i].y);
             ellipse_x.push_back(ellipses[i].center.x);
@@ -64,17 +60,17 @@ namespace et
 
 
         std::vector<std::vector<double>> inputs[] = {
-            {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
-            {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
-            {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
-            {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
-            {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
+                {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
+                {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
+                {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
+                {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
+                {pupil_x, pupil_y, ellipse_x, ellipse_y, ellipse_width, ellipse_height, inv_ellipse_width, inv_ellipse_height/*, ellipse_angle*/},
         };
 
         std::vector<double>* outputs[] = {&eye_centre_pos_x, &eye_centre_pos_y, &eye_centre_pos_z, &thetas, &phis};
 
         std::shared_ptr<PolynomialFit> fitters[] = {
-            eye_centre_pos_x_fit, eye_centre_pos_y_fit, eye_centre_pos_z_fit, theta_fit, phi_fit
+                eye_centre_pos_x_fit, eye_centre_pos_y_fit, eye_centre_pos_z_fit, theta_fit, phi_fit
         };
 
         std::string names[] = {"eye_centre_pos_x", "eye_centre_pos_y", "eye_centre_pos_z", "theta", "phi"};
@@ -82,38 +78,31 @@ namespace et
         int setup_count = std::size(inputs);
         int data_points_num = pupils.size();
 
-        for (int setup = 0; setup < setup_count; setup++)
-        {
+        for (int setup = 0; setup < setup_count; setup++) {
             int cross_folds = 5;
             bool success = true;
             std::clog << "Fitting " << names[setup] << std::endl;
             std::vector<int> indices(data_points_num);
             Utils::getCrossValidationIndices(indices, data_points_num, cross_folds);
             std::vector<double> error{};
-            for (int i = 0; i <= cross_folds; i++)
-            {
+            for (int i = 0; i <= cross_folds; i++) {
 //                i = cross_folds;
                 std::vector<std::vector<double>> train_input_data{};
                 std::vector<std::vector<double>> test_input_data{};
                 std::vector<double> train_output_data{};
                 std::vector<double> test_output_data{};
-                for (int j = 0; j < indices.size(); j++)
-                {
-                    if (indices[j] == i || i == cross_folds)
-                    {
+                for (int j = 0; j < indices.size(); j++) {
+                    if (indices[j] == i || i == cross_folds) {
                         std::vector<double> row{};
-                        for (int k = 0; k < fitters[setup]->getNVariables(); k++)
-                        {
+                        for (int k = 0; k < fitters[setup]->getNVariables(); k++) {
                             row.push_back(inputs[setup][k][j]);
                         }
                         test_input_data.push_back(row);
                         test_output_data.push_back((*outputs[setup])[j]);
                     }
-                    if (indices[j] != i || i == cross_folds)
-                    {
+                    if (indices[j] != i || i == cross_folds) {
                         std::vector<double> row{};
-                        for (int k = 0; k < fitters[setup]->getNVariables(); k++)
-                        {
+                        for (int k = 0; k < fitters[setup]->getNVariables(); k++) {
                             row.push_back(inputs[setup][k][j]);
                         }
                         train_input_data.push_back(row);
@@ -121,11 +110,9 @@ namespace et
                     }
                 }
                 success = fitters[setup]->fit(train_input_data, &train_output_data);
-                if (!success)
-                {
+                if (!success) {
                     std::clog << "[" << (i == cross_folds ? "full" : "cross-val") << "] Fitting failed." << std::endl;
-                    if (i == cross_folds)
-                    {
+                    if (i == cross_folds) {
                         result = false;
                         break;
                     }
@@ -133,47 +120,41 @@ namespace et
                     continue;
                 }
 
-                for (int j = 0; j < test_input_data.size(); j++)
-                {
+                for (int j = 0; j < test_input_data.size(); j++) {
                     double estimation = fitters[setup]->getEstimation(test_input_data[j]);
                     error.push_back(std::abs(estimation - test_output_data[j]));
                 }
 
-                if (i == cross_folds || i == cross_folds - 1)
-                {
+                if (i == cross_folds || i == cross_folds - 1) {
                     double mean_error = std::accumulate(error.begin(), error.end(), 0.0) / error.size();
                     double std_error = 0.0;
-                    for (int j = 0; j < error.size(); j++)
-                    {
+                    for (int j = 0; j < error.size(); j++) {
                         std_error += (error[j] - mean_error) * (error[j] - mean_error);
                     }
                     std_error = std::sqrt(std_error / error.size());
 
                     std::clog << "[" << (i == cross_folds ? "full" : "cross-val") << "] Fitting error: " << mean_error
-                        << " ± " << std_error << std::endl;
+                              << " ± " << std_error << std::endl;
                     error.clear();
                 }
             }
         }
 
-        if (!result)
-        {
+        if (!result) {
             return false;
         }
 
         return true;
     }
 
-    Coefficients PolynomialEyeEstimator::getCoefficients() const
-    {
+    Coefficients PolynomialEyeEstimator::getCoefficients() const {
         return Coefficients{
-            eye_centre_pos_x_fit->getCoefficients(), eye_centre_pos_y_fit->getCoefficients(),
-            eye_centre_pos_z_fit->getCoefficients(), theta_fit->getCoefficients(), phi_fit->getCoefficients()
+                eye_centre_pos_x_fit->getCoefficients(), eye_centre_pos_y_fit->getCoefficients(),
+                eye_centre_pos_z_fit->getCoefficients(), theta_fit->getCoefficients(), phi_fit->getCoefficients()
         };
     }
 
-    bool PolynomialEyeEstimator::detectEye(EyeInfo& eye_info, cv::Point3d& eye_centre, cv::Vec2d& angles)
-    {
+    bool PolynomialEyeEstimator::detectEye(EyeInfo& eye_info, cv::Point3d& eye_centre, cv::Point3d& nodal_point, cv::Vec2d& angles) {
         std::vector<double> input_data(8);
 
         input_data[0] = eye_info.pupil.x;

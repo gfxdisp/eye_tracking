@@ -165,7 +165,7 @@ namespace et
 
     void Visualizer::drawBoundingCircle(cv::Point2d centre, int radius)
     {
-        cv::circle(image_, centre, radius, cv::Scalar(0xFF, 0xFF, 0x00), 1);
+//        cv::circle(image_, centre, radius, cv::Scalar(0xFF, 0xFF, 0x00), 1);
     }
 
     void Visualizer::drawEyeCentre(cv::Point2d eye_centre)
@@ -175,12 +175,12 @@ namespace et
 
     void Visualizer::drawCorneaCentre(cv::Point2d cornea_centre)
     {
-        cv::circle(image_, cornea_centre, 2, cv::Scalar(0x00, 0x80, 0x00), 5);
+//        cv::circle(image_, cornea_centre, 2, cv::Scalar(0x00, 0x80, 0x00), 5);
     }
 
     void Visualizer::drawGlintEllipse(cv::RotatedRect ellipse)
     {
-        cv::ellipse(image_, ellipse, cv::Scalar(0xFF, 0xFF, 0x00), 1);
+//        cv::ellipse(image_, ellipse, cv::Scalar(0xFF, 0xFF, 0x00), 1);
     }
 
     void Visualizer::drawFps()

@@ -4,17 +4,16 @@
 #include "EyeEstimator.hpp"
 #include "eye_tracker/optimizers/PolynomialFit.hpp"
 
-namespace et
-{
+namespace et {
 
     class PolynomialEyeEstimator : public EyeEstimator {
     public:
         PolynomialEyeEstimator(int camera_id);
 
-        bool fitModel(std::vector<cv::Point2d> &pupils, std::vector<cv::RotatedRect> &ellipses,
-                      std::vector<cv::Point3d> &eye_centres, std::vector<cv::Vec2d> &angles);
+        bool fitModel(std::vector<cv::Point2d>& pupils, std::vector<cv::RotatedRect>& ellipses,
+                      std::vector<cv::Point3d>& eye_centres, std::vector<cv::Vec2d>& angles);
 
-        bool detectEye(EyeInfo &eye_info, cv::Point3d &eye_centre, cv::Vec2d &angles) override;
+        bool detectEye(EyeInfo& eye_info, cv::Point3d& eye_centre, cv::Point3d& nodal_point, cv::Vec2d& angles) override;
 
         Coefficients getCoefficients() const;
 

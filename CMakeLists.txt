@@ -20,4 +20,6 @@ if (UNIX)
     add_subdirectory(eye_tracker)
 endif ()
 
+message("Build type: ${CMAKE_BUILD_TYPE}")
+
 add_subdirectory(apps)

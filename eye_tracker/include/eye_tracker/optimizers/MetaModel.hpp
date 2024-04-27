@@ -26,11 +26,45 @@ namespace et {
         std::vector<bool> glints_validity;
     };
 
+    struct CalibrationInput {
+        cv::Point3d eye_position;
+        cv::Point3d cornea_position;
+        cv::Vec2d angles;
+        cv::Vec2d pcr_distance;
+        double timestamp;
+    };
+
+    struct CalibrationOutput {
+        cv::Point3d eye_position;
+        std::vector<cv::Point3d> marker_positions;
+        std::vector<double> timestamps;
+    };
+
+    struct MetaModelData {
+        cv::Point3d real_eye_position;
+        std::vector<cv::Point3d> real_marker_positions;
+
+        std::vector<cv::Point3d> estimated_eye_positions;
+
+        std::vector<cv::Point3d> real_cornea_positions;
+        std::vector<cv::Point3d> estimated_cornea_positions;
+
+        std::vector<double> real_angles_theta;
+        std::vector<double> real_angles_phi;
+        std::vector<double> estimated_angles_theta;
+        std::vector<double> estimated_angles_phi;
+
+        std::vector<double> pcr_distances_x;
+        std::vector<double> pcr_distances_y;
+    };
+
     class MetaModel {
     public:
-        MetaModel(int camera_id);
+        explicit MetaModel(int camera_id);
 
         void findMetaModel(const std::vector<CalibrationSample>& calibration_data, bool from_scratch);
+
+        void findOnlineMetaModel(const std::vector<CalibrationInput>& calibration_input, const CalibrationOutput& calibration_output, bool from_scratch);
 
     private:
         VisualAnglesOptimizer* visual_angles_optimizer_{};

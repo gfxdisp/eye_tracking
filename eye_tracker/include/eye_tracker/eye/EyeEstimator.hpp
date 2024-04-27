@@ -2,6 +2,7 @@
 #define HDRMFS_EYE_TRACKER_EYEESTIMATOR_HPP
 
 #include "eye_tracker/Settings.hpp"
+#include "eye_tracker/optimizers/PolynomialFit.hpp"
 
 #include <opencv2/core/types.hpp>
 #include <vector>
@@ -24,7 +25,7 @@ namespace et
     public:
         EyeEstimator(int camera_id);
 
-        virtual bool detectEye(EyeInfo &eye_info, cv::Point3d &eye_centre, cv::Vec2d &angles) = 0;
+        virtual bool detectEye(EyeInfo &eye_info, cv::Point3d &eye_centre, cv::Point3d& nodal_point, cv::Vec2d &angles) = 0;
 
         virtual bool
         findPupilDiameter(cv::Point2d pupil_pix_position, int pupil_px_radius, const cv::Vec3d &cornea_centre_position,
@@ -33,7 +34,7 @@ namespace et
         virtual void getGazeDirection(cv::Point3d nodal_point, cv::Point3d eye_centre, cv::Vec3d &gaze_direction);
 
 
-        bool findEye(EyeInfo &eye_info);
+        bool findEye(EyeInfo &eye_info, bool add_correction);
 
         /**
          * Retrieves eye centre position in camera space previously calculated using
@@ -77,7 +78,7 @@ namespace et
          * calculations from getEyeFromModel() or getEyeFromPolynomial().
          * @return Eye centre position.
          */
-        cv::Point2d getEyeCentrePixelPosition();
+        cv::Point2d getEyeCentrePixelPosition(bool use_offset = true);
 
 
 
@@ -151,6 +152,10 @@ namespace et
         cv::Vec3d gaze_direction_{};
 
         cv::Vec3d camera_nodal_point_{};
+
+        std::shared_ptr<PolynomialFit> theta_fit_{};
+        std::shared_ptr<PolynomialFit> phi_fit_{};
+        cv::Point3d eye_position_offset_{};
     };
 
 } // et

@@ -86,6 +86,7 @@ namespace et
             }
             mean_point.x /= (double) contour.size();
             mean_point.y /= (double) contour.size();
+            mean_point += cv::Point2d(4, 4); // Shift the center to account for the template size.
             glints.push_back(mean_point);
         }
 

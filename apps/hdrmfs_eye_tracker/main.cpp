@@ -40,32 +40,33 @@ int main(int argc, char *argv[])
         }
     }
 
+    int n_cameras = 1;
+
     auto settings = std::make_shared<et::Settings>(settings_path);
     std::shared_ptr<et::Framework> frameworks[2];
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < n_cameras; i++)
     {
         if (!et::Settings::parameters.features_params[i].contains(user))
         {
             et::Settings::parameters.features_params[i][user] = et::Settings::parameters.features_params[i]["default"];
         }
         et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
-//        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
+        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
 //        frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/mnt/d/Downloads/et_test/2024-02-28_17-38-58_0.mp4", true);
     }
 
 
-    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/et_videos_2024-04-20_1/2024-04-20_16-07-35_0.mp4", true);
-    frameworks[1] = std::make_shared<et::VideoCameraFramework>(1, headless, "/mnt/d/Downloads/et_videos_2024-04-20_1/2024-04-20_16-22-52_1.mp4", true);
+//    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/et_videos_2024-04-20_1/2024-04-20_15-56-59_0.mp4", true);
+//    frameworks[1] = std::make_shared<et::VideoCameraFramework>(1, headless, "/mnt/d/Downloads/et_videos_2024-04-20_1/2024-04-20_16-22-52_1.mp4", true);
 
     auto socket_server = std::make_shared<et::SocketServer>(frameworks[0], frameworks[1]);
     socket_server->startServer();
-//    frameworks[0]->switchVideoRecordingState();
 
     while (!socket_server->finished)
     {
         int key_pressed = cv::pollKey() & 0xFFFF;
 
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < n_cameras; i++)
         {
             if (!frameworks[i]->analyzeNextFrame())
             {
@@ -85,7 +86,7 @@ int main(int argc, char *argv[])
                     break;
                 case 'v':
                 {
-                    frameworks[i]->switchVideoRecordingState();
+                    frameworks[i]->startRecording();
                     break;
                 }
                 case 'p':

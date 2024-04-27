@@ -9,6 +9,6 @@ namespace et
     {
         image_provider_ = std::make_shared<InputVideo>(input_video_path, loop);
         feature_detector_ = std::make_shared<CameraFeatureAnalyser>(camera_id);
-        eye_estimator_ = std::make_shared<PolynomialEyeEstimator>(camera_id);
+        eye_estimator_ = std::make_shared<ModelEyeEstimator>(camera_id);
     }
 } // et

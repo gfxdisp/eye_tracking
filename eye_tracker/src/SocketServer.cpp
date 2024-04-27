@@ -194,6 +194,127 @@ namespace et {
                         }
                         break;
                     }
+                    case MSG_START_ONLINE_CALIBRATION: {
+                        char camera_id;
+                        if (!readAll(&camera_id, sizeof(camera_id))) {
+                            goto connect_failure;
+                        }
+
+                        if (camera_id != 0 && camera_id != 1) {
+                            goto connect_failure;
+                        }
+
+                        eye_trackers_[camera_id]->startOnlineCalibration();
+                        char done = 1;
+                        if (!sendAll(&done, sizeof(done))) {
+                            goto connect_failure;
+                        }
+                        break;
+                    }
+                    case MSG_STOP_ONLINE_CALIBRATION: {
+                        char camera_id;
+                        if (!readAll(&camera_id, sizeof(camera_id))) {
+                            goto connect_failure;
+                        }
+
+                        if (camera_id != 0 && camera_id != 1) {
+                            goto connect_failure;
+                        }
+
+                        bool from_scratch;
+                        if (!readAll(&from_scratch, sizeof(from_scratch))) {
+                            goto connect_failure;
+                        }
+
+                        online_calibration_data_received_.timestamps.clear();
+                        online_calibration_data_received_.marker_positions.clear();
+
+                        if (!readAll(&online_calibration_data_received_.eye_position, sizeof(online_calibration_data_received_.eye_position))) {
+                            goto connect_failure;
+                        }
+
+                        int data_count;
+                        if (!readAll(&data_count, sizeof(data_count))) {
+                            goto connect_failure;
+                        }
+                        for (int i = 0; i < data_count; ++i) {
+                            cv::Point3d marker_position;
+                            if (!readAll(&marker_position, sizeof(marker_position))) {
+                                goto connect_failure;
+                            }
+                            online_calibration_data_received_.marker_positions.push_back(marker_position);
+                        }
+                        for (int i = 0; i < data_count; ++i) {
+                            double timestamp;
+                            if (!readAll(&timestamp, sizeof(timestamp))) {
+                                goto connect_failure;
+                            }
+                            online_calibration_data_received_.timestamps.push_back(timestamp);
+                        }
+
+                        eye_trackers_[camera_id]->stopOnlineCalibration(online_calibration_data_received_, from_scratch);
+                        char done = 1;
+                        if (!sendAll(&done, sizeof(done))) {
+                            goto connect_failure;
+                        }
+                        break;
+                    }
+                    case MSG_START_RECORDING:
+                    {
+                        char camera_id;
+                        if (!readAll(&camera_id, sizeof(camera_id)))
+                        {
+                            goto connect_failure;
+                        }
+
+                        if (camera_id != 0 && camera_id != 1)
+                        {
+                            goto connect_failure;
+                        }
+
+                        int string_length;
+                        if (!readAll(&string_length, sizeof(string_length)))
+                        {
+                            goto connect_failure;
+                        }
+                        if (!readAll(message_buffer_, string_length))
+                        {
+                            goto connect_failure;
+                        }
+                        message_buffer_[string_length] = '\0';
+
+                        std::string filename = std::string(message_buffer_);
+
+                        eye_trackers_[camera_id]->startRecording(filename);
+                        char done = 1;
+                        if (!sendAll(&done, sizeof(done)))
+                        {
+                            goto connect_failure;
+                        }
+                        break;
+                    }
+
+                    case MSG_STOP_RECORDING:
+                    {
+                        char camera_id;
+                        if (!readAll(&camera_id, sizeof(camera_id)))
+                        {
+                            goto connect_failure;
+                        }
+
+                        if (camera_id != 0 && camera_id != 1)
+                        {
+                            goto connect_failure;
+                        }
+
+                        eye_trackers_[camera_id]->stopRecording();
+                        char done = 1;
+                        if (!sendAll(&done, sizeof(done)))
+                        {
+                            goto connect_failure;
+                        }
+                        break;
+                    }
                 }
             }
             connect_failure:

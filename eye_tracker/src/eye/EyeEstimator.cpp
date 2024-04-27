@@ -16,6 +16,11 @@ namespace et
         extrinsic_matrix_ = Settings::parameters.camera_params[camera_id].extrinsic_matrix.t();
 
         camera_nodal_point_ = {0, 0, 0};
+        eye_position_offset_ = features_params_->position_offset;
+        theta_fit_ = std::make_shared<PolynomialFit>(2, 2);
+        theta_fit_->setCoefficients(features_params_->polynomial_theta);
+        phi_fit_ = std::make_shared<PolynomialFit>(2, 2);
+        phi_fit_->setCoefficients(features_params_->polynomial_phi);
     }
 
     cv::Vec3d EyeEstimator::ICStoCCS(const cv::Point2d point)
@@ -204,24 +209,34 @@ namespace et
         return cornea_centre_pixel_;
     }
 
-    cv::Point2d EyeEstimator::getEyeCentrePixelPosition()
+    cv::Point2d EyeEstimator::getEyeCentrePixelPosition(bool use_offset)
     {
-        return eye_centre_pixel_;
+        if (use_offset)
+        {
+            return eye_centre_pixel_;
+        }
+        return WCStoICS(eye_centre_ - eye_position_offset_);
     }
 
-    bool EyeEstimator::findEye(EyeInfo &eye_info)
+    bool EyeEstimator::findEye(EyeInfo &eye_info, bool add_correction)
     {
         cv::Point3d eye_centre{};
         cv::Point2d eye_centre_pixel{}, cornea_centre_pixel{};
         cv::Vec2d angle{};
         double pupil_diameter{};
         cv::Vec3d gaze_direction{};
+        cv::Point3d nodal_point{};
 
-        bool result = detectEye(eye_info, eye_centre, angle);
+        bool result = detectEye(eye_info, eye_centre, nodal_point, angle);
+
+        if (add_correction) {
+            eye_centre += features_params_->position_offset;
+            double theta = theta_fit_->getEstimation({angle[0], angle[1]});
+            double phi = phi_fit_->getEstimation({angle[0], angle[1]});
+            angle = {theta, phi};
+        }
 
         Utils::anglesToVector(angle, gaze_direction);
-        // It's not a real nodal point, but it's close enough.
-        cv::Point3d nodal_point = eye_centre + static_cast<cv::Point3d>(gaze_direction) * eye_measurements.cornea_centre_distance;
 
         eye_centre_pixel = WCStoICS(eye_centre);
         cornea_centre_pixel = WCStoICS(nodal_point);
