@@ -16,12 +16,12 @@ namespace et
     bool ContourPositionEstimator::findPupil(cv::Mat &image, cv::Point2d &pupil_position, double &radius)
     {
         cv::findContours(image, contours_, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
-        cv::Point2d best_pupil_position{};
-        double best_radius{};
         double best_rating{0};
 
         cv::Point2d image_centre{*pupil_search_centre_};
         auto max_distance = (double) (*pupil_search_radius_);
+
+        std::vector<cv::Point> best_contour;
 
         // All the contours are analyzed
         for (const std::vector<cv::Point> &contour: contours_)
@@ -52,9 +52,8 @@ namespace et
             double rating = contour_area / circle_area;
             if (rating >= best_rating)
             {
-                best_pupil_position = est_pupil_position;
                 best_rating = rating;
-                best_radius = est_radius;
+                best_contour = contour;
             }
         }
 
@@ -63,8 +62,12 @@ namespace et
             return false;
         }
 
-        pupil_position = best_pupil_position;
-        radius = best_radius;
+        cv::Point2f pupil_position_f;
+        float radius_f;
+        cv::minEnclosingCircle(best_contour, pupil_position_f, radius_f);
+
+        pupil_position = pupil_position_f;
+        radius = radius_f;
         return true;
     }
 
