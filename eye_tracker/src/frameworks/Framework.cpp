@@ -107,14 +107,17 @@ namespace et {
     }
 
     void Framework::stopRecording() {
+        mutex.lock();
         if (output_video_.isOpened()) {
             std::clog << "Finished video recording.\n";
             output_video_.release();
         }
         if (output_video_ui_.isOpened()) {
             std::clog << "Finished video UI recording.\n";
+            
             output_video_ui_.release();
         }
+        mutex.unlock();
     }
 
     void Framework::captureCameraImage() {
@@ -158,9 +161,11 @@ namespace et {
             visualizer_->show();
         }
 
+        mutex.lock();
         if (output_video_ui_.isOpened()) {
             output_video_ui_.write(visualizer_->getUiImage());
         }
+        mutex.unlock();
     }
 
     void Framework::disableImageUpdate() {

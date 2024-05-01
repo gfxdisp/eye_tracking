@@ -129,6 +129,7 @@ namespace et {
         eye_centre = eye_centre_vec;
 
         eye_centre = CCStoWCS(eye_centre);
+
         nodal_point = CCStoWCS(nodal_point);
 
         cv::Point3d optical_axis_p = nodal_point - eye_centre;

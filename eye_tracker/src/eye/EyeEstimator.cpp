@@ -1,3 +1,5 @@
+#include<iostream>
+
 #include "eye_tracker/eye/EyeEstimator.hpp"
 #include "eye_tracker/Utils.hpp"
 
@@ -231,6 +233,7 @@ namespace et
 
         if (add_correction) {
             eye_centre += features_params_->position_offset;
+            nodal_point += features_params_->position_offset;
             double theta = theta_fit_->getEstimation({angle[0], angle[1]});
             double phi = phi_fit_->getEstimation({angle[0], angle[1]});
             angle = {theta, phi};

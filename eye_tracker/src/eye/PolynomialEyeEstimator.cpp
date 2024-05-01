@@ -1,4 +1,5 @@
 #include <random>
+#include <iostream>
 #include "eye_tracker/eye/PolynomialEyeEstimator.hpp"
 #include "eye_tracker/Utils.hpp"
 
@@ -156,6 +157,8 @@ namespace et {
 
     bool PolynomialEyeEstimator::detectEye(EyeInfo& eye_info, cv::Point3d& eye_centre, cv::Point3d& nodal_point, cv::Vec2d& angles) {
         std::vector<double> input_data(8);
+
+        std::cout << "Polynomial!\n";
 
         input_data[0] = eye_info.pupil.x;
         input_data[1] = eye_info.pupil.y;

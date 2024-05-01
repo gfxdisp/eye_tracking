@@ -430,6 +430,40 @@ namespace et {
         cum_samples_per_marker.push_back(0);
         cum_samples_per_marker.push_back(0);
 
+        std::vector<std::vector<double>> full_data{};
+        for (int i = 0; i < calibration_input.size(); i++) {
+            std::vector<double> data_point{};
+            data_point.push_back(calibration_input[i].eye_position.x);
+            data_point.push_back(calibration_input[i].eye_position.y);
+            data_point.push_back(calibration_input[i].eye_position.z);
+            data_point.push_back(calibration_input[i].cornea_position.x);
+            data_point.push_back(calibration_input[i].cornea_position.y);
+            data_point.push_back(calibration_input[i].cornea_position.z);
+            data_point.push_back(calibration_input[i].angles[0]);
+            data_point.push_back(calibration_input[i].angles[1]);
+            data_point.push_back(calibration_input[i].pcr_distance[0]);
+            data_point.push_back(calibration_input[i].pcr_distance[1]);
+            data_point.push_back(calibration_input[i].timestamp);
+            full_data.push_back(data_point);
+        }       
+
+        Utils::writeFloatCsv(full_data, "input_data.csv");
+
+        full_data.clear();
+        for (int i = 0; i < calibration_output.marker_positions.size(); i++) {
+            std::vector<double> data_point{};
+            data_point.push_back(calibration_output.eye_position.x);
+            data_point.push_back(calibration_output.eye_position.y);
+            data_point.push_back(calibration_output.eye_position.z);
+            data_point.push_back(calibration_output.marker_positions[i].x);
+            data_point.push_back(calibration_output.marker_positions[i].y);
+            data_point.push_back(calibration_output.marker_positions[i].z);
+            data_point.push_back(calibration_output.timestamps[i]);
+            full_data.push_back(data_point);
+        }       
+
+        Utils::writeFloatCsv(full_data, "output_data.csv");
+
         double start_timestamp = 0;
 
         for (const auto & sample : calibration_input) {
@@ -524,7 +558,7 @@ namespace et {
             std::mt19937 generator(random_device());
 
             int min_fitting_size = static_cast<int>(polynomial_fit_pcr_x->getCoefficients().size());
-            int trials_num = 100'000;
+            int trials_num = 100'00;
             std::vector<std::vector<int>> trials{};
             std::vector<int> indices{};
             for (int i = 0; i < total_markers || i < min_fitting_size; i++) {
@@ -557,6 +591,8 @@ namespace et {
             std::vector<double> output_phi_sample{};
 
             for (int i = 0; i < trials_num; i++) {
+
+                //std::cout << i << "\n";
 
                 input_x_y_sample.clear();
                 input_theta_phi_sample.clear();
@@ -656,7 +692,8 @@ namespace et {
         std::vector<double> position_errors{};
         std::vector<double> angle_errors_pcr{};
         std::vector<double> angle_errors_poly_fit{};
-        std::vector<std::vector<double>> full_data{};
+        //std::vector<std::vector<double>> full_data{};
+        full_data.clear();
 
         for (int j = 0; j < total_samples; j++) {
             std::vector<double> data_point{};
