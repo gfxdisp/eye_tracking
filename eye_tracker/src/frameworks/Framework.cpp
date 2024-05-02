@@ -217,6 +217,7 @@ namespace et {
         std::cout << "Stopping online calibration" << std::endl;
         online_calibration_running_ = false;
         meta_model_->findOnlineMetaModel(calibration_input_, calibration_output, calibrate_from_scratch);
+        eye_estimator_->updateFineTuning();
     }
 
     void Framework::loadOldCalibrationData(const std::string& path, bool calibrate_from_scratch) {

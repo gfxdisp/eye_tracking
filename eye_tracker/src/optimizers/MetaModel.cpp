@@ -431,7 +431,7 @@ namespace et {
         cum_samples_per_marker.push_back(0);
 
         std::vector<std::vector<double>> full_data{};
-        for (int i = 0; i < calibration_input.size(); i++) {
+/*        for (int i = 0; i < calibration_input.size(); i++) {
             std::vector<double> data_point{};
             data_point.push_back(calibration_input[i].eye_position.x);
             data_point.push_back(calibration_input[i].eye_position.y);
@@ -445,7 +445,7 @@ namespace et {
             data_point.push_back(calibration_input[i].pcr_distance[1]);
             data_point.push_back(calibration_input[i].timestamp);
             full_data.push_back(data_point);
-        }       
+        }
 
         Utils::writeFloatCsv(full_data, "input_data.csv");
 
@@ -460,11 +460,12 @@ namespace et {
             data_point.push_back(calibration_output.marker_positions[i].z);
             data_point.push_back(calibration_output.timestamps[i]);
             full_data.push_back(data_point);
-        }       
+        }
 
-        Utils::writeFloatCsv(full_data, "output_data.csv");
+        Utils::writeFloatCsv(full_data, "output_data.csv"); */
 
         double start_timestamp = 0;
+        int counter = 0;
 
         for (const auto & sample : calibration_input) {
             if (sample.timestamp > calibration_output.timestamps[calibration_output.timestamps.size() - 1]) {
@@ -535,8 +536,11 @@ namespace et {
         std::vector<bool> best_x_y_samples{};
         std::vector<bool> best_theta_phi_samples{};
 
+
         auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.0);
         auto eye_position_offset = meta_model_data.real_eye_position - mean_estimated_eye_position;
+
+//        eye_position_offset = {28.6498, 8.7856, 26.9740};
 
         std::cout << "Position offset: " << eye_position_offset << std::endl;
 
@@ -558,7 +562,7 @@ namespace et {
             std::mt19937 generator(random_device());
 
             int min_fitting_size = static_cast<int>(polynomial_fit_pcr_x->getCoefficients().size());
-            int trials_num = 100'00;
+            int trials_num = 10'000;
             std::vector<std::vector<int>> trials{};
             std::vector<int> indices{};
             for (int i = 0; i < total_markers || i < min_fitting_size; i++) {
@@ -764,4 +768,32 @@ namespace et {
         std_error = Utils::getStdDev<double>(angle_errors_pcr);
         std::cout << "Glint-pupil error: " << mean_error << " ± " << std_error << std::endl;
     }
+
+    void MetaModel::findOnlineMetaModel(const std::string& calibration_input_path, const std::string& calibration_output_path, bool from_scratch) {
+        std::vector<CalibrationInput> calibration_input{};
+        CalibrationOutput calibration_output{};
+
+        std::vector<std::vector<double>> data{};
+        data = Utils::readFloatRowsCsv(calibration_input_path);
+        for (auto & i : data) {
+            CalibrationInput sample{};
+            sample.eye_position = {i[0], i[1], i[2]};
+            sample.cornea_position = {i[3], i[4], i[5]};
+            sample.angles = {i[6], i[7]};
+            sample.pcr_distance = {i[8], i[9]};
+            sample.timestamp = i[10];
+            calibration_input.push_back(sample);
+        }
+        data.clear();
+
+        data = Utils::readFloatRowsCsv(calibration_output_path);
+        calibration_output.eye_position = {data[0][0], data[0][1], data[0][2]};
+        for (auto & i : data) {
+            calibration_output.marker_positions.emplace_back(i[3], i[4], i[5]);
+            calibration_output.timestamps.push_back(i[6]);
+        }
+
+        findOnlineMetaModel(calibration_input, calibration_output, from_scratch);
+    }
+
 } // et

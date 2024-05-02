@@ -168,6 +168,7 @@ namespace et
         bool wereFeaturesFound();
 
         static std::mutex mutex;
+        std::shared_ptr<EyeEstimator> eye_estimator_{};
 
     protected:
         // Object serving as a video feed.
@@ -177,7 +178,6 @@ namespace et
         // Object showing windows with output.
         std::shared_ptr<Visualizer> visualizer_{};
 
-        std::shared_ptr<EyeEstimator> eye_estimator_{};
 
         std::shared_ptr<MetaModel> meta_model_{};
 

@@ -18,11 +18,6 @@ namespace et
         extrinsic_matrix_ = Settings::parameters.camera_params[camera_id].extrinsic_matrix.t();
 
         camera_nodal_point_ = {0, 0, 0};
-        eye_position_offset_ = features_params_->position_offset;
-        theta_fit_ = std::make_shared<PolynomialFit>(2, 2);
-        theta_fit_->setCoefficients(features_params_->polynomial_theta);
-        phi_fit_ = std::make_shared<PolynomialFit>(2, 2);
-        phi_fit_->setCoefficients(features_params_->polynomial_phi);
     }
 
     cv::Vec3d EyeEstimator::ICStoCCS(const cv::Point2d point)
@@ -232,8 +227,8 @@ namespace et
         bool result = detectEye(eye_info, eye_centre, nodal_point, angle);
 
         if (add_correction) {
-            eye_centre += features_params_->position_offset;
-            nodal_point += features_params_->position_offset;
+            eye_centre += eye_position_offset_;
+            nodal_point += eye_position_offset_;
             double theta = theta_fit_->getEstimation({angle[0], angle[1]});
             double phi = phi_fit_->getEstimation({angle[0], angle[1]});
             angle = {theta, phi};
@@ -262,5 +257,13 @@ namespace et
         mtx_eye_position_.lock();
         gaze_direction = gaze_direction_;
         mtx_eye_position_.unlock();
+    }
+
+    void EyeEstimator::updateFineTuning() {
+        eye_position_offset_ = features_params_->position_offset;
+        theta_fit_ = std::make_shared<PolynomialFit>(2, 2);
+        theta_fit_->setCoefficients(features_params_->polynomial_theta);
+        phi_fit_ = std::make_shared<PolynomialFit>(2, 2);
+        phi_fit_->setCoefficients(features_params_->polynomial_phi);
     }
 } // et

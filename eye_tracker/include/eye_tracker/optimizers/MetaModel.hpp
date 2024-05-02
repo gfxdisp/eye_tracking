@@ -66,6 +66,8 @@ namespace et {
 
         void findOnlineMetaModel(const std::vector<CalibrationInput>& calibration_input, const CalibrationOutput& calibration_output, bool from_scratch);
 
+        void findOnlineMetaModel(const std::string& calibration_input_path, const std::string& calibration_output_path, bool from_scratch);
+
     private:
         VisualAnglesOptimizer* visual_angles_optimizer_{};
         cv::Ptr<cv::DownhillSolver::Function> visual_angles_minimizer_function_{};

@@ -80,6 +80,8 @@ namespace et
          */
         cv::Point2d getEyeCentrePixelPosition(bool use_offset = true);
 
+        void updateFineTuning();
+
 
 
         EyeMeasurements eye_measurements{};

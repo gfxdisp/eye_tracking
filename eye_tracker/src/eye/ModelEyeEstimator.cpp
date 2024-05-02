@@ -100,7 +100,7 @@ namespace et {
             return false;
         }
 
-        cv::Vec3d avg_np2c_dir = Utils::getMean(np2c_dirs);
+        cv::Vec3d avg_np2c_dir = Utils::getMedian(np2c_dirs);
         avg_np2c_dir = cv::normalize(avg_np2c_dir);
 
         if (nodal_point_optimizer_) {
