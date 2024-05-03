@@ -279,10 +279,10 @@ namespace et {
         gaze_direction_ = gaze_direction;
         pcr_gaze_direction_ = visual_axis;
         gaze_point_ = {gaze_point.x, gaze_point.y};
-//        normalized_gaze_point_.x = (gaze_point.x - min_width_) / (max_width_ - min_width_);
-//        normalized_gaze_point_.y = (gaze_point.y - min_height_) / (max_height_ - min_height_);
-        normalized_gaze_point_.x = (predicted_marker_position.x - min_width_) / (max_width_ - min_width_);
-        normalized_gaze_point_.y = (predicted_marker_position.y - min_height_) / (max_height_ - min_height_);
+        normalized_gaze_point_.x = (gaze_point.x - min_width_) / (max_width_ - min_width_);
+        normalized_gaze_point_.y = (gaze_point.y - min_height_) / (max_height_ - min_height_);
+//        normalized_gaze_point_.x = (predicted_marker_position.x - min_width_) / (max_width_ - min_width_);
+//        normalized_gaze_point_.y = (predicted_marker_position.y - min_height_) / (max_height_ - min_height_);
         mtx_eye_position_.unlock();
 
         return result;
