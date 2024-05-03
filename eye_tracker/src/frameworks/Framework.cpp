@@ -32,7 +32,6 @@ namespace et {
             return false;
         }
 
-        mutex.lock();
         analyzed_frame_ = image_provider_->grabImage();
         const auto now = std::chrono::system_clock::now();
         if (analyzed_frame_.pupil.empty() || analyzed_frame_.glints.empty()) {
@@ -58,6 +57,12 @@ namespace et {
             };
             eye_estimator_->findEye(eye_info, !online_calibration_running_);
             eye_estimator_->getCorneaCurvaturePosition(cornea_centre);
+            previous_cornea_centres_[cornea_history_index_] = eye_estimator_->getCorneaCurvaturePixelPosition(false);
+            cornea_history_index_++;
+            if (cornea_history_index_ >= CORNEA_HISTORY_SIZE) {
+                cornea_history_index_ = 0;
+                cornea_history_full_ = true;
+            }
         }
 
         if (output_video_.isOpened()) {
@@ -66,8 +71,6 @@ namespace et {
 
         feature_detector_->updateGazeBuffer();
         frame_counter_++;
-
-        mutex.unlock();
 
         if (online_calibration_running_ && features_found_) {
             CalibrationInput sample;
@@ -99,9 +102,9 @@ namespace et {
                 filename_ui = "videos/" + name + "_" + std::to_string(camera_id_) + "_ui.mp4";
             }
             std::clog << "Saving video to " << filename << "\n";
-            output_video_.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 10,
+            output_video_.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
                                et::Settings::parameters.camera_params[camera_id_].region_of_interest, false);
-            output_video_ui_.open(filename_ui, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 10,
+            output_video_ui_.open(filename_ui, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
                                   et::Settings::parameters.camera_params[camera_id_].region_of_interest, true);
         }
     }
@@ -152,7 +155,8 @@ namespace et {
                                    feature_detector_->getPupilRadiusDistorted());
             visualizer_->drawEyeCentre(feature_detector_->distort(eye_estimator_->getEyeCentrePixelPosition(false)));
             visualizer_->drawCorneaCentre(
-                    feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition()));
+                    feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition(false)));
+            visualizer_->drawCorneaTrace(previous_cornea_centres_, cornea_history_full_ ? (cornea_history_index_ + 1) % CORNEA_HISTORY_SIZE : 0, cornea_history_index_, CORNEA_HISTORY_SIZE);
 
             visualizer_->drawGlintEllipse(feature_detector_->getEllipseDistorted());
             visualizer_->drawGlints(feature_detector_->getDistortedGlints(), feature_detector_->getGlintsValidity());

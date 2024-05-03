@@ -138,10 +138,6 @@ namespace et {
         cv::Point3d visual_axis = Utils::opticalToVisualAxis(optical_axis, eye_measurements.alpha,
                                                              eye_measurements.beta);
         Utils::vectorToAngles(visual_axis, angles);
-
-        if (eye_centre_vec == cv::Vec3d()) {
-            return false;
-        }
         return true;
     }
 

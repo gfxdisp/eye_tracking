@@ -71,7 +71,7 @@ namespace et
          * calculations from getEyeFromModel() or getEyeFromPolynomial().
          * @return Cornea centre position.
          */
-        cv::Point2d getCorneaCurvaturePixelPosition();
+        cv::Point2d getCorneaCurvaturePixelPosition(bool use_offset = true);
 
         /**
          * Retrieves eye centre position projected to image space based on

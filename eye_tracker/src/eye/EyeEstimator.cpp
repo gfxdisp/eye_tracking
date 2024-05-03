@@ -16,8 +16,11 @@ namespace et
         createInvertedProjectionMatrix();
         inv_extrinsic_matrix_ = Settings::parameters.camera_params[camera_id].extrinsic_matrix.inv().t();
         extrinsic_matrix_ = Settings::parameters.camera_params[camera_id].extrinsic_matrix.t();
+        theta_fit_ = std::make_shared<PolynomialFit>(2, 2);
+        phi_fit_ = std::make_shared<PolynomialFit>(2, 2);
 
         camera_nodal_point_ = {0, 0, 0};
+        updateFineTuning();
     }
 
     cv::Vec3d EyeEstimator::ICStoCCS(const cv::Point2d point)
@@ -201,9 +204,13 @@ namespace et
         mtx_eye_position_.unlock();
     }
 
-    cv::Point2d EyeEstimator::getCorneaCurvaturePixelPosition()
+    cv::Point2d EyeEstimator::getCorneaCurvaturePixelPosition(bool use_offset)
     {
-        return cornea_centre_pixel_;
+        if (use_offset)
+        {
+            return cornea_centre_pixel_;
+        }
+        return WCStoICS(cornea_centre_ - eye_position_offset_);
     }
 
     cv::Point2d EyeEstimator::getEyeCentrePixelPosition(bool use_offset)
@@ -261,9 +268,7 @@ namespace et
 
     void EyeEstimator::updateFineTuning() {
         eye_position_offset_ = features_params_->position_offset;
-        theta_fit_ = std::make_shared<PolynomialFit>(2, 2);
         theta_fit_->setCoefficients(features_params_->polynomial_theta);
-        phi_fit_ = std::make_shared<PolynomialFit>(2, 2);
         phi_fit_->setCoefficients(features_params_->polynomial_phi);
     }
 } // et

@@ -54,25 +54,17 @@ int main(int argc, char *argv[])
             et::Settings::parameters.features_params[i][user] = et::Settings::parameters.features_params[i]["default"];
         }
         et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
+
         frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
         //frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/home/jgm45/Documents/hdr_display/eye_tracker/experiments/videos/test_video2_0.mp4", true);
     }
 
-//    std::cout << "Extrinsic matrix: " << et::Settings::parameters.camera_params[0].extrinsic_matrix << std::endl;
-//    std::cout << "Intrinsic matrix: " << et::Settings::parameters.camera_params[0].intrinsic_matrix << std::endl;
-
-//    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/c/Users/Marek/Documents/Projects/hdr_display/eye_tracker/experiments/videos/spiral_0.mp4", false);
-//    frameworks[1] = std::make_shared<et::VideoCameraFramework>(1, headless, "/mnt/d/Downloads/et_videos_2024-04-20_1/2024-04-20_16-22-52_1.mp4", true);
+//    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/spiral_0.mp4", false);
 
     auto socket_server = std::make_shared<et::SocketServer>(frameworks[0], frameworks[1]);
     socket_server->startServer();
 
-//    std::vector<std::vector<double>> data;
-//    std::shared_ptr<et::MetaModel> meta_model = std::make_shared<et::MetaModel>(0);
-//    meta_model->findOnlineMetaModel("/mnt/d/Downloads/input_data.csv", "/mnt/d/Downloads/output_data.csv", true);
-//    frameworks[0]->eye_estimator_->updateFineTuning();
-
-    et::EyeDataToSend eye_data;
+//    frameworks[0]->startRecording();
     while (!socket_server->finished)
     {
         int key_pressed = cv::pollKey() & 0xFFFF;
@@ -85,9 +77,6 @@ int main(int argc, char *argv[])
                 socket_server->finished = true;
                 break;
             }
-
-            frameworks[i]->getEyeDataPackage(eye_data);
-//            data.push_back({eye_data.eye_centre.x, eye_data.eye_centre.y, eye_data.eye_centre.z, eye_data.cornea_centre.x, eye_data.cornea_centre.y, eye_data.cornea_centre.z});
 
             frameworks[i]->updateUi();
             switch (key_pressed)
@@ -140,7 +129,7 @@ int main(int argc, char *argv[])
             }
         }
     }
-//    et::Utils::writeFloatCsv(data, "/mnt/c/Users/Marek/Documents/Projects/hdr_display/eye_tracker/experiments/data.csv");
+//    frameworks[0]->stopRecording();
 
     socket_server->closeSocket();
     cv::destroyAllWindows();

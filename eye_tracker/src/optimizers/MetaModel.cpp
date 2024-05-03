@@ -536,9 +536,13 @@ namespace et {
         std::vector<bool> best_x_y_samples{};
         std::vector<bool> best_theta_phi_samples{};
 
+        auto mean_real_cornea_position = Utils::getMean<cv::Point3d>(meta_model_data.real_cornea_positions);
+        auto mean_estimated_cornea_position = Utils::getTrimmmedMean(meta_model_data.estimated_cornea_positions, 0.5);
+        auto eye_position_offset = mean_real_cornea_position - mean_estimated_cornea_position;
 
-        auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.0);
-        auto eye_position_offset = meta_model_data.real_eye_position - mean_estimated_eye_position;
+
+//        auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.5);
+//        auto eye_position_offset = meta_model_data.real_eye_position - mean_estimated_eye_position;
 
 //        eye_position_offset = {28.6498, 8.7856, 26.9740};
 

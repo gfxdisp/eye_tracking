@@ -6,6 +6,7 @@
 #include <opencv2/opencv.hpp>
 
 #include <string_view>
+#include <queue>
 
 namespace et
 {
@@ -69,6 +70,8 @@ namespace et
          * @param ellipse Ellipse formed from glints.
          */
         void drawGlintEllipse(cv::RotatedRect ellipse);
+
+        void drawCorneaTrace(cv::Point2d* cornea_centres, int start, int end, int length);
 
         /**
          * Draws a text with measured framerate in the image loaded with prepareImage().
