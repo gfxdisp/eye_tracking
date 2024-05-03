@@ -515,6 +515,17 @@ namespace et {
         }
         total_markers++;
 
+        // std::vector<cv::Point3d> first_marker_eye_positions{};
+        // for (int i = 0; i < cum_samples_per_marker[1]; i++) {
+        //     first_marker_eye_positions.push_back(meta_model_data.estimated_eye_positions[i]);
+        // }
+
+        // std::vector<std::vector<double>> data_to_save{};
+        // for (int i = 0; i < meta_model_data.estimated_eye_positions.size(); i++) {
+        //     data_to_save.push_back({meta_model_data.estimated_eye_positions[i].x, meta_model_data.estimated_eye_positions[i].y, meta_model_data.estimated_eye_positions[i].z});
+        // }
+        // Utils::writeFloatCsv(data_to_save, "estimations.csv");
+
 
         std::vector<int> outliers = Utils::getOutliers(meta_model_data.estimated_eye_positions, 2.0);
         for (int i = 0; i < outliers.size(); i++) {
@@ -537,8 +548,12 @@ namespace et {
         std::vector<bool> best_theta_phi_samples{};
 
         auto mean_real_cornea_position = Utils::getMean<cv::Point3d>(meta_model_data.real_cornea_positions);
+        auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.5);
+        // auto mean_estimated_eye_position = Utils::getTrimmmedMean(first_marker_eye_positions, 0.5);
         auto mean_estimated_cornea_position = Utils::getTrimmmedMean(meta_model_data.estimated_cornea_positions, 0.5);
         auto eye_position_offset = mean_real_cornea_position - mean_estimated_cornea_position;
+        std::cout << "Cornea offset: " << eye_position_offset << std::endl;
+        // eye_position_offset = meta_model_data.real_eye_position - mean_estimated_eye_position;
 
 
 //        auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.5);
@@ -546,7 +561,7 @@ namespace et {
 
 //        eye_position_offset = {28.6498, 8.7856, 26.9740};
 
-        std::cout << "Position offset: " << eye_position_offset << std::endl;
+        // std::cout << "Centre offset: " << eye_position_offset << std::endl;
 
         std::shared_ptr<PolynomialFit> polynomial_fit_pcr_x = std::make_shared<PolynomialFit>(2, 2);
         std::shared_ptr<PolynomialFit> polynomial_fit_pcr_y = std::make_shared<PolynomialFit>(2, 2);
@@ -712,8 +727,17 @@ namespace et {
             data_point.push_back(meta_model_data.estimated_eye_positions[j].x + eye_position_offset.x);
             data_point.push_back(meta_model_data.estimated_eye_positions[j].y + eye_position_offset.y);
             data_point.push_back(meta_model_data.estimated_eye_positions[j].z + eye_position_offset.z);
+            data_point.push_back(meta_model_data.real_cornea_positions[j].x);
+            data_point.push_back(meta_model_data.real_cornea_positions[j].y);
+            data_point.push_back(meta_model_data.real_cornea_positions[j].z);
+            data_point.push_back(meta_model_data.estimated_cornea_positions[j].x + eye_position_offset.x);
+            data_point.push_back(meta_model_data.estimated_cornea_positions[j].y + eye_position_offset.y);
+            data_point.push_back(meta_model_data.estimated_cornea_positions[j].z + eye_position_offset.z);
             data_point.push_back(meta_model_data.real_angles_theta[j]);
             data_point.push_back(meta_model_data.real_angles_phi[j]);
+            data_point.push_back(meta_model_data.real_marker_positions[j].x);
+            data_point.push_back(meta_model_data.real_marker_positions[j].y);
+            data_point.push_back(meta_model_data.real_marker_positions[j].z);
 
             cv::Vec3d real_visual_axis = meta_model_data.real_marker_positions[j] - meta_model_data.real_cornea_positions[j];
             cv::normalize(real_visual_axis, real_visual_axis);
@@ -737,6 +761,9 @@ namespace et {
             angle_errors_pcr.push_back(angle_error);
             data_point.push_back(predicted_angle[0]);
             data_point.push_back(predicted_angle[1]);
+            data_point.push_back(predicted_marker_position.x);
+            data_point.push_back(predicted_marker_position.y);
+            data_point.push_back(predicted_marker_position.z);
 
             double estimated_theta = polynomial_fit_theta->getEstimation({meta_model_data.estimated_angles_theta[j], meta_model_data.estimated_angles_phi[j]});
             double estimated_phi = polynomial_fit_phi->getEstimation({meta_model_data.estimated_angles_theta[j], meta_model_data.estimated_angles_phi[j]});
@@ -750,13 +777,19 @@ namespace et {
             angle_errors_poly_fit.push_back(angle_error);
             data_point.push_back(predicted_angle[0]);
             data_point.push_back(predicted_angle[1]);
+            data_point.push_back(predicted_marker_position.x);
+            data_point.push_back(predicted_marker_position.y);
+            data_point.push_back(predicted_marker_position.z);
 
-            data_point.push_back(0);
-            data_point.push_back(0);
+
             full_data.push_back(data_point);
         }
 
-        Utils::writeFloatCsv(full_data, "meta_model_data_full.csv");
+        std::string header = "real_eye_x,real_eye_y,real_eye_z,est_eye_x,est_eye_y,est_eye_z,real_cornea_x,real_cornea_y,real_cornea_z,"
+        "est_cornea_x,est_cornea_y,est_cornea_z,real_theta,real_phi,real_point_x,real_point_y,real_point_z,pcr_theta,pcr_phi,pcr_point_x,"
+        "pcr_point_y,pcr_point_z,est_theta,est_phi,est_point_x,est_point_y,est_point_z";
+
+        Utils::writeFloatCsv(full_data, "meta_model_data_full.csv", false, header);
 
         std::cout << std::setprecision(3) << std::fixed;
 

@@ -85,7 +85,7 @@ namespace et
         return csv_data;
     }
 
-    void Utils::writeFloatCsv(std::vector<std::vector<double>>& data, const std::string& filename, bool append)
+    void Utils::writeFloatCsv(std::vector<std::vector<double>>& data, const std::string& filename, bool append, std::string header)
     {
         std::ofstream file;
         if (append)
@@ -95,6 +95,9 @@ namespace et
         else
         {
             file.open(filename);
+        }
+        if (!header.empty()) {
+            file << header << "\n";
         }
         for (auto& row: data)
         {

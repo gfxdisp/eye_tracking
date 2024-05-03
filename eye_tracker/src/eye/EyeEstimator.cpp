@@ -245,7 +245,7 @@ namespace et
             nodal_point += eye_position_offset_;
             double theta = theta_fit_->getEstimation({angle[0], angle[1]});
             double phi = phi_fit_->getEstimation({angle[0], angle[1]});
-//            angle = {theta, phi};
+            angle = {theta, phi};
         }
 
         Utils::anglesToVector(angle, gaze_direction);

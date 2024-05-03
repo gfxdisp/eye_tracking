@@ -34,7 +34,7 @@ namespace et
          * @param data Matrix with the float data.
          * @param filename Path to CSV file to be saved.
          */
-        static void writeFloatCsv(std::vector<std::vector<double>>& data, const std::string& filename, bool append = false);
+        static void writeFloatCsv(std::vector<std::vector<double>>& data, const std::string& filename, bool append = false, std::string header = "");
 
         /**
          * Converts current timestamp to a human-readable format.

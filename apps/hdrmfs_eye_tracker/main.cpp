@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
             }
         }
     }
-//    frameworks[0]->stopRecording();
+   frameworks[0]->stopRecording();
 
     socket_server->closeSocket();
     cv::destroyAllWindows();
