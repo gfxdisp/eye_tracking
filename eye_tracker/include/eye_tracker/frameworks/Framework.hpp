@@ -181,10 +181,15 @@ namespace et
 
         std::shared_ptr<MetaModel> meta_model_{};
 
-        constexpr static int CORNEA_HISTORY_SIZE = 1000;
+        constexpr static int CORNEA_HISTORY_SIZE = 50;
         cv::Point2d previous_cornea_centres_[CORNEA_HISTORY_SIZE]{};
         int cornea_history_index_{0};
         bool cornea_history_full_{false};
+
+        constexpr static int GAZE_HISTORY_SIZE = 50;
+        cv::Point2d previous_gaze_points_[GAZE_HISTORY_SIZE]{};
+        int gaze_point_index_{0};
+        bool gaze_point_history_full_{false};
 
         // Path to a folder with all configuration files.
         std::string settings_path_{};

@@ -63,6 +63,15 @@ namespace et {
                 cornea_history_index_ = 0;
                 cornea_history_full_ = true;
             }
+            auto gaze_point = eye_estimator_->getNormalizedGazePoint();
+            if (gaze_point.x >= 0 && gaze_point.x <= 1 && gaze_point.y >= 0 && gaze_point.y <= 1) {
+                previous_gaze_points_[gaze_point_index_] = gaze_point;
+                gaze_point_index_++;
+                if (gaze_point_index_ >= GAZE_HISTORY_SIZE) {
+                    gaze_point_index_ = 0;
+                    gaze_point_history_full_ = true;
+                }
+            }
         }
 
         if (output_video_.isOpened()) {
@@ -149,19 +158,26 @@ namespace et {
                 break;
         }
         if (visualization_type_ != VisualizationType::DISABLED) {
-            visualizer_->drawBoundingCircle(Settings::parameters.detection_params[camera_id_].pupil_search_centre,
-                                            Settings::parameters.detection_params[camera_id_].pupil_search_radius);
-            visualizer_->drawPupil(feature_detector_->getPupilDistorted(),
-                                   feature_detector_->getPupilRadiusDistorted());
-            visualizer_->drawEyeCentre(feature_detector_->distort(eye_estimator_->getEyeCentrePixelPosition(false)));
+            double pupil_diameter{};
+            eye_estimator_->getPupilDiameter(pupil_diameter);
+//            visualizer_->drawBoundingCircle(Settings::parameters.detection_params[camera_id_].pupil_search_centre,
+//                                            Settings::parameters.detection_params[camera_id_].pupil_search_radius);
+//            visualizer_->drawEyeCentre(feature_detector_->distort(eye_estimator_->getEyeCentrePixelPosition(false)));
             visualizer_->drawCorneaCentre(
                     feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition(false)));
             visualizer_->drawCorneaTrace(previous_cornea_centres_, cornea_history_full_ ? (cornea_history_index_ + 1) % CORNEA_HISTORY_SIZE : 0, cornea_history_index_, CORNEA_HISTORY_SIZE);
 
-            visualizer_->drawGlintEllipse(feature_detector_->getEllipseDistorted());
+//            visualizer_->drawGlintEllipse(feature_detector_->getEllipseDistorted());
             visualizer_->drawGlints(feature_detector_->getDistortedGlints(), feature_detector_->getGlintsValidity());
 
-            visualizer_->drawFps();
+            visualizer_->drawGazeTrace(previous_gaze_points_, gaze_point_history_full_ ? (gaze_point_index_ + 1) % GAZE_HISTORY_SIZE : 0, gaze_point_index_, GAZE_HISTORY_SIZE);
+            visualizer_->drawGaze(eye_estimator_->getNormalizedGazePoint());
+
+
+            visualizer_->drawPupil(feature_detector_->getPupilDistorted(),
+                                   feature_detector_->getPupilRadiusDistorted(), pupil_diameter);
+
+//            visualizer_->drawFps();
             visualizer_->show();
         }
 

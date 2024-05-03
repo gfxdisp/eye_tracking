@@ -19,6 +19,11 @@ namespace et
         theta_fit_ = std::make_shared<PolynomialFit>(2, 2);
         phi_fit_ = std::make_shared<PolynomialFit>(2, 2);
 
+        min_width_ = 30;
+        max_width_ = 330;
+        min_height_ = 70;
+        max_height_ = 370;
+
         camera_nodal_point_ = {0, 0, 0};
         updateFineTuning();
     }
@@ -152,14 +157,15 @@ namespace et
     bool EyeEstimator::findPupilDiameter(cv::Point2d pupil_pix_position, int pupil_px_radius,
                                          const cv::Vec3d &cornea_centre_position, double &diameter)
     {
+        cv::Vec3d ccs_cornea_centre{WCStoCCS(cornea_centre_position)};
         cv::Vec3d pupil_position{ICStoCCS(pupil_pix_position)};
 
         cv::Vec3d pupil_right_position = ICStoCCS(pupil_pix_position + cv::Point2d(pupil_px_radius, 0.0));
 
         // Estimates pupil position based on its position in the image and the cornea centre.
-        cv::Vec3d pupil = calculatePositionOnPupil(pupil_position, cornea_centre_position);
+        cv::Vec3d pupil = calculatePositionOnPupil(pupil_position, ccs_cornea_centre);
         // Estimates position of the right part of the pupil.
-        cv::Vec3d pupil_right = calculatePositionOnPupil(pupil_right_position, cornea_centre_position);
+        cv::Vec3d pupil_right = calculatePositionOnPupil(pupil_right_position, ccs_cornea_centre);
 
         if (pupil != cv::Vec3d() && pupil_right != cv::Vec3d())
         {
@@ -232,20 +238,24 @@ namespace et
         cv::Point3d nodal_point{};
 
         bool result = detectEye(eye_info, eye_centre, nodal_point, angle);
+        findPupilDiameter(eye_info.pupil, eye_info.pupil_radius, nodal_point, pupil_diameter);
 
         if (add_correction) {
             eye_centre += eye_position_offset_;
             nodal_point += eye_position_offset_;
             double theta = theta_fit_->getEstimation({angle[0], angle[1]});
             double phi = phi_fit_->getEstimation({angle[0], angle[1]});
-            angle = {theta, phi};
+//            angle = {theta, phi};
         }
 
         Utils::anglesToVector(angle, gaze_direction);
 
         eye_centre_pixel = WCStoICS(eye_centre);
         cornea_centre_pixel = WCStoICS(nodal_point);
-        findPupilDiameter(eye_info.pupil, eye_info.pupil_radius, nodal_point, pupil_diameter);
+
+        double gaze_point_depth = 0;
+        double k = (gaze_point_depth - nodal_point.z) / gaze_direction[2];
+        auto gaze_point = nodal_point + (cv::Point3d) (k * gaze_direction);
 
         mtx_eye_position_.lock();
         cornea_centre_ = nodal_point;
@@ -254,6 +264,9 @@ namespace et
         cornea_centre_pixel_ = cornea_centre_pixel;
         pupil_diameter_ = pupil_diameter;
         gaze_direction_ = gaze_direction;
+        gaze_point_ = {gaze_point.x, gaze_point.y};
+        normalized_gaze_point_.x = (gaze_point.x - min_width_) / (max_width_ - min_width_);
+        normalized_gaze_point_.y = (gaze_point.y - min_height_) / (max_height_ - min_height_);
         mtx_eye_position_.unlock();
 
         return result;
@@ -270,5 +283,9 @@ namespace et
         eye_position_offset_ = features_params_->position_offset;
         theta_fit_->setCoefficients(features_params_->polynomial_theta);
         phi_fit_->setCoefficients(features_params_->polynomial_phi);
+    }
+
+    cv::Point2d EyeEstimator::getNormalizedGazePoint() {
+        return normalized_gaze_point_;
     }
 } // et

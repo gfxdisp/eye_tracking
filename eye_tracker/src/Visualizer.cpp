@@ -124,8 +124,11 @@ namespace et {
         user_params_->exposure = (double) value / 100.0;
     }
 
-    void Visualizer::drawPupil(cv::Point2d pupil, int radius) {
+    void Visualizer::drawPupil(cv::Point2d pupil, int radius, double diameter_mm) {
         cv::circle(image_, pupil, radius, cv::Scalar(0xFF, 0xFF, 0x00), 2);
+        std::string text = cv::format("%.1f mm", diameter_mm);
+        cv::putText(image_, text, cv::Point2i(pupil.x - radius, pupil.y - 10 - radius), cv::FONT_HERSHEY_SIMPLEX, 1,
+                    cv::Scalar(0xFF, 0xFF, 0x00), 2, cv::LINE_AA);
     }
 
     void Visualizer::drawGlints(std::vector<cv::Point2d>* glints, std::vector<bool>* glints_validity) {
@@ -140,19 +143,39 @@ namespace et {
     }
 
     void Visualizer::drawBoundingCircle(cv::Point2d centre, int radius) {
-//        cv::circle(image_, centre, radius, cv::Scalar(0xFF, 0xFF, 0x00), 1);
+        cv::circle(image_, centre, radius, cv::Scalar(0xFF, 0xFF, 0x00), 1);
     }
 
     void Visualizer::drawEyeCentre(cv::Point2d eye_centre) {
-//        cv::circle(image_, eye_centre, 2, cv::Scalar(0x00, 0xFF, 0xFF), 5);
+        cv::circle(image_, eye_centre, 2, cv::Scalar(0x00, 0xFF, 0xFF), 5);
     }
 
     void Visualizer::drawCorneaCentre(cv::Point2d cornea_centre) {
         cv::circle(image_, cornea_centre, 2, cv::Scalar(0x00, 0x80, 0x00), 5);
     }
 
+    void Visualizer::drawGaze(cv::Point2d normalized_gaze_point) {
+        int size = 300;
+        cv::putText(image_, "Gaze position", cv::Point2i(50, image_.rows - 50 - size - 25), cv::FONT_HERSHEY_SIMPLEX, 1,
+                    cv::Scalar(0xFF, 0xFF, 0xFF), 2, cv::LINE_AA);
+        cv::rectangle(image_, cv::Rect(50, image_.rows - 50 - size, size, size), cv::Scalar(0xFF, 0xFF, 0xFF), cv::LINE_4);
+
+        // Draw gaze point in the rectangle
+        if (normalized_gaze_point.x >= 0 && normalized_gaze_point.x <= 1 && normalized_gaze_point.y >= 0 && normalized_gaze_point.y <= 1) {
+            cv::circle(image_, cv::Point2d(50 + size * normalized_gaze_point.x, image_.rows - 50 - size * normalized_gaze_point.y), 3, cv::Scalar(0x00, 0x00, 0xFF), 3);
+        }
+    }
+
+    void Visualizer::drawGazeTrace(cv::Point2d* gaze_points, int start, int end, int length) {
+        for (int i = start; (i + 1) % length != end; i = (i + 1) % length) {
+            auto full_pos_start = cv::Point2d(50 + 300 * gaze_points[i].x, image_.rows - 50 - 300 * gaze_points[i].y);
+            auto full_pos_end = cv::Point2d(50 + 300 * gaze_points[(i + 1) % length].x, image_.rows - 50 - 300 * gaze_points[(i + 1) % length].y);
+            cv::line(image_, full_pos_start, full_pos_end, cv::Scalar(0xFF, 0x00, 0x00), 2);
+        }
+    }
+
     void Visualizer::drawGlintEllipse(cv::RotatedRect ellipse) {
-//        cv::ellipse(image_, ellipse, cv::Scalar(0xFF, 0xFF, 0x00), 1);
+        cv::ellipse(image_, ellipse, cv::Scalar(0xFF, 0xFF, 0x00), 1);
     }
 
     void Visualizer::drawCorneaTrace(cv::Point2d* cornea_centres, int start, int end, int length) {
@@ -162,8 +185,8 @@ namespace et {
     }
 
     void Visualizer::drawFps() {
-//        cv::putText(image_, fps_text_.str(), cv::Point2i(100, 100), cv::FONT_HERSHEY_SIMPLEX, 3,
-//                    cv::Scalar(0x00, 0x00, 0xFF), 3);
+        cv::putText(image_, fps_text_.str(), cv::Point2i(100, 100), cv::FONT_HERSHEY_SIMPLEX, 3,
+                    cv::Scalar(0x00, 0x00, 0xFF), 3);
     }
 
 } // namespace et

@@ -73,6 +73,8 @@ namespace et
          */
         cv::Point2d getCorneaCurvaturePixelPosition(bool use_offset = true);
 
+        cv::Point2d getNormalizedGazePoint();
+
         /**
          * Retrieves eye centre position projected to image space based on
          * calculations from getEyeFromModel() or getEyeFromPolynomial().
@@ -150,6 +152,15 @@ namespace et
         cv::Point3d eye_centre_{};
 
         cv::Point2d eye_centre_pixel_{};
+
+        cv::Point2d gaze_point_{};
+
+        cv::Point2d normalized_gaze_point_{};
+
+        double min_width_{};
+        double max_width_{};
+        double min_height_{};
+        double max_height_{};
 
         cv::Vec3d gaze_direction_{};
 

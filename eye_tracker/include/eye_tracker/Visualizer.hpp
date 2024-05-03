@@ -8,13 +8,11 @@
 #include <string_view>
 #include <queue>
 
-namespace et
-{
+namespace et {
 /**
  * Presents camera's output and allows changing individual detection parameters.
  */
-    class Visualizer
-    {
+    class Visualizer {
     public:
         /**
          * Creates a window and trackbar used to change individual
@@ -27,21 +25,21 @@ namespace et
          * Loads an image to present and converts it to RGB scale.
          * @param image Image to load.
          */
-        void prepareImage(const cv::Mat &image);
+        void prepareImage(const cv::Mat& image);
 
         /**
          * Draw a circle around a pupil on the image loaded with prepareImage().
          * @param pupil Centre of the pupil.
          * @param radius Radius of the pupil.
          */
-        void drawPupil(cv::Point2d pupil, int radius);
+        void drawPupil(cv::Point2d pupil, int radius, double diameter_mm);
 
         /**
          * Draws circles around glint positions in the image loaded
          * with prepareImage().
          * @param glints Vector of glints to draw.
          */
-        void drawGlints(std::vector<cv::Point2d> *glints, std::vector<bool> *glints_validity);
+        void drawGlints(std::vector<cv::Point2d>* glints, std::vector<bool>* glints_validity);
 
         /**
          * Draws a circle around the hole in the view piece in the image loaded
@@ -72,6 +70,10 @@ namespace et
         void drawGlintEllipse(cv::RotatedRect ellipse);
 
         void drawCorneaTrace(cv::Point2d* cornea_centres, int start, int end, int length);
+
+        void drawGaze(cv::Point2d normalized_gaze_point);
+
+        void drawGazeTrace(cv::Point2d* gaze_points, int start, int end, int length);
 
         /**
          * Draws a text with measured framerate in the image loaded with prepareImage().
@@ -141,7 +143,7 @@ namespace et
          * @param value New value of the trackbar.
          * @param ptr Pointer to the Visualizer object.
          */
-        static void onPupilThresholdUpdate(int value, void *ptr);
+        static void onPupilThresholdUpdate(int value, void* ptr);
 
         /**
          * Updates the pupil threshold value.
@@ -154,7 +156,7 @@ namespace et
          * @param value New value of the trackbar.
          * @param ptr Pointer to the Visualizer object.
          */
-        static void onGlintThresholdUpdate(int value, void *ptr);
+        static void onGlintThresholdUpdate(int value, void* ptr);
 
         /**
          * Updates the glint threshold value.
@@ -167,7 +169,7 @@ namespace et
          * @param value New value of the trackbar.
          * @param ptr Pointer to the Visualizer object.
          */
-        static void onExposureUpdate(int value, void *ptr);
+        static void onExposureUpdate(int value, void* ptr);
 
         /**
          * Updates the camera's exposure value.
@@ -194,11 +196,11 @@ namespace et
         double total_framerate_{0};
 
         // Detection parameters for the current user.
-        FeaturesParams *user_params_{};
+        FeaturesParams* user_params_{};
         // Threshold value for pupil detection used by FeatureDetector.
-        int *pupil_threshold_{};
+        int* pupil_threshold_{};
         // Threshold value for glints detection used by FeatureDetector.
-        int *glint_threshold_{};
+        int* glint_threshold_{};
 
         std::chrono::steady_clock::time_point framerate_timer_{};
 
