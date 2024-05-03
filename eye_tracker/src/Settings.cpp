@@ -136,6 +136,7 @@ namespace et {
             value.at("polynomial_y").get_to(features_params[name].polynomial_y);
             value.at("polynomial_theta").get_to(features_params[name].polynomial_theta);
             value.at("polynomial_phi").get_to(features_params[name].polynomial_phi);
+            value.at("marker_depth").get_to(features_params[name].marker_depth);
         }
     }
 
@@ -155,6 +156,7 @@ namespace et {
             j[name]["polynomial_y"] = features_params.at(name).polynomial_y;
             j[name]["polynomial_theta"] = features_params.at(name).polynomial_theta;
             j[name]["polynomial_phi"] = features_params.at(name).polynomial_phi;
+            j[name]["marker_depth"] = features_params.at(name).marker_depth;
         }
     }
 

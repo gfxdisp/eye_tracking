@@ -315,6 +315,7 @@ namespace et {
             et::Settings::parameters.user_params[camera_id_]->polynomial_y = polynomial_fit_y->getCoefficients();
             et::Settings::parameters.user_params[camera_id_]->polynomial_theta = polynomial_fit_theta->getCoefficients();
             et::Settings::parameters.user_params[camera_id_]->polynomial_phi = polynomial_fit_phi->getCoefficients();
+            et::Settings::parameters.user_params[camera_id_]->marker_depth = marker_depth;
             et::Settings::saveSettings();
         } else {
             eye_position_offset = et::Settings::parameters.user_params[camera_id_]->position_offset;
@@ -323,6 +324,7 @@ namespace et {
             polynomial_fit_y->setCoefficients(et::Settings::parameters.user_params[camera_id_]->polynomial_y);
             polynomial_fit_theta->setCoefficients(et::Settings::parameters.user_params[camera_id_]->polynomial_theta);
             polynomial_fit_phi->setCoefficients(et::Settings::parameters.user_params[camera_id_]->polynomial_phi);
+            marker_depth = et::Settings::parameters.user_params[camera_id_]->marker_depth;
         }
 
         for (int j = 0; j < predicted_eye_positions.size(); j++) {

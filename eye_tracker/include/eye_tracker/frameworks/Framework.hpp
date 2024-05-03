@@ -35,11 +35,11 @@ namespace et
         cv::Point3d eye_centre;
         cv::Point2d pupil;
         cv::Vec3d gaze_direction;
+        cv::Vec3d pcr_gaze_direction;
         cv::Vec2d pupil_glint_vector;
         double pupil_diameter;
         cv::RotatedRect ellipse;
         int frame_num;
-        char padding[8];
     };
 
 /**

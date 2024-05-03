@@ -165,9 +165,9 @@ namespace et {
             eye_estimator_->getPupilDiameter(pupil_diameter);
 //            visualizer_->drawBoundingCircle(Settings::parameters.detection_params[camera_id_].pupil_search_centre,
 //                                            Settings::parameters.detection_params[camera_id_].pupil_search_radius);
-           visualizer_->drawEyeCentre(feature_detector_->distort(eye_estimator_->getEyeCentrePixelPosition(false)));
+//           visualizer_->drawEyeCentre(feature_detector_->distort(eye_estimator_->getEyeCentrePixelPosition(online_calibration_running_)));
             visualizer_->drawCorneaCentre(
-                    feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition(false)));
+                    feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition(online_calibration_running_)));
             visualizer_->drawCorneaTrace(previous_cornea_centres_, cornea_history_full_ ? (cornea_history_index_ + 1) % CORNEA_HISTORY_SIZE : 0, cornea_history_index_, CORNEA_HISTORY_SIZE);
 
 //            visualizer_->drawGlintEllipse(feature_detector_->getEllipseDistorted());

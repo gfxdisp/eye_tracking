@@ -59,6 +59,8 @@ namespace et
          */
         void getGazeDirection(cv::Vec3d &gaze_direction);
 
+        void getPcrGazeDirection(cv::Vec3d &gaze_direction);
+
         /**
          * Retrieves pupil diameter in millimeters that was previously calculated
          * using getEyeFromModel() or getEyeFromPolynomial().
@@ -83,8 +85,6 @@ namespace et
         cv::Point2d getEyeCentrePixelPosition(bool use_offset = true);
 
         void updateFineTuning();
-
-
 
         EyeMeasurements eye_measurements{};
 
@@ -164,11 +164,28 @@ namespace et
 
         cv::Vec3d gaze_direction_{};
 
+        cv::Vec3d pcr_gaze_direction_{};
+
         cv::Vec3d camera_nodal_point_{};
 
         std::shared_ptr<PolynomialFit> theta_fit_{};
         std::shared_ptr<PolynomialFit> phi_fit_{};
+        std::shared_ptr<PolynomialFit> pcr_x_fit_{};
+        std::shared_ptr<PolynomialFit> pcr_y_fit_{};
         cv::Point3d eye_position_offset_{};
+        double marker_depth_{};
+
+        constexpr static int GAZE_BUFFER = 10;
+        cv::Point3d gaze_point_buffer_[GAZE_BUFFER]{};
+        int gaze_point_index_{0};
+        bool gaze_point_history_full_{false};
+        cv::Point3d gaze_point_sum_{};
+
+        constexpr static int PCR_GAZE_BUFFER = 10;
+        cv::Point3d pcr_gaze_point_buffer_[PCR_GAZE_BUFFER]{};
+        int pcr_gaze_point_index_{0};
+        bool pcr_gaze_point_history_full_{false};
+        cv::Point3d pcr_gaze_point_sum_{};
     };
 
 } // et

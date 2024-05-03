@@ -101,6 +101,8 @@ struct FeaturesParams {
     std::vector<double> polynomial_theta{};
 
     std::vector<double> polynomial_phi{};
+
+    double marker_depth{};
 };
 
 

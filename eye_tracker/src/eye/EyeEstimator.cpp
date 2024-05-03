@@ -3,10 +3,8 @@
 #include "eye_tracker/eye/EyeEstimator.hpp"
 #include "eye_tracker/Utils.hpp"
 
-namespace et
-{
-    EyeEstimator::EyeEstimator(int camera_id) : camera_id_{camera_id}
-    {
+namespace et {
+    EyeEstimator::EyeEstimator(int camera_id) : camera_id_{camera_id} {
         features_params_ = Settings::parameters.user_params[camera_id];
         eye_measurements = Settings::parameters.polynomial_params[camera_id].eye_measurements;
 
@@ -18,6 +16,8 @@ namespace et
         extrinsic_matrix_ = Settings::parameters.camera_params[camera_id].extrinsic_matrix.t();
         theta_fit_ = std::make_shared<PolynomialFit>(2, 2);
         phi_fit_ = std::make_shared<PolynomialFit>(2, 2);
+        pcr_x_fit_ = std::make_shared<PolynomialFit>(2, 2);
+        pcr_y_fit_ = std::make_shared<PolynomialFit>(2, 2);
 
         min_width_ = 30;
         max_width_ = 330;
@@ -28,8 +28,7 @@ namespace et
         updateFineTuning();
     }
 
-    cv::Vec3d EyeEstimator::ICStoCCS(const cv::Point2d point)
-    {
+    cv::Vec3d EyeEstimator::ICStoCCS(const cv::Point2d point) {
         cv::Vec4d homo_point{point.x + capture_offset_->width, point.y + capture_offset_->height, 0, 1};
         // Multiplies by inverted projection matrix to get camera space coordinates.
         cv::Mat p{cv::Mat(homo_point).t() * inv_projection_matrix_};
@@ -37,17 +36,16 @@ namespace et
         double y = p.at<double>(1) / p.at<double>(3);
         double z = p.at<double>(2) / p.at<double>(3);
 
-         z = -intrinsic_matrix_->at<double>(cv::Point(0, 0)) * 6.144 / dimensions_->width;
-         double shift_x = intrinsic_matrix_->at<double>(cv::Point(0, 2)) - dimensions_->width * 0.5;
-         double shift_y = intrinsic_matrix_->at<double>(cv::Point(1, 2)) - dimensions_->height * 0.5;
-         x = -(point.x - shift_x + capture_offset_->width - dimensions_->width * 0.5) / (dimensions_->width * 0.5) * 6.144 / 2;
-         y = -(point.y - shift_y + capture_offset_->height - dimensions_->height * 0.5) / (dimensions_->height * 0.5) * 4.915 / 2;
+        z = -intrinsic_matrix_->at<double>(cv::Point(0, 0)) * 6.144 / dimensions_->width;
+        double shift_x = intrinsic_matrix_->at<double>(cv::Point(0, 2)) - dimensions_->width * 0.5;
+        double shift_y = intrinsic_matrix_->at<double>(cv::Point(1, 2)) - dimensions_->height * 0.5;
+        x = -(point.x - shift_x + capture_offset_->width - dimensions_->width * 0.5) / (dimensions_->width * 0.5) * 6.144 / 2;
+        y = -(point.y - shift_y + capture_offset_->height - dimensions_->height * 0.5) / (dimensions_->height * 0.5) * 4.915 / 2;
 
         return {x, y, z};
     }
 
-    cv::Vec3d EyeEstimator::CCStoWCS(const cv::Vec3d point)
-    {
+    cv::Vec3d EyeEstimator::CCStoWCS(const cv::Vec3d point) {
         cv::Vec4d homo_point{point[0], point[1], point[2], 1.0};
         cv::Mat world_pos = cv::Mat(homo_point).t() * inv_extrinsic_matrix_;
         double x = world_pos.at<double>(0) / world_pos.at<double>(3);
@@ -57,13 +55,11 @@ namespace et
         return {x, y, z};
     }
 
-    cv::Vec3d EyeEstimator::ICStoWCS(const cv::Point2d point)
-    {
+    cv::Vec3d EyeEstimator::ICStoWCS(const cv::Point2d point) {
         return CCStoWCS(ICStoCCS(point));
     }
 
-    cv::Point2d EyeEstimator::CCStoICS(cv::Point3d point)
-    {
+    cv::Point2d EyeEstimator::CCStoICS(cv::Point3d point) {
         cv::Vec3d homo_point{point.x, point.y, point.z};
         cv::Mat ccs_pos = cv::Mat(homo_point).t() * (*intrinsic_matrix_);
         double x = ccs_pos.at<double>(0) / ccs_pos.at<double>(2);
@@ -71,13 +67,11 @@ namespace et
         return {x - capture_offset_->width, y - capture_offset_->height};
     }
 
-    cv::Point2d EyeEstimator::WCStoICS(cv::Point3d point)
-    {
+    cv::Point2d EyeEstimator::WCStoICS(cv::Point3d point) {
         return CCStoICS(WCStoCCS(point));
     }
 
-    cv::Point3d EyeEstimator::WCStoCCS(cv::Point3d point)
-    {
+    cv::Point3d EyeEstimator::WCStoCCS(cv::Point3d point) {
         cv::Vec4d homo_point{point.x, point.y, point.z, 1.0};
         cv::Mat ccs_pos = cv::Mat(homo_point).t() * extrinsic_matrix_;
         double x = ccs_pos.at<double>(0) / ccs_pos.at<double>(3);
@@ -87,8 +81,7 @@ namespace et
         return {x, y, z};
     }
 
-    void EyeEstimator::createInvertedProjectionMatrix()
-    {
+    void EyeEstimator::createInvertedProjectionMatrix() {
         // Projection matrix created according to the lecture notes:
         // https://www.cl.cam.ac.uk/teaching/2122/AGIP/lf_rendering.pdf
         cv::Point3d normal{0, 0, 1};
@@ -96,18 +89,16 @@ namespace et
         // cv::Point3d wf{0, 0, -28.3074};
         cv::Point3d wf{0, 0, -1.0};
         double view_data[4][4]{{1,        0,        0,        0},
-                              {0,        1,        0,        0},
-                              {normal.x, normal.y, normal.z, -normal.dot(wf)},
-                              {0,        0,        1,        0}};
+                               {0,        1,        0,        0},
+                               {normal.x, normal.y, normal.z, -normal.dot(wf)},
+                               {0,        0,        1,        0}};
         cv::Mat projection_matrix{4, 4, CV_64FC1, view_data};
         projection_matrix = projection_matrix.t();
 
 
         double intrinsic_matrix_arr[9];
-        for (int i = 0; i < 3; i++)
-        {
-            for (int j = 0; j < 3; j++)
-            {
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
                 intrinsic_matrix_arr[i * 3 + j] = intrinsic_matrix_->at<double>(cv::Point(i, j));
             }
         }
@@ -117,9 +108,9 @@ namespace et
 //        intrinsic_matrix_arr[5] -= 1;
 
         double intrinsic_data[4][4]{{intrinsic_matrix_arr[0], intrinsic_matrix_arr[3], intrinsic_matrix_arr[6], 0},
-                                   {intrinsic_matrix_arr[1], intrinsic_matrix_arr[4], intrinsic_matrix_arr[7], 0},
-                                   {0,                       0,                       intrinsic_matrix_arr[8], 0},
-                                   {intrinsic_matrix_arr[2], intrinsic_matrix_arr[5], 0,                       1}};
+                                    {intrinsic_matrix_arr[1], intrinsic_matrix_arr[4], intrinsic_matrix_arr[7], 0},
+                                    {0,                       0,                       intrinsic_matrix_arr[8], 0},
+                                    {intrinsic_matrix_arr[2], intrinsic_matrix_arr[5], 0,                       1}};
 
         cv::Mat intrinsic_matrix{4, 4, CV_64FC1, intrinsic_data};
 
@@ -127,17 +118,17 @@ namespace et
         inv_projection_matrix_ = inv_projection_matrix_.inv();
     }
 
-    cv::Vec3d EyeEstimator::calculatePositionOnPupil(const cv::Vec3d &pupil_px_position, const cv::Vec3d &cornea_centre)
-    {
+    cv::Vec3d EyeEstimator::calculatePositionOnPupil(const cv::Vec3d& pupil_px_position, const cv::Vec3d& cornea_centre) {
         cv::Vec3d pupil_position{};
         double t{};
         cv::Vec3d pupil_dir{-pupil_px_position};
         cv::normalize(pupil_dir, pupil_dir);
-        bool intersected{Utils::getRaySphereIntersection(cv::Vec3d(0.0), pupil_dir, cornea_centre,
-                                                         eye_measurements.cornea_curvature_radius, t)};
+        bool intersected{
+                Utils::getRaySphereIntersection(cv::Vec3d(0.0), pupil_dir, cornea_centre,
+                                                eye_measurements.cornea_curvature_radius, t)
+        };
 
-        if (intersected)
-        {
+        if (intersected) {
             cv::Vec3d pupil_on_cornea{t * pupil_dir};
             cv::Vec3d nv{pupil_on_cornea - cornea_centre};
             cv::normalize(nv, nv);
@@ -146,8 +137,7 @@ namespace et
             cv::Vec3d direction{Utils::getRefractedRay(m_dir, nv, eye_measurements.cornea_refraction_index)};
             intersected = Utils::getRaySphereIntersection(pupil_on_cornea, direction, cornea_centre,
                                                           eye_measurements.pupil_cornea_distance, t);
-            if (intersected)
-            {
+            if (intersected) {
                 pupil_position = pupil_on_cornea + t * direction;
             }
         }
@@ -155,8 +145,7 @@ namespace et
     }
 
     bool EyeEstimator::findPupilDiameter(cv::Point2d pupil_pix_position, int pupil_px_radius,
-                                         const cv::Vec3d &cornea_centre_position, double &diameter)
-    {
+                                         const cv::Vec3d& cornea_centre_position, double& diameter) {
         cv::Vec3d ccs_cornea_centre{WCStoCCS(cornea_centre_position)};
         cv::Vec3d pupil_position{ICStoCCS(pupil_pix_position)};
 
@@ -167,8 +156,7 @@ namespace et
         // Estimates position of the right part of the pupil.
         cv::Vec3d pupil_right = calculatePositionOnPupil(pupil_right_position, ccs_cornea_centre);
 
-        if (pupil != cv::Vec3d() && pupil_right != cv::Vec3d())
-        {
+        if (pupil != cv::Vec3d() && pupil_right != cv::Vec3d()) {
             cv::Vec3d pupil_proj = pupil;
             cv::Vec3d pupil_right_proj = pupil_right;
             pupil_proj(2) = 0.0;
@@ -182,54 +170,45 @@ namespace et
         return false;
     }
 
-    void EyeEstimator::getGazeDirection(cv::Point3d nodal_point, cv::Point3d eye_centre, cv::Vec3d &gaze_direction)
-    {
+    void EyeEstimator::getGazeDirection(cv::Point3d nodal_point, cv::Point3d eye_centre, cv::Vec3d& gaze_direction) {
         cv::Vec3d optical_axis = nodal_point - eye_centre;
         cv::normalize(optical_axis, optical_axis);
         gaze_direction = Utils::opticalToVisualAxis(optical_axis, eye_measurements.alpha, eye_measurements.beta);
     }
 
-    void EyeEstimator::getEyeCentrePosition(cv::Point3d &eye_centre)
-    {
+    void EyeEstimator::getEyeCentrePosition(cv::Point3d& eye_centre) {
         mtx_eye_position_.lock();
         eye_centre = eye_centre_;
         mtx_eye_position_.unlock();
     }
 
-    void EyeEstimator::getCorneaCurvaturePosition(cv::Point3d &cornea_centre)
-    {
+    void EyeEstimator::getCorneaCurvaturePosition(cv::Point3d& cornea_centre) {
         mtx_eye_position_.lock();
         cornea_centre = cornea_centre_;
         mtx_eye_position_.unlock();
     }
 
-    void EyeEstimator::getPupilDiameter(double &pupil_diameter)
-    {
+    void EyeEstimator::getPupilDiameter(double& pupil_diameter) {
         mtx_eye_position_.lock();
         pupil_diameter = pupil_diameter_;
         mtx_eye_position_.unlock();
     }
 
-    cv::Point2d EyeEstimator::getCorneaCurvaturePixelPosition(bool use_offset)
-    {
-        if (use_offset)
-        {
+    cv::Point2d EyeEstimator::getCorneaCurvaturePixelPosition(bool use_offset) {
+        if (use_offset) {
             return cornea_centre_pixel_;
         }
         return WCStoICS(cornea_centre_ - eye_position_offset_);
     }
 
-    cv::Point2d EyeEstimator::getEyeCentrePixelPosition(bool use_offset)
-    {
-        if (use_offset)
-        {
+    cv::Point2d EyeEstimator::getEyeCentrePixelPosition(bool use_offset) {
+        if (use_offset) {
             return eye_centre_pixel_;
         }
         return WCStoICS(eye_centre_ - eye_position_offset_);
     }
 
-    bool EyeEstimator::findEye(EyeInfo &eye_info, bool add_correction)
-    {
+    bool EyeEstimator::findEye(EyeInfo& eye_info, bool add_correction) {
         cv::Point3d eye_centre{};
         cv::Point2d eye_centre_pixel{}, cornea_centre_pixel{};
         cv::Vec2d angle{};
@@ -253,9 +232,43 @@ namespace et
         eye_centre_pixel = WCStoICS(eye_centre);
         cornea_centre_pixel = WCStoICS(nodal_point);
 
-        double gaze_point_depth = 0;
-        double k = (gaze_point_depth - nodal_point.z) / gaze_direction[2];
+        double k = (marker_depth_ - nodal_point.z) / gaze_direction[2];
         auto gaze_point = nodal_point + (cv::Point3d) (k * gaze_direction);
+        gaze_point_sum_ += gaze_point;
+        if (gaze_point_history_full_) {
+            gaze_point_sum_ -= gaze_point_buffer_[gaze_point_index_];
+            gaze_point_buffer_[gaze_point_index_] = gaze_point;
+            gaze_point_index_ = (gaze_point_index_ + 1) % GAZE_BUFFER;
+            gaze_point = gaze_point_sum_ / GAZE_BUFFER;
+        } else {
+            gaze_point_index_ = (gaze_point_index_ + 1) % GAZE_BUFFER;
+            gaze_point = gaze_point_sum_ / gaze_point_index_;
+        }
+        if (gaze_point_index_ == 0) {
+            gaze_point_history_full_ = true;
+        }
+        gaze_direction = gaze_point - nodal_point;
+        cv::normalize(gaze_direction, gaze_direction);
+
+
+        auto pcr = eye_info.pupil - static_cast<cv::Point2d>(eye_info.ellipse.center);
+        cv::Point3d predicted_marker_position = {pcr_x_fit_->getEstimation({pcr.x, pcr.y}), pcr_y_fit_->getEstimation({pcr.x, pcr.y}), marker_depth_};
+        pcr_gaze_point_sum_ += predicted_marker_position;
+        if (pcr_gaze_point_history_full_) {
+            pcr_gaze_point_sum_ -= pcr_gaze_point_buffer_[pcr_gaze_point_index_];
+            pcr_gaze_point_buffer_[pcr_gaze_point_index_] = predicted_marker_position;
+            pcr_gaze_point_index_ = (pcr_gaze_point_index_ + 1) % PCR_GAZE_BUFFER;
+            predicted_marker_position = pcr_gaze_point_sum_ / PCR_GAZE_BUFFER;
+        } else {
+            pcr_gaze_point_buffer_[pcr_gaze_point_index_] = predicted_marker_position;
+            pcr_gaze_point_index_ = (pcr_gaze_point_index_ + 1) % PCR_GAZE_BUFFER;
+            predicted_marker_position = pcr_gaze_point_sum_ / pcr_gaze_point_index_;
+        }
+        if (pcr_gaze_point_index_ == 0) {
+            pcr_gaze_point_history_full_ = true;
+        }
+        cv::Vec3d visual_axis = predicted_marker_position - nodal_point;
+        cv::normalize(visual_axis, visual_axis);
 
         mtx_eye_position_.lock();
         cornea_centre_ = nodal_point;
@@ -264,18 +277,26 @@ namespace et
         cornea_centre_pixel_ = cornea_centre_pixel;
         pupil_diameter_ = pupil_diameter;
         gaze_direction_ = gaze_direction;
+        pcr_gaze_direction_ = visual_axis;
         gaze_point_ = {gaze_point.x, gaze_point.y};
-        normalized_gaze_point_.x = (gaze_point.x - min_width_) / (max_width_ - min_width_);
-        normalized_gaze_point_.y = (gaze_point.y - min_height_) / (max_height_ - min_height_);
+//        normalized_gaze_point_.x = (gaze_point.x - min_width_) / (max_width_ - min_width_);
+//        normalized_gaze_point_.y = (gaze_point.y - min_height_) / (max_height_ - min_height_);
+        normalized_gaze_point_.x = (predicted_marker_position.x - min_width_) / (max_width_ - min_width_);
+        normalized_gaze_point_.y = (predicted_marker_position.y - min_height_) / (max_height_ - min_height_);
         mtx_eye_position_.unlock();
 
         return result;
     }
 
-    void EyeEstimator::getGazeDirection(cv::Vec3d &gaze_direction)
-    {
+    void EyeEstimator::getGazeDirection(cv::Vec3d& gaze_direction) {
         mtx_eye_position_.lock();
         gaze_direction = gaze_direction_;
+        mtx_eye_position_.unlock();
+    }
+
+    void EyeEstimator::getPcrGazeDirection(cv::Vec3d& gaze_direction) {
+        mtx_eye_position_.lock();
+        gaze_direction = pcr_gaze_direction_;
         mtx_eye_position_.unlock();
     }
 
@@ -283,6 +304,9 @@ namespace et
         eye_position_offset_ = features_params_->position_offset;
         theta_fit_->setCoefficients(features_params_->polynomial_theta);
         phi_fit_->setCoefficients(features_params_->polynomial_phi);
+        pcr_x_fit_->setCoefficients(features_params_->polynomial_x);
+        pcr_y_fit_->setCoefficients(features_params_->polynomial_y);
+        marker_depth_ = features_params_->marker_depth;
     }
 
     cv::Point2d EyeEstimator::getNormalizedGazePoint() {
