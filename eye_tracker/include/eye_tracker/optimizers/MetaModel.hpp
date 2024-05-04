@@ -69,22 +69,6 @@ namespace et {
         void findOnlineMetaModel(const std::string& calibration_input_path, const std::string& calibration_output_path, bool from_scratch);
 
     private:
-        VisualAnglesOptimizer* visual_angles_optimizer_{};
-        cv::Ptr<cv::DownhillSolver::Function> visual_angles_minimizer_function_{};
-        cv::Ptr<cv::DownhillSolver> visual_angles_solver_{};
-
-        OpticalAxisOptimizer* optical_axis_optimizer_{};
-        cv::Ptr<cv::DownhillSolver::Function> optical_axis_minimizer_function_{};
-        cv::Ptr<cv::DownhillSolver> optical_axis_solver_{};
-
-        EyeAnglesOptimizer* eye_angles_optimizer_{};
-        cv::Ptr<cv::DownhillSolver::Function> eye_angles_minimizer_function_{};
-        cv::Ptr<cv::DownhillSolver> eye_angles_solver_{};
-
-        EyeCentreOptimizer* eye_centre_optimizer_{};
-        cv::Ptr<cv::DownhillSolver::Function> eye_centre_minimizer_function_{};
-        cv::Ptr<cv::DownhillSolver> eye_centre_solver_{};
-
         CorneaOptimizer* cornea_optimizer_{};
         cv::Ptr<cv::DownhillSolver::Function> cornea_minimizer_function_{};
         cv::Ptr<cv::DownhillSolver> cornea_solver_{};

@@ -19,10 +19,10 @@ namespace et {
         pcr_x_fit_ = std::make_shared<PolynomialFit>(2, 2);
         pcr_y_fit_ = std::make_shared<PolynomialFit>(2, 2);
 
-        min_width_ = 30;
-        max_width_ = 330;
-        min_height_ = 70;
-        max_height_ = 370;
+        min_width_ = 300;
+        max_width_ = 600;
+        min_height_ = 0;
+        max_height_ = 300;
 
         camera_nodal_point_ = {0, 0, 0};
         updateFineTuning();
@@ -224,7 +224,7 @@ namespace et {
             nodal_point += eye_position_offset_;
             double theta = theta_fit_->getEstimation({angle[0], angle[1]});
             double phi = phi_fit_->getEstimation({angle[0], angle[1]});
-            angle = {theta, phi};
+//            angle = {theta, phi};
         }
 
         Utils::anglesToVector(angle, gaze_direction);

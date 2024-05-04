@@ -7,26 +7,6 @@
 
 namespace et {
     MetaModel::MetaModel(int camera_id) : camera_id_(camera_id) {
-        visual_angles_optimizer_ = new VisualAnglesOptimizer();
-        visual_angles_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(visual_angles_optimizer_);
-        visual_angles_solver_ = cv::DownhillSolver::create();
-        visual_angles_solver_->setFunction(visual_angles_minimizer_function_);
-
-        optical_axis_optimizer_ = new OpticalAxisOptimizer();
-        optical_axis_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(optical_axis_optimizer_);
-        optical_axis_solver_ = cv::DownhillSolver::create();
-        optical_axis_solver_->setFunction(optical_axis_minimizer_function_);
-
-        eye_angles_optimizer_ = new EyeAnglesOptimizer();
-        eye_angles_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(eye_angles_optimizer_);
-        eye_angles_solver_ = cv::DownhillSolver::create();
-        eye_angles_solver_->setFunction(eye_angles_minimizer_function_);
-
-        eye_centre_optimizer_ = new EyeCentreOptimizer();
-        eye_centre_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(eye_centre_optimizer_);
-        eye_centre_solver_ = cv::DownhillSolver::create();
-        eye_centre_solver_->setFunction(eye_centre_minimizer_function_);
-
         cornea_optimizer_ = new CorneaOptimizer();
         cornea_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(cornea_optimizer_);
         cornea_solver_ = cv::DownhillSolver::create();

@@ -205,33 +205,19 @@ namespace et
 
     cv::Point3d Utils::visualToOpticalAxis(const cv::Point3d& visual_axis, double alpha, double beta)
     {
-        static int initialized = false;
-        static OpticalFromVisualAxisOptimizer* optimizer{};
-        static cv::Ptr<cv::DownhillSolver::Function> minimizer_function{};
-        static cv::Ptr<cv::DownhillSolver> solver{};
-        if (!initialized)
-        {
-            optimizer = new OpticalFromVisualAxisOptimizer();
-            minimizer_function = cv::Ptr<cv::DownhillSolver::Function>{optimizer};
-            solver = cv::DownhillSolver::create();
-            solver->setFunction(minimizer_function);
-            cv::Mat step = (cv::Mat_<double>(1, 2) << 0.1, 0.1);
-            solver->setInitStep(step);
-            solver->setTermCriteria(cv::TermCriteria((cv::TermCriteria::MAX_ITER + cv::TermCriteria::EPS), 150,
-                                                     std::numeric_limits<double>::min()));
-            initialized = true;
-        }
+        cv::Point3d norm_visual_axis = visual_axis / cv::norm(visual_axis);
 
-        optimizer->setParameters(alpha, beta, visual_axis);
-        cv::Mat x = (cv::Mat_<double>(1, 2) << 0, 0);
-        solver->minimize(x);
-        double phi = x.at<double>(0, 0);
-        double theta = x.at<double>(0, 1);
-        cv::Mat R = Utils::getRotY(theta) * Utils::getRotX(phi);
-        cv::Mat optical_axis_mat = R * (cv::Mat_<double>(3, 1) << 0, 0, -1);
-        cv::Point3d optical_axis = cv::Point3d(optical_axis_mat.at<double>(0, 0), optical_axis_mat.at<double>(1, 0),
-                                               optical_axis_mat.at<double>(2, 0));
-        optical_axis = optical_axis / cv::norm(optical_axis);
+        double theta = std::atan2(-norm_visual_axis.x, -norm_visual_axis.z);
+        double phi = std::acos(norm_visual_axis.y);
+
+        theta += alpha * M_PI / 180;
+        phi += beta * M_PI / 180;
+
+        cv::Point3d optical_axis;
+        optical_axis.x = -std::sin(phi) * std::sin(theta);
+        optical_axis.y = std::cos(phi);
+        optical_axis.z = -std::sin(phi) * std::cos(theta);
+
         return optical_axis;
     }
 
@@ -270,23 +256,17 @@ namespace et
     {
         cv::Point3d norm_optical_axis = optical_axis / cv::norm(optical_axis);
 
-        double theta = std::atan2(norm_optical_axis.x, norm_optical_axis.z) - M_PI;
-        double phi = -(std::acos(norm_optical_axis.y) - M_PI / 2);
+        double theta = std::atan2(-norm_optical_axis.x, -norm_optical_axis.z);
+        double phi = std::acos(norm_optical_axis.y);
 
-        cv::Mat R = getRotY(theta) * getRotX(phi);
-        cv::Mat right = R * (cv::Mat_<double>(3, 1) << 1, 0, 0);
-        cv::Mat up = R * (cv::Mat_<double>(3, 1) << 0, 1, 0);
-        cv::Mat forward = (cv::Mat_<double>(3, 1) << norm_optical_axis.x, norm_optical_axis.y, norm_optical_axis.z);
+        theta -= alpha * M_PI / 180;
+        phi -= beta * M_PI / 180;
 
-        R = Utils::convertAxisAngleToRotationMatrix(up, -alpha * M_PI / 180);
-        forward = R * forward;
-        right = R * right;
+        cv::Point3d visual_axis;
+        visual_axis.x = -std::sin(phi) * std::sin(theta);
+        visual_axis.y = std::cos(phi);
+        visual_axis.z = -std::sin(phi) * std::cos(theta);
 
-        R = Utils::convertAxisAngleToRotationMatrix(right, -beta * M_PI / 180);
-        forward = R * forward;
-
-        cv::Point3d visual_axis = {forward.at<double>(0, 0), forward.at<double>(1, 0), forward.at<double>(2, 0)};
-        visual_axis = visual_axis / cv::norm(visual_axis);
         return visual_axis;
     }
 
@@ -810,19 +790,16 @@ namespace et
     void Utils::vectorToAngles(cv::Vec3d vector, cv::Vec2d& angles)
     {
         double norm = cv::norm(vector);
-        angles[0] = std::atan2(vector[0], vector[2]);
-        angles[1] = std::asin(vector[1] / norm);
-        if (angles[0] < -M_PI / 2)
-        {
-            angles[0] += 2 * M_PI;
-        }
+        vector = vector / norm;
+        angles[0] = std::atan2(-vector[0], -vector[2]);
+        angles[1] = std::acos(vector[1]);
     }
 
     void Utils::anglesToVector(cv::Vec2d angles, cv::Vec3d& vector)
     {
-        double x = std::sin(angles[0]) * std::cos(angles[1]);
-        double y = std::sin(angles[1]);
-        double z = std::cos(angles[0]) * std::cos(angles[1]);
+        double x = -std::sin(angles[1]) * std::sin(angles[0]);
+        double y = std::cos(angles[1]);
+        double z = -std::sin(angles[1]) * std::cos(angles[0]);
         vector = {x, y, z};
     }
 
