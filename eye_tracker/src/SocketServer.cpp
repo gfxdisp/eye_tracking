@@ -83,42 +83,11 @@ namespace et {
                         break;
                     }
                     case MSG_START_CALIBRATION: {
-                        char camera_id;
-                        if (!readAll(&camera_id, sizeof(camera_id))) {
-                            goto connect_failure;
-                        }
-
-                        if (camera_id != 0 && camera_id != 1) {
-                            goto connect_failure;
-                        }
-
-                        cv::Point3d eye_position{};
-                        if (!readAll(&eye_position, sizeof(eye_position))) {
-                            goto connect_failure;
-                        }
-                        eye_trackers_[camera_id]->startCalibration(eye_position);
+                        // Unused
                         break;
                     }
                     case MSG_STOP_CALIBRATION: {
-                        char camera_id;
-                        if (!readAll(&camera_id, sizeof(camera_id))) {
-                            goto connect_failure;
-                        }
-
-                        if (camera_id != 0 && camera_id != 1) {
-                            goto connect_failure;
-                        }
-
-                        bool from_scratch;
-                        if (!readAll(&from_scratch, sizeof(from_scratch))) {
-                            goto connect_failure;
-                        }
-
-                        eye_trackers_[camera_id]->stopCalibration(from_scratch);
-                        char done = 1;
-                        if (!sendAll(&done, sizeof(done))) {
-                            goto connect_failure;
-                        }
+                        // Unused
                         break;
                     }
                     case MSG_ADD_CALIBRATION_DATA: {
@@ -163,35 +132,7 @@ namespace et {
                         break;
                     }
                     case MSG_LOAD_OLD_CALIBRATION_DATA: {
-                        char camera_id;
-                        if (!readAll(&camera_id, sizeof(camera_id))) {
-                            goto connect_failure;
-                        }
-
-                        if (camera_id != 0 && camera_id != 1) {
-                            goto connect_failure;
-                        }
-
-                        bool from_scratch;
-                        if (!readAll(&from_scratch, sizeof(from_scratch))) {
-                            goto connect_failure;
-                        }
-
-                        int path_length{};
-                        if (!readAll(&path_length, sizeof(path_length))) {
-                            goto connect_failure;
-                        }
-                        if (!readAll(message_buffer_, path_length)) {
-                            goto connect_failure;
-                        }
-                        message_buffer_[path_length] = '\0';
-                        std::string path = std::string(message_buffer_);
-
-                        eye_trackers_[camera_id]->loadOldCalibrationData(path, from_scratch);
-                        char done = 1;
-                        if (!sendAll(&done, sizeof(done))) {
-                            goto connect_failure;
-                        }
+                        // Unused
                         break;
                     }
                     case MSG_START_ONLINE_CALIBRATION: {

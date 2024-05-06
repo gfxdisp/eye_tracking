@@ -142,19 +142,9 @@ namespace et
          */
         double getAvgFramerate();
 
-        /**
-         * Starts a recording of eyes through a remote application.
-         * @param eye_position Folder to which the videos will be saved.
-         */
-        void startCalibration(const cv::Point3d& eye_position);
-
         void startOnlineCalibration();
 
         void stopOnlineCalibration(const CalibrationOutput& calibration_output, bool calibrate_from_scratch);
-
-        void loadOldCalibrationData(const std::string& path, bool calibrate_from_scratch);
-
-        void stopCalibration(bool calibrate_from_scratch);
 
         /**
          * Stops a video recording started through startEyeVideoRecording().

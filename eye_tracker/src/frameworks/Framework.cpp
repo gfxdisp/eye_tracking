@@ -57,7 +57,7 @@ namespace et {
             };
             eye_estimator_->findEye(eye_info, !online_calibration_running_);
             eye_estimator_->getCorneaCurvaturePosition(cornea_centre);
-            previous_cornea_centres_[cornea_history_index_] = eye_estimator_->getCorneaCurvaturePixelPosition(false);
+            previous_cornea_centres_[cornea_history_index_] = eye_estimator_->getCorneaCurvaturePixelPosition(online_calibration_running_);
             cornea_history_index_++;
             if (cornea_history_index_ >= CORNEA_HISTORY_SIZE) {
                 cornea_history_index_ = 0;
@@ -103,6 +103,7 @@ namespace et {
     }
 
     void Framework::startRecording(const std::string& name) {
+        mutex.lock();
         if (!output_video_.isOpened()) {
             if (!std::filesystem::is_directory("videos")) {
                 std::filesystem::create_directory("videos");
@@ -124,6 +125,7 @@ namespace et {
             output_video_ui_.open(video_ui, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
                                   et::Settings::parameters.camera_params[camera_id_].region_of_interest, true);
         }
+        mutex.unlock();
     }
 
     void Framework::stopRecording() {
@@ -224,17 +226,6 @@ namespace et {
         return visualizer_->getAvgFramerate();
     }
 
-    void Framework::startCalibration(const cv::Point3d& eye_position) {
-        calibration_data_.clear();
-        calibration_eye_position_ = eye_position;
-        calibration_running_ = true;
-        calibration_start_time_ = std::chrono::system_clock::now();
-
-        std::string filename = "calib_temp.mp4";
-        calib_video_.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
-                          et::Settings::parameters.camera_params[camera_id_].region_of_interest, false);
-    }
-
     void Framework::startOnlineCalibration() {
         std::cout << "Starting online calibration" << std::endl;
         calibration_input_.clear();
@@ -247,69 +238,8 @@ namespace et {
         std::cout << "Stopping online calibration" << std::endl;
         stopRecording();
         online_calibration_running_ = false;
-        meta_model_->findOnlineMetaModel(calibration_input_, calibration_output, calibrate_from_scratch, output_video_name_);
+        meta_model_->findMetaModel(calibration_input_, calibration_output, calibrate_from_scratch, output_video_name_);
         eye_estimator_->updateFineTuning();
-    }
-
-    void Framework::loadOldCalibrationData(const std::string& path, bool calibrate_from_scratch) {
-        calibration_data_.clear();
-        std::string csv_path = path + ".csv";
-        std::string mp4_path = path + "_" + std::to_string(camera_id_) + ".mp4";
-        auto csv_file = Utils::readFloatRowsCsv(csv_path);
-        calibration_eye_position_ = cv::Point3d(csv_file[0][1 + 3 * camera_id_], csv_file[0][2 + 3 * camera_id_],
-                                                csv_file[0][3 + 3 * camera_id_]);
-
-        auto image_provider = std::make_shared<InputVideo>(mp4_path);
-        auto feature_analyser = std::make_shared<CameraFeatureAnalyser>(camera_id_);
-        int counter = 0;
-        double time_per_marker = 3;
-        int samples_per_marker = 0;
-        int markers_count = 0;
-        cv::Point2d previous_pupil;
-        while (true) {
-            auto analyzed_frame_ = image_provider->grabImage();
-            if (analyzed_frame_.pupil.empty() || analyzed_frame_.glints.empty()) {
-                break;
-            }
-            feature_analyser->preprocessImage(analyzed_frame_);
-            bool features_found = feature_analyser->findPupil() && feature_analyser->findEllipsePoints();
-
-            cv::Point2d pupil = feature_analyser->getPupilUndistorted();
-            auto glints = feature_analyser->getGlints();
-            auto glints_validity = feature_analyser->getGlintsValidity();
-            cv::RotatedRect ellipse = feature_analyser->getEllipseUndistorted();
-
-            previous_pupil = pupil;
-
-            CalibrationSample sample;
-            sample.detected = features_found;
-            sample.eye_position = calibration_eye_position_;
-            sample.pupil_position = pupil;
-            sample.glint_ellipse = ellipse;
-            std::copy(glints->begin(), glints->end(), std::back_inserter(sample.glints));
-            std::copy(glints_validity->begin(), glints_validity->end(), std::back_inserter(sample.glints_validity));
-            sample.marker_position = cv::Point3d(csv_file[counter][7], csv_file[counter][8], csv_file[counter][9]);
-            sample.marker_id = markers_count;
-            calibration_data_.push_back(sample);
-
-            samples_per_marker++;
-            counter++;
-            if (counter >= csv_file.size() || counter > 0 && (csv_file[counter][7] != csv_file[counter - 1][7] || csv_file[counter][8] != csv_file[counter - 1][8] || csv_file[counter][9] != csv_file[counter - 1][9])) {
-                for (int i = 0; i < samples_per_marker; i++) {
-                    calibration_data_[counter - samples_per_marker + i].timestamp = i * time_per_marker / samples_per_marker + markers_count * time_per_marker;
-                    calibration_data_[counter - samples_per_marker + i].marker_time = i * time_per_marker / samples_per_marker;
-                }
-                samples_per_marker = 0;
-                markers_count++;
-            }
-        }
-        meta_model_->findMetaModel(calibration_data_, calibrate_from_scratch);
-    }
-
-    void Framework::stopCalibration(bool calibrate_from_scratch) {
-        calibration_running_ = false;
-        calib_video_.release();
-        meta_model_->findMetaModel(calibration_data_, calibrate_from_scratch);
     }
 
     void Framework::stopEyeVideoRecording() {
