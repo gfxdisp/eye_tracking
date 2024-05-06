@@ -86,9 +86,11 @@ namespace et {
             cornea_solver_->setInitStep(step);
             cornea_solver_->minimize(x);
             cv::Point3d real_cornea_position{};
-            real_cornea_position.x = meta_model_data.real_eye_position.x - eye_measurements.cornea_curvature_radius * sin(x.at<double>(0, 0)) * cos(x.at<double>(0, 1));
-            real_cornea_position.y = meta_model_data.real_eye_position.y + eye_measurements.cornea_curvature_radius * sin(x.at<double>(0, 1));
-            real_cornea_position.z = meta_model_data.real_eye_position.z - eye_measurements.cornea_curvature_radius * cos(x.at<double>(0, 0)) * cos(x.at<double>(0, 1));
+            
+            cv::Vec3d optical_axis;
+            Utils::anglesToVector({x.at<double>(0, 0), x.at<double>(0, 1)}, optical_axis);
+            
+            real_cornea_position = meta_model_data.real_eye_position + eye_measurements.cornea_curvature_radius * (cv::Point3d) optical_axis;
 
             meta_model_data.real_cornea_positions.push_back(real_cornea_position);
 
@@ -135,7 +137,7 @@ namespace et {
         auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.5);
         auto mean_estimated_cornea_position = Utils::getTrimmmedMean(meta_model_data.estimated_cornea_positions, 0.5);
         auto eye_position_offset = mean_real_cornea_position - mean_estimated_cornea_position;
-        // eye_position_offset = meta_model_data.real_eye_position - mean_estimated_eye_position;
+        //auto eye_position_offset = meta_model_data.real_eye_position - mean_estimated_eye_position;
         std::cout << "Cornea offset: " << eye_position_offset << std::endl;
 
 

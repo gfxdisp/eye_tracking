@@ -106,19 +106,19 @@ namespace et {
     void Framework::startRecording(const std::string& name) {
         mutex.lock();
         if (!output_video_.isOpened()) {
-            if (!std::filesystem::is_directory("videos")) {
-                std::filesystem::create_directory("videos");
+            if (!std::filesystem::is_directory("results")) {
+                std::filesystem::create_directory("results");
             }
             std::string video, video_ui;
             if (name.empty()) {
                 auto current_time = Utils::getCurrentTimeText();
-                video = "videos/" + current_time + "_" + std::to_string(camera_id_) + ".mp4";
-                video_ui = "videos/" + current_time + "_" + std::to_string(camera_id_) + "_ui.mp4";
-                output_video_name_ = "videos/" + current_time + "_" + std::to_string(camera_id_);
+                video = "results/" + current_time + "_" + std::to_string(camera_id_) + ".mp4";
+                video_ui = "results/" + current_time + "_" + std::to_string(camera_id_) + "_ui.mp4";
+                output_video_name_ = "results/" + current_time + "_" + std::to_string(camera_id_);
             } else {
-                video = "videos/" + name + "_" + std::to_string(camera_id_) + ".mp4";
-                video_ui = "videos/" + name + "_" + std::to_string(camera_id_) + "_ui.mp4";
-                output_video_name_ = "videos/" + name + "_" + std::to_string(camera_id_);
+                video = "results/" + name + "_" + std::to_string(camera_id_) + ".mp4";
+                video_ui = "results/" + name + "_" + std::to_string(camera_id_) + "_ui.mp4";
+                output_video_name_ = "results/" + name + "_" + std::to_string(camera_id_);
             }
             std::clog << "Saving video to " << video << "\n";
             output_video_.open(video, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
