@@ -32,6 +32,7 @@ namespace et {
         cv::Vec2d angles;
         cv::Vec2d pcr_distance;
         double timestamp;
+        bool detected;
     };
 
     struct CalibrationOutput {
@@ -64,9 +65,9 @@ namespace et {
 
         void findMetaModel(const std::vector<CalibrationSample>& calibration_data, bool from_scratch);
 
-        void findOnlineMetaModel(const std::vector<CalibrationInput>& calibration_input, const CalibrationOutput& calibration_output, bool from_scratch);
+        void findOnlineMetaModel(const std::vector<CalibrationInput>& calibration_input, const CalibrationOutput& calibration_output, bool from_scratch, const std::string& output_video_name);
 
-        void findOnlineMetaModel(const std::string& calibration_input_path, const std::string& calibration_output_path, bool from_scratch);
+        void findOnlineMetaModel(const std::string& calibration_input_path, const std::string& calibration_output_path, bool from_scratch, const std::string& output_video_name);
 
     private:
         CorneaOptimizer* cornea_optimizer_{};

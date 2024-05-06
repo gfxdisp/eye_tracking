@@ -84,15 +84,18 @@ namespace et {
         feature_detector_->updateGazeBuffer();
         frame_counter_++;
 
-        if (online_calibration_running_ && features_found_) {
-            CalibrationInput sample;
-            eye_estimator_->getEyeCentrePosition(sample.eye_position);
-            sample.cornea_position = cornea_centre;
-            cv::Vec3d gaze_direction;
-            eye_estimator_->getGazeDirection(gaze_direction);
-            Utils::vectorToAngles(gaze_direction, sample.angles);
+        if (online_calibration_running_) {
+            CalibrationInput sample{};
+            sample.detected = features_found_;
             sample.timestamp = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(now - calibration_start_time_).count()) / 1000.0;
-            sample.pcr_distance = pupil - (cv::Point2d) ellipse.center;
+            if (features_found_) {
+                eye_estimator_->getEyeCentrePosition(sample.eye_position);
+                sample.cornea_position = cornea_centre;
+                cv::Vec3d gaze_direction;
+                eye_estimator_->getGazeDirection(gaze_direction);
+                Utils::vectorToAngles(gaze_direction, sample.angles);
+                sample.pcr_distance = pupil - (cv::Point2d) ellipse.center;
+            }
             calibration_input_.push_back(sample);
         }
 
@@ -104,19 +107,21 @@ namespace et {
             if (!std::filesystem::is_directory("videos")) {
                 std::filesystem::create_directory("videos");
             }
-            std::string filename, filename_ui;
+            std::string video, video_ui;
             if (name.empty()) {
                 auto current_time = Utils::getCurrentTimeText();
-                filename = "videos/" + current_time + "_" + std::to_string(camera_id_) + ".mp4";
-                filename_ui = "videos/" + current_time + "_" + std::to_string(camera_id_) + "_ui.mp4";
+                video = "videos/" + current_time + "_" + std::to_string(camera_id_) + ".mp4";
+                video_ui = "videos/" + current_time + "_" + std::to_string(camera_id_) + "_ui.mp4";
+                output_video_name_ = "videos/" + current_time + "_" + std::to_string(camera_id_);
             } else {
-                filename = "videos/" + name + "_" + std::to_string(camera_id_) + ".mp4";
-                filename_ui = "videos/" + name + "_" + std::to_string(camera_id_) + "_ui.mp4";
+                video = "videos/" + name + "_" + std::to_string(camera_id_) + ".mp4";
+                video_ui = "videos/" + name + "_" + std::to_string(camera_id_) + "_ui.mp4";
+                output_video_name_ = "videos/" + name + "_" + std::to_string(camera_id_);
             }
-            std::clog << "Saving video to " << filename << "\n";
-            output_video_.open(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+            std::clog << "Saving video to " << video << "\n";
+            output_video_.open(video, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
                                et::Settings::parameters.camera_params[camera_id_].region_of_interest, false);
-            output_video_ui_.open(filename_ui, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+            output_video_ui_.open(video_ui, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
                                   et::Settings::parameters.camera_params[camera_id_].region_of_interest, true);
         }
     }
@@ -133,6 +138,7 @@ namespace et {
             output_video_ui_.release();
         }
         mutex.unlock();
+
     }
 
     void Framework::captureCameraImage() {
@@ -234,12 +240,14 @@ namespace et {
         calibration_input_.clear();
         calibration_start_time_ = std::chrono::system_clock::now();
         online_calibration_running_ = true;
+        startRecording();
     }
 
     void Framework::stopOnlineCalibration(const CalibrationOutput& calibration_output, bool calibrate_from_scratch) {
         std::cout << "Stopping online calibration" << std::endl;
+        stopRecording();
         online_calibration_running_ = false;
-        meta_model_->findOnlineMetaModel(calibration_input_, calibration_output, calibrate_from_scratch);
+        meta_model_->findOnlineMetaModel(calibration_input_, calibration_output, calibrate_from_scratch, output_video_name_);
         eye_estimator_->updateFineTuning();
     }
 

@@ -4,6 +4,7 @@
 
 #include <fstream>
 #include <random>
+#include <utility>
 
 namespace et {
     MetaModel::MetaModel(int camera_id) : camera_id_(camera_id) {
@@ -398,7 +399,7 @@ namespace et {
         std::cout << "Glint-pupil error: " << mean_angle_error << " ± " << std_angle_error << std::endl;
     }
 
-    void MetaModel::findOnlineMetaModel(std::vector<CalibrationInput> const& calibration_input, CalibrationOutput const& calibration_output, bool from_scratch) {
+    void MetaModel::findOnlineMetaModel(std::vector<CalibrationInput> const& calibration_input, CalibrationOutput const& calibration_output, bool from_scratch, const std::string& output_video_name) {
         auto eye_measurements = Settings::parameters.polynomial_params[camera_id_].eye_measurements;
 
         double marker_depth = calibration_output.marker_positions[0].z; // Assuming that all markers are at the same depth
@@ -413,43 +414,35 @@ namespace et {
         cum_samples_per_marker.push_back(0);
 
         std::vector<std::vector<double>> full_data{};
-/*        for (int i = 0; i < calibration_input.size(); i++) {
-            std::vector<double> data_point{};
-            data_point.push_back(calibration_input[i].eye_position.x);
-            data_point.push_back(calibration_input[i].eye_position.y);
-            data_point.push_back(calibration_input[i].eye_position.z);
-            data_point.push_back(calibration_input[i].cornea_position.x);
-            data_point.push_back(calibration_input[i].cornea_position.y);
-            data_point.push_back(calibration_input[i].cornea_position.z);
-            data_point.push_back(calibration_input[i].angles[0]);
-            data_point.push_back(calibration_input[i].angles[1]);
-            data_point.push_back(calibration_input[i].pcr_distance[0]);
-            data_point.push_back(calibration_input[i].pcr_distance[1]);
-            data_point.push_back(calibration_input[i].timestamp);
-            full_data.push_back(data_point);
-        }
-
-        Utils::writeFloatCsv(full_data, "input_data.csv");
 
         full_data.clear();
-        for (int i = 0; i < calibration_output.marker_positions.size(); i++) {
+        int current_marker = 0;
+        for (int i = 0; i < calibration_input.size(); i++) {
             std::vector<double> data_point{};
             data_point.push_back(calibration_output.eye_position.x);
             data_point.push_back(calibration_output.eye_position.y);
             data_point.push_back(calibration_output.eye_position.z);
-            data_point.push_back(calibration_output.marker_positions[i].x);
-            data_point.push_back(calibration_output.marker_positions[i].y);
-            data_point.push_back(calibration_output.marker_positions[i].z);
-            data_point.push_back(calibration_output.timestamps[i]);
+            data_point.push_back(calibration_output.marker_positions[current_marker].x);
+            data_point.push_back(calibration_output.marker_positions[current_marker].y);
+            data_point.push_back(calibration_output.marker_positions[current_marker].z);
+            data_point.push_back(calibration_input[i].timestamp);
+            if (current_marker != calibration_output.marker_positions.size() && calibration_input[i].timestamp > calibration_output.timestamps[current_marker]) {
+                current_marker++;
+            }
             full_data.push_back(data_point);
         }
 
-        Utils::writeFloatCsv(full_data, "output_data.csv"); */
+        std::string header = "real_eye_x,real_eye_y,real_eye_z,real_marker_x,real_marker_y,real_marker_z,timestamp";
+
+        Utils::writeFloatCsv(full_data, output_video_name + ".csv", false, header);
 
         double start_timestamp = 0;
         int counter = 0;
 
-        for (const auto & sample : calibration_input) {
+        for (const auto& sample: calibration_input) {
+            if (!sample.detected) {
+                continue;
+            }
             if (sample.timestamp > calibration_output.timestamps[calibration_output.timestamps.size() - 1]) {
                 break;
             }
@@ -767,11 +760,11 @@ namespace et {
             full_data.push_back(data_point);
         }
 
-        std::string header = "real_eye_x,real_eye_y,real_eye_z,est_eye_x,est_eye_y,est_eye_z,real_cornea_x,real_cornea_y,real_cornea_z,"
-        "est_cornea_x,est_cornea_y,est_cornea_z,real_theta,real_phi,real_point_x,real_point_y,real_point_z,pcr_theta,pcr_phi,pcr_point_x,"
-        "pcr_point_y,pcr_point_z,est_theta,est_phi,est_point_x,est_point_y,est_point_z";
+        header = "real_eye_x,real_eye_y,real_eye_z,est_eye_x,est_eye_y,est_eye_z,real_cornea_x,real_cornea_y,real_cornea_z,"
+                 "est_cornea_x,est_cornea_y,est_cornea_z,real_theta,real_phi,real_point_x,real_point_y,real_point_z,pcr_theta,pcr_phi,pcr_point_x,"
+                 "pcr_point_y,pcr_point_z,est_theta,est_phi,est_point_x,est_point_y,est_point_z";
 
-        Utils::writeFloatCsv(full_data, "meta_model_data_full.csv", false, header);
+        Utils::writeFloatCsv(full_data, "full_data.csv", false, header);
 
         std::cout << std::setprecision(3) << std::fixed;
 
@@ -788,13 +781,13 @@ namespace et {
         std::cout << "Glint-pupil error: " << mean_error << " ± " << std_error << std::endl;
     }
 
-    void MetaModel::findOnlineMetaModel(const std::string& calibration_input_path, const std::string& calibration_output_path, bool from_scratch) {
+    void MetaModel::findOnlineMetaModel(const std::string& calibration_input_path, const std::string& calibration_output_path, bool from_scratch, const std::string& output_video_name) {
         std::vector<CalibrationInput> calibration_input{};
         CalibrationOutput calibration_output{};
 
         std::vector<std::vector<double>> data{};
         data = Utils::readFloatRowsCsv(calibration_input_path);
-        for (auto & i : data) {
+        for (auto& i: data) {
             CalibrationInput sample{};
             sample.eye_position = {i[0], i[1], i[2]};
             sample.cornea_position = {i[3], i[4], i[5]};
@@ -807,12 +800,12 @@ namespace et {
 
         data = Utils::readFloatRowsCsv(calibration_output_path);
         calibration_output.eye_position = {data[0][0], data[0][1], data[0][2]};
-        for (auto & i : data) {
+        for (auto& i: data) {
             calibration_output.marker_positions.emplace_back(i[3], i[4], i[5]);
             calibration_output.timestamps.push_back(i[6]);
         }
 
-        findOnlineMetaModel(calibration_input, calibration_output, from_scratch);
+        findOnlineMetaModel(calibration_input, calibration_output, from_scratch, output_video_name);
     }
 
 } // et

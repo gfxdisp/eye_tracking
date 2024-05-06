@@ -206,6 +206,7 @@ namespace et
         cv::VideoWriter output_video_{};
         // Objects writing images with UI features to video output. One per eye.
         cv::VideoWriter output_video_ui_{};
+        std::string output_video_name_{};
 
         // Type of visualization currently shown in the window.
         VisualizationType visualization_type_{};
