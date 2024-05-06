@@ -78,6 +78,7 @@ namespace et {
         mutex.lock();
         if (output_video_.isOpened()) {
             output_video_.write(analyzed_frame_.glints);
+            output_video_frame_counter_++;
         }
         mutex.unlock();
 
@@ -124,6 +125,7 @@ namespace et {
                                et::Settings::parameters.camera_params[camera_id_].region_of_interest, false);
             output_video_ui_.open(video_ui, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
                                   et::Settings::parameters.camera_params[camera_id_].region_of_interest, true);
+            output_video_frame_counter_ = 0;
         }
         mutex.unlock();
     }
@@ -323,7 +325,7 @@ namespace et {
         feature_detector_->getPupilUndistorted(eye_data_package.pupil);
         feature_detector_->getPupilGlintVector(eye_data_package.pupil_glint_vector);
         feature_detector_->getEllipseUndistorted(eye_data_package.ellipse);
-        feature_detector_->getFrameNum(eye_data_package.frame_num);
+        eye_data_package.frame_num = output_video_frame_counter_;
     }
 
     Framework::~Framework() {
