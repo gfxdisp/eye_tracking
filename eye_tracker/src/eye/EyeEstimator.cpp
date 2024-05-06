@@ -21,8 +21,8 @@ namespace et {
 
         min_width_ = 300;
         max_width_ = 600;
-        min_height_ = 0;
-        max_height_ = 300;
+        min_height_ = 200;
+        max_height_ = 500;
 
         camera_nodal_point_ = {0, 0, 0};
         updateFineTuning();
@@ -224,7 +224,7 @@ namespace et {
             nodal_point += eye_position_offset_;
             double theta = theta_fit_->getEstimation({angle[0], angle[1]});
             double phi = phi_fit_->getEstimation({angle[0], angle[1]});
-//            angle = {theta, phi};
+            angle = {theta, phi};
         }
 
         Utils::anglesToVector(angle, gaze_direction);
@@ -235,37 +235,42 @@ namespace et {
         double k = (marker_depth_ - nodal_point.z) / gaze_direction[2];
         auto gaze_point = nodal_point + (cv::Point3d) (k * gaze_direction);
         gaze_point_sum_ += gaze_point;
-        if (gaze_point_history_full_) {
-            gaze_point_sum_ -= gaze_point_buffer_[gaze_point_index_];
-            gaze_point_buffer_[gaze_point_index_] = gaze_point;
-            gaze_point_index_ = (gaze_point_index_ + 1) % GAZE_BUFFER;
-            gaze_point = gaze_point_sum_ / GAZE_BUFFER;
-        } else {
-            gaze_point_index_ = (gaze_point_index_ + 1) % GAZE_BUFFER;
-            gaze_point = gaze_point_sum_ / gaze_point_index_;
+
+        if (add_correction) {
+            if (gaze_point_history_full_) {
+                gaze_point_sum_ -= gaze_point_buffer_[gaze_point_index_];
+                gaze_point_buffer_[gaze_point_index_] = gaze_point;
+                gaze_point_index_ = (gaze_point_index_ + 1) % GAZE_BUFFER;
+                gaze_point = gaze_point_sum_ / GAZE_BUFFER;
+            } else {
+                gaze_point_index_ = (gaze_point_index_ + 1) % GAZE_BUFFER;
+                gaze_point = gaze_point_sum_ / gaze_point_index_;
+            }
+            if (gaze_point_index_ == 0) {
+                gaze_point_history_full_ = true;
+            }
         }
-        if (gaze_point_index_ == 0) {
-            gaze_point_history_full_ = true;
-        }
+
         gaze_direction = gaze_point - nodal_point;
         cv::normalize(gaze_direction, gaze_direction);
-
 
         auto pcr = eye_info.pupil - static_cast<cv::Point2d>(eye_info.ellipse.center);
         cv::Point3d predicted_marker_position = {pcr_x_fit_->getEstimation({pcr.x, pcr.y}), pcr_y_fit_->getEstimation({pcr.x, pcr.y}), marker_depth_};
         pcr_gaze_point_sum_ += predicted_marker_position;
-        if (pcr_gaze_point_history_full_) {
-            pcr_gaze_point_sum_ -= pcr_gaze_point_buffer_[pcr_gaze_point_index_];
-            pcr_gaze_point_buffer_[pcr_gaze_point_index_] = predicted_marker_position;
-            pcr_gaze_point_index_ = (pcr_gaze_point_index_ + 1) % PCR_GAZE_BUFFER;
-            predicted_marker_position = pcr_gaze_point_sum_ / PCR_GAZE_BUFFER;
-        } else {
-            pcr_gaze_point_buffer_[pcr_gaze_point_index_] = predicted_marker_position;
-            pcr_gaze_point_index_ = (pcr_gaze_point_index_ + 1) % PCR_GAZE_BUFFER;
-            predicted_marker_position = pcr_gaze_point_sum_ / pcr_gaze_point_index_;
-        }
-        if (pcr_gaze_point_index_ == 0) {
-            pcr_gaze_point_history_full_ = true;
+        if (add_correction) {
+            if (pcr_gaze_point_history_full_) {
+                pcr_gaze_point_sum_ -= pcr_gaze_point_buffer_[pcr_gaze_point_index_];
+                pcr_gaze_point_buffer_[pcr_gaze_point_index_] = predicted_marker_position;
+                pcr_gaze_point_index_ = (pcr_gaze_point_index_ + 1) % PCR_GAZE_BUFFER;
+                predicted_marker_position = pcr_gaze_point_sum_ / PCR_GAZE_BUFFER;
+            } else {
+                pcr_gaze_point_buffer_[pcr_gaze_point_index_] = predicted_marker_position;
+                pcr_gaze_point_index_ = (pcr_gaze_point_index_ + 1) % PCR_GAZE_BUFFER;
+                predicted_marker_position = pcr_gaze_point_sum_ / pcr_gaze_point_index_;
+            }
+            if (pcr_gaze_point_index_ == 0) {
+                pcr_gaze_point_history_full_ = true;
+            }
         }
         cv::Vec3d visual_axis = predicted_marker_position - nodal_point;
         cv::normalize(visual_axis, visual_axis);

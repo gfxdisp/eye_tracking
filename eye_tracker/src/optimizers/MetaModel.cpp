@@ -133,11 +133,10 @@ namespace et {
 
         auto mean_real_cornea_position = Utils::getMean<cv::Point3d>(meta_model_data.real_cornea_positions);
         auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.5);
-        // auto mean_estimated_eye_position = Utils::getTrimmmedMean(first_marker_eye_positions, 0.5);
         auto mean_estimated_cornea_position = Utils::getTrimmmedMean(meta_model_data.estimated_cornea_positions, 0.5);
         auto eye_position_offset = mean_real_cornea_position - mean_estimated_cornea_position;
-        std::cout << "Cornea offset: " << eye_position_offset << std::endl;
         // eye_position_offset = meta_model_data.real_eye_position - mean_estimated_eye_position;
+        std::cout << "Cornea offset: " << eye_position_offset << std::endl;
 
 
 //        auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.5);
