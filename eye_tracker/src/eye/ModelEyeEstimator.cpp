@@ -6,6 +6,10 @@
 #include <opencv2/core/core.hpp>
 
 namespace et {
+
+    bool ModelEyeEstimator::ignore_below45 = true;
+    bool ModelEyeEstimator::test_all_glints = true;
+
     ModelEyeEstimator::ModelEyeEstimator(int camera_id) : EyeEstimator(camera_id) {
         // Create a minimizer for used for finding cornea centre.
         nodal_point_optimizer_ = new NodalPointOptimizer(camera_id_);
@@ -44,6 +48,9 @@ namespace et {
         // nodal point.
         std::vector<cv::Vec3d> v1v2s{};
         for (int i = 0; i < leds_num; i++) {
+            if (!test_all_glints && i != 0 && i != 7) {
+                continue;
+            }
             if (eye_info.glints_validity[i]) {
                 cv::Vec3d led = Settings::parameters.leds_positions[camera_id_][i];
                 cv::Vec4d led_homo;
@@ -78,7 +85,7 @@ namespace et {
                 if (angle > 90) {
                     angle = 180 - angle;
                 }
-                if (angle < 45) {
+                if (angle < 45 && ignore_below45) {
                     continue;
                 }
 

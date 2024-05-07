@@ -4,6 +4,9 @@
 #include "eye_tracker/Utils.hpp"
 
 namespace et {
+
+    bool EyeEstimator::moving_average = true;
+
     EyeEstimator::EyeEstimator(int camera_id) : camera_id_{camera_id} {
         features_params_ = Settings::parameters.user_params[camera_id];
         eye_measurements = Settings::parameters.polynomial_params[camera_id].eye_measurements;
@@ -19,10 +22,10 @@ namespace et {
         pcr_x_fit_ = std::make_shared<PolynomialFit>(2, 2);
         pcr_y_fit_ = std::make_shared<PolynomialFit>(2, 2);
 
-        min_width_ = 300;
-        max_width_ = 600;
-        min_height_ = 200;
-        max_height_ = 500;
+        min_width_ = 130;
+        max_width_ = 330;
+        min_height_ = 50;
+        max_height_ = 250;
 
         camera_nodal_point_ = {0, 0, 0};
         updateFineTuning();
@@ -222,6 +225,7 @@ namespace et {
         if (add_correction) {
             eye_centre += eye_position_offset_;
             nodal_point += eye_position_offset_;
+
             double theta = theta_fit_->getEstimation({angle[0], angle[1]});
             double phi = phi_fit_->getEstimation({angle[0], angle[1]});
             angle = {theta, phi};
@@ -236,13 +240,14 @@ namespace et {
         auto gaze_point = nodal_point + (cv::Point3d) (k * gaze_direction);
         gaze_point_sum_ += gaze_point;
 
-        if (add_correction) {
+        if (moving_average) {
             if (gaze_point_history_full_) {
                 gaze_point_sum_ -= gaze_point_buffer_[gaze_point_index_];
                 gaze_point_buffer_[gaze_point_index_] = gaze_point;
                 gaze_point_index_ = (gaze_point_index_ + 1) % GAZE_BUFFER;
                 gaze_point = gaze_point_sum_ / GAZE_BUFFER;
             } else {
+                gaze_point_buffer_[gaze_point_index_] = gaze_point;
                 gaze_point_index_ = (gaze_point_index_ + 1) % GAZE_BUFFER;
                 gaze_point = gaze_point_sum_ / gaze_point_index_;
             }
@@ -257,7 +262,7 @@ namespace et {
         auto pcr = eye_info.pupil - static_cast<cv::Point2d>(eye_info.ellipse.center);
         cv::Point3d predicted_marker_position = {pcr_x_fit_->getEstimation({pcr.x, pcr.y}), pcr_y_fit_->getEstimation({pcr.x, pcr.y}), marker_depth_};
         pcr_gaze_point_sum_ += predicted_marker_position;
-        if (add_correction) {
+        if (moving_average) {
             if (pcr_gaze_point_history_full_) {
                 pcr_gaze_point_sum_ -= pcr_gaze_point_buffer_[pcr_gaze_point_index_];
                 pcr_gaze_point_buffer_[pcr_gaze_point_index_] = predicted_marker_position;
@@ -284,8 +289,11 @@ namespace et {
         gaze_direction_ = gaze_direction;
         pcr_gaze_direction_ = visual_axis;
         gaze_point_ = {gaze_point.x, gaze_point.y};
+        // Our model
         normalized_gaze_point_.x = (gaze_point.x - min_width_) / (max_width_ - min_width_);
         normalized_gaze_point_.y = (gaze_point.y - min_height_) / (max_height_ - min_height_);
+
+        // P-CR
 //        normalized_gaze_point_.x = (predicted_marker_position.x - min_width_) / (max_width_ - min_width_);
 //        normalized_gaze_point_.y = (predicted_marker_position.y - min_height_) / (max_height_ - min_height_);
         mtx_eye_position_.unlock();

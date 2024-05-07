@@ -96,7 +96,7 @@ namespace et
         {
             file.open(filename);
         }
-        if (!header.empty()) {
+        if (!header.empty() && !append) {
             file << header << "\n";
         }
         for (auto& row: data)
@@ -638,6 +638,19 @@ namespace et
         for (int i = 0; i < values.size(); i++) {
             if (std::abs(values[i].x - mean.x) > threshold * std.x ||
                 std::abs(values[i].y - mean.y) > threshold * std.y) {
+                outliers.push_back(i);
+            }
+        }
+        return outliers;
+    }
+
+    std::vector<int> Utils::getOutliers(std::vector<double> const& values, double threshold) {
+        std::vector<int> outliers{};
+        double mean = Utils::getMean<double>(values);
+        double std = Utils::getStdDev(values);
+        for (int i = 0; i < values.size(); i++) {
+            if (std::abs(values[i] - mean) > threshold * std ||
+                std::abs(values[i] - mean) > threshold * std) {
                 outliers.push_back(i);
             }
         }

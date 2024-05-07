@@ -1,7 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="accuracy_tester" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="-s /mnt/c/Users/Marek/Documents/Projects/hdr_display/eye_tracker/resources -a 0.0 -d 0.0 -t poly" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="eye_tracker" TARGET_NAME="accuracy_tester" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="eye_tracker" RUN_TARGET_NAME="accuracy_tester">
-    <method v="2">
-      <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-    </method>
-  </configuration>
-</component>

@@ -17,6 +17,7 @@ namespace et
     {
         cv::findContours(image, contours_, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
         double best_rating{0};
+        constexpr double min_rating = 0.5;
 
         cv::Point2d image_centre{*pupil_search_centre_};
         auto max_distance = (double) (*pupil_search_radius_);
@@ -50,7 +51,7 @@ namespace et
             const double contour_area = static_cast<double>(cv::contourArea(contour));
             const double circle_area = M_PI * pow(est_radius, 2.0);
             double rating = contour_area / circle_area;
-            if (rating >= best_rating)
+            if (rating >= best_rating && rating > min_rating)
             {
                 best_rating = rating;
                 best_contour = contour;

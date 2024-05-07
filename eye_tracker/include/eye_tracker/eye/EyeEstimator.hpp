@@ -88,6 +88,8 @@ namespace et
 
         EyeMeasurements eye_measurements{};
 
+        static bool moving_average;
+
     protected:
 
         /**

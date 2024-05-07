@@ -79,7 +79,7 @@ namespace et
          * @return True, if the next frame was successfully captured from the image
          * provider. Otherwise, it returns false.
          */
-        bool analyzeNextFrame();
+        virtual bool analyzeNextFrame();
 
         void getEyeDataPackage(EyeDataToSend &eye_data_package);
 
@@ -156,6 +156,8 @@ namespace et
         void dumpCalibrationData(const std::string &video_path);
 
         bool wereFeaturesFound();
+
+        virtual cv::Point2d getMarkerPosition();
 
         static std::mutex mutex;
         std::shared_ptr<EyeEstimator> eye_estimator_{};

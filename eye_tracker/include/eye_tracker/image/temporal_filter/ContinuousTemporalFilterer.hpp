@@ -22,6 +22,8 @@ namespace et
 
         ~ContinuousTemporalFilterer();
 
+        static bool ransac;
+
     protected:
         /**
          * Creates a 4x4 Kalman Filter assuming its input vector consists of

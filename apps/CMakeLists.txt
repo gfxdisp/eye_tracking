@@ -2,6 +2,7 @@
 
 if (UNIX)
     add_subdirectory(hdrmfs_eye_tracker)
+    add_subdirectory(data_analysis)
     #add_subdirectory(polynomial_estimator)
     #add_subdirectory(accuracy_tester)
     #add_subdirectory(data_generator)

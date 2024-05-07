@@ -173,8 +173,8 @@ namespace et {
         if (visualization_type_ != VisualizationType::DISABLED) {
             double pupil_diameter{};
             eye_estimator_->getPupilDiameter(pupil_diameter);
-//            visualizer_->drawBoundingCircle(Settings::parameters.detection_params[camera_id_].pupil_search_centre,
-//                                            Settings::parameters.detection_params[camera_id_].pupil_search_radius);
+            visualizer_->drawBoundingCircle(Settings::parameters.detection_params[camera_id_].pupil_search_centre,
+                                            Settings::parameters.detection_params[camera_id_].pupil_search_radius);
 //           visualizer_->drawEyeCentre(feature_detector_->distort(eye_estimator_->getEyeCentrePixelPosition(online_calibration_running_)));
             visualizer_->drawCorneaCentre(
                     feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition(online_calibration_running_)));
@@ -185,6 +185,7 @@ namespace et {
 
             visualizer_->drawGazeTrace(previous_gaze_points_, gaze_point_history_full_ ? (gaze_point_index_ + 1) % GAZE_HISTORY_SIZE : 0, gaze_point_index_, GAZE_HISTORY_SIZE);
             visualizer_->drawGaze(eye_estimator_->getNormalizedGazePoint());
+            visualizer_->drawMarker(getMarkerPosition());
 
 
             visualizer_->drawPupil(feature_detector_->getPupilDistorted(),
@@ -337,5 +338,9 @@ namespace et {
 
     bool Framework::wereFeaturesFound() {
         return features_found_;
+    }
+
+    cv::Point2d Framework::getMarkerPosition() {
+        return {0, 0};
     }
 } // namespace et

@@ -61,11 +61,15 @@ namespace et {
 
     class MetaModel {
     public:
+        static bool ransac;
+
         explicit MetaModel(int camera_id);
 
-        void findMetaModel(std::vector<CalibrationInput> const& calibration_input, CalibrationOutput const& calibration_output, bool from_scratch, const std::string& output_video_name);
+        std::vector<std::vector<double>> findMetaModel(std::vector<CalibrationInput> const& calibration_input, CalibrationOutput const& calibration_output, bool from_scratch, const std::string& output_video_name);
 
-        void findMetaModelFromFile(const std::string& calibration_input_video_path, const std::string& calibration_output_csv_path, bool from_scratch);
+        std::vector<std::vector<double>> findMetaModelFromFile(const std::string& calibration_input_video_path, const std::string& calibration_output_csv_path, bool from_scratch);
+
+        std::vector<std::vector<double>> getEstimationsAtFrames(const std::string& calibration_input_video_path, const std::string& frames_csv);
 
     private:
         CorneaOptimizer* cornea_optimizer_{};

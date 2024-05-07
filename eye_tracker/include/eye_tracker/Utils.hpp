@@ -139,6 +139,8 @@ namespace et
 
         static std::vector<int> getOutliers(const std::vector<cv::Point2d>& values, double threshold);
 
+        static std::vector<int> getOutliers(const std::vector<double>& values, double threshold);
+
         static cv::Vec3d getMedian(const std::vector<cv::Vec3d>& values);
 
         template<typename T>

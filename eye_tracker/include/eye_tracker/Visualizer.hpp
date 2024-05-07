@@ -73,6 +73,8 @@ namespace et {
 
         void drawGaze(cv::Point2d normalized_gaze_point);
 
+        void drawMarker(cv::Point2d normalized_marker);
+
         void drawGazeTrace(cv::Point2d* gaze_points, int start, int end, int length);
 
         /**

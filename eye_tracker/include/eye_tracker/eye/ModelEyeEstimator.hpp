@@ -19,6 +19,9 @@ namespace et
         bool invertDetectEye(EyeInfo& eye_info, const cv::Point3d& nodal_point, const cv::Point3d& eye_centre,
                              const EyeMeasurements& measurements);
 
+        static bool ignore_below45;
+        static bool test_all_glints;
+
     protected:
         // Function used to optimize cornea centre position in
         // the getEyeFromModel() method.

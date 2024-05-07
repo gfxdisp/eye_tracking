@@ -166,6 +166,15 @@ namespace et {
         }
     }
 
+    void Visualizer::drawMarker(cv::Point2d normalized_marker) {
+        if (normalized_marker.x >= 0 && normalized_marker.x <= 1 && normalized_marker.y >= 0 && normalized_marker.y <= 1) {
+            cv::line(image_, cv::Point2d(50 + 300 * normalized_marker.x - 10, image_.rows - 50 - 300 * normalized_marker.y),
+                    cv::Point2d(50 + 300 * normalized_marker.x + 10, image_.rows - 50 - 300 * normalized_marker.y), cv::Scalar(0x00, 0x00, 0xFF), 2);
+            cv::line(image_, cv::Point2d(50 + 300 * normalized_marker.x, image_.rows - 50 - 300 * normalized_marker.y - 10),
+                    cv::Point2d(50 + 300 * normalized_marker.x, image_.rows - 50 - 300 * normalized_marker.y + 10), cv::Scalar(0x00, 0x00, 0xFF), 2);
+        }
+    }
+
     void Visualizer::drawGazeTrace(cv::Point2d* gaze_points, int start, int end, int length) {
         for (int i = start; (i + 1) % length != end; i = (i + 1) % length) {
             auto full_pos_start = cv::Point2d(50 + 300 * gaze_points[i].x, image_.rows - 50 - 300 * gaze_points[i].y);

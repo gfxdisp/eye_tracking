@@ -3,6 +3,8 @@
 
 namespace et
 {
+    bool ContinuousTemporalFilterer::ransac = true;
+
     ContinuousTemporalFilterer::ContinuousTemporalFilterer(int camera_id) : TemporalFilterer(camera_id)
     {
         region_of_interest_ = &et::Settings::parameters.camera_params[camera_id].region_of_interest;
@@ -86,7 +88,7 @@ namespace et
                 double value{0.0};
                 value += (ellipse_centre.x - glint.x) * (ellipse_centre.x - glint.x);
                 value += (ellipse_centre.y - glint.y) * (ellipse_centre.y - glint.y);
-                if (std::abs(std::sqrt(value) - ellipse_radius) <= 3.0)
+                if (std::abs(std::sqrt(value) - ellipse_radius) <= 3.0 || !ransac)
                 {
                     counter++;
                 }
