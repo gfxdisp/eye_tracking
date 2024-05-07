@@ -173,8 +173,8 @@ namespace et {
         if (visualization_type_ != VisualizationType::DISABLED) {
             double pupil_diameter{};
             eye_estimator_->getPupilDiameter(pupil_diameter);
-            visualizer_->drawBoundingCircle(Settings::parameters.detection_params[camera_id_].pupil_search_centre,
-                                            Settings::parameters.detection_params[camera_id_].pupil_search_radius);
+//            visualizer_->drawBoundingCircle(Settings::parameters.detection_params[camera_id_].pupil_search_centre,
+//                                            Settings::parameters.detection_params[camera_id_].pupil_search_radius);
 //           visualizer_->drawEyeCentre(feature_detector_->distort(eye_estimator_->getEyeCentrePixelPosition(online_calibration_running_)));
             visualizer_->drawCorneaCentre(
                     feature_detector_->distort(eye_estimator_->getCorneaCurvaturePixelPosition(online_calibration_running_)));

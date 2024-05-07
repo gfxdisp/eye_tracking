@@ -19,6 +19,11 @@ namespace et
         max_width_ = 330;
         min_height_ = 50;
         max_height_ = 250;
+
+//        min_width_ -= 100;
+//        max_width_ -= 100;
+//        min_height_ -= 100;
+//        max_height_ -= 100;
     }
 
     cv::Point2d VideoCameraFramework::getMarkerPosition() {
@@ -30,6 +35,7 @@ namespace et
         bool return_value = Framework::analyzeNextFrame();
         if (return_value) {
             marker_position_ = cv::Point2d(csv_data_[frame_counter][3], csv_data_[frame_counter][4]);
+//            marker_position_ = {160.2219,142.57618};
 
             marker_position_.x = (marker_position_.x - min_width_) / (max_width_ - min_width_);
             marker_position_.y = (marker_position_.y - min_height_) / (max_height_ - min_height_);
