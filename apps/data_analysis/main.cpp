@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
     auto meta_model = std::make_shared<et::MetaModel>(0);
 
-    bool *variables_to_disable[] = {&et::MetaModel::ransac, &et::ContinuousTemporalFilterer::ransac, &et::EyeEstimator::moving_average, &et::ModelEyeEstimator::test_all_glints, &et::ModelEyeEstimator::ignore_below45};
+    bool *variables_to_disable[] = {&et::MetaModel::ransac, &et::ContinuousTemporalFilterer::ransac, &et::EyeEstimator::moving_average, &et::ModelEyeEstimator::test_all_glints, &et::EyeEstimator::calibration_enabled};
 
     for (int j = 0; j <= 5; j++) {
         for (int i = 0; i < 4; i++) {

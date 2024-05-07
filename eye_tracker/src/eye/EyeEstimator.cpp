@@ -6,6 +6,7 @@
 namespace et {
 
     bool EyeEstimator::moving_average = true;
+    bool EyeEstimator::calibration_enabled = true;
 
     EyeEstimator::EyeEstimator(int camera_id) : camera_id_{camera_id} {
         features_params_ = Settings::parameters.user_params[camera_id];
@@ -222,7 +223,7 @@ namespace et {
         bool result = detectEye(eye_info, eye_centre, nodal_point, angle);
         findPupilDiameter(eye_info.pupil, eye_info.pupil_radius, nodal_point, pupil_diameter);
 
-        if (add_correction) {
+        if (add_correction && calibration_enabled) {
             eye_centre += eye_position_offset_;
             nodal_point += eye_position_offset_;
 
