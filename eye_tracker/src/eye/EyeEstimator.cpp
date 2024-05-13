@@ -2,11 +2,11 @@
 
 #include "eye_tracker/eye/EyeEstimator.hpp"
 #include "eye_tracker/Utils.hpp"
+#include "eye_tracker/optimizers/MetaModel.hpp"
 
 namespace et {
 
     bool EyeEstimator::moving_average = true;
-    bool EyeEstimator::calibration_enabled = true;
 
     EyeEstimator::EyeEstimator(int camera_id) : camera_id_{camera_id} {
         features_params_ = Settings::parameters.user_params[camera_id];
@@ -28,8 +28,8 @@ namespace et {
         min_height_ = 50;
         max_height_ = 250;
 
-//        min_width_ -= 100;
-//        max_width_ -= 100;
+        min_width_ -= 100;
+        max_width_ -= 100;
 //        min_height_ -= 100;
 //        max_height_ -= 100;
 
@@ -228,7 +228,7 @@ namespace et {
         bool result = detectEye(eye_info, eye_centre, nodal_point, angle);
         findPupilDiameter(eye_info.pupil, eye_info.pupil_radius, nodal_point, pupil_diameter);
 
-        if (add_correction && calibration_enabled) {
+        if (add_correction && MetaModel::calibration_enabled) {
             eye_centre += eye_position_offset_;
             nodal_point += eye_position_offset_;
 

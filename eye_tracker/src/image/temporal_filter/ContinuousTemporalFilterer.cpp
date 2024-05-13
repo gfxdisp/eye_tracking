@@ -105,9 +105,15 @@ namespace et
         circle_centre_ = best_circle_centre;
         circle_radius_ = best_circle_radius;
 
-        // Remove all glints that are too far from the estimated circle.
-        glints.erase(std::remove_if(glints.begin(), glints.end(), [this](auto const &p)
+        if (best_counter < 3)
         {
+            glints = {};
+            return;
+        }
+
+        // Remove all glints that are too far from the estimated circle.
+
+        glints.erase(std::remove_if(glints.begin(), glints.end(), [this](auto const& p) {
             double value{0.0};
             value += (circle_centre_.x - p.x) * (circle_centre_.x - p.x);
             value += (circle_centre_.y - p.y) * (circle_centre_.y - p.y);

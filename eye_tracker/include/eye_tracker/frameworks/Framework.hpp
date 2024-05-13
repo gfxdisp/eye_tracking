@@ -88,7 +88,7 @@ namespace et
          * elements added to it (fps counter, eye position, etc.). Videos will be
          * saved to the videos/ directory at the location from which the app was run.
          */
-        void startRecording(std::string const& name="");
+        void startRecording(std::string const& name="", bool record_ui=true);
 
         /**
          * Stops any enabled video recordings and saves the results.
@@ -142,7 +142,7 @@ namespace et
          */
         double getAvgFramerate();
 
-        void startOnlineCalibration();
+        void startOnlineCalibration(std::string const& name="");
 
         void stopOnlineCalibration(const CalibrationOutput& calibration_output, bool calibrate_from_scratch);
 

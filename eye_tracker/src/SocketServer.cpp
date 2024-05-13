@@ -145,7 +145,17 @@ namespace et {
                             goto connect_failure;
                         }
 
-                        eye_trackers_[camera_id]->startOnlineCalibration();
+                        int string_length;
+                        if (!readAll(&string_length, sizeof(string_length))) {
+                            goto connect_failure;
+                        }
+                        if (!readAll(message_buffer_, string_length)) {
+                            goto connect_failure;
+                        }
+
+                        std::string filename = std::string(message_buffer_);
+
+                        eye_trackers_[camera_id]->startOnlineCalibration(filename);
                         char done = 1;
                         if (!sendAll(&done, sizeof(done))) {
                             goto connect_failure;
@@ -226,7 +236,7 @@ namespace et {
 
                         std::string filename = std::string(message_buffer_);
 
-                        eye_trackers_[camera_id]->startRecording(filename);
+                        eye_trackers_[camera_id]->startRecording(filename, false);
                         char done = 1;
                         if (!sendAll(&done, sizeof(done)))
                         {

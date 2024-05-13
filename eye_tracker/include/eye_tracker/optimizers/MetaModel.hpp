@@ -50,6 +50,8 @@ namespace et {
         std::vector<cv::Point3d> real_cornea_positions;
         std::vector<cv::Point3d> estimated_cornea_positions;
 
+        std::vector<cv::Point2d> angle_offsets;
+
         std::vector<double> real_angles_theta;
         std::vector<double> real_angles_phi;
         std::vector<double> estimated_angles_theta;
@@ -62,6 +64,8 @@ namespace et {
     class MetaModel {
     public:
         static bool ransac;
+
+        static bool calibration_enabled;
 
         explicit MetaModel(int camera_id);
 

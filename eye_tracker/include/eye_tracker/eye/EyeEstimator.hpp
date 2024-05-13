@@ -90,8 +90,6 @@ namespace et
 
         static bool moving_average;
 
-        static bool calibration_enabled;
-
     protected:
 
         /**

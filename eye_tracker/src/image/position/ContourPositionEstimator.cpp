@@ -11,6 +11,10 @@ namespace et
         pupil_search_radius_ = &Settings::parameters.detection_params[camera_id].pupil_search_radius;
         min_pupil_radius_ = &Settings::parameters.detection_params[camera_id].min_pupil_radius;
         max_pupil_radius_ = &Settings::parameters.detection_params[camera_id].max_pupil_radius;
+
+        auto template_path = Settings::settings_folder_ / ("template_" + std::to_string(camera_id) + ".png");
+        cv::Mat glints_template_cpu = cv::imread(template_path, cv::IMREAD_GRAYSCALE);
+        template_size_ = cv::Size2i(glints_template_cpu.cols, glints_template_cpu.rows);
     }
 
     bool ContourPositionEstimator::findPupil(cv::Mat &image, cv::Point2d &pupil_position, double &radius)
@@ -90,7 +94,7 @@ namespace et
             }
             mean_point.x /= (double) contour.size();
             mean_point.y /= (double) contour.size();
-            mean_point += cv::Point2d(4, 4); // Shift the center to account for the template size.
+            mean_point += cv::Point2d(template_size_.width / 2.0, template_size_.height / 2.0); // Shift the center to account for the template size.
             glints.push_back(mean_point);
         }
 

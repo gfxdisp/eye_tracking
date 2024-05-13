@@ -103,7 +103,7 @@ namespace et {
         return true;
     }
 
-    void Framework::startRecording(const std::string& name) {
+    void Framework::startRecording(const std::string& name, bool record_ui) {
         mutex.lock();
         if (!output_video_.isOpened()) {
             if (!std::filesystem::is_directory("results")) {
@@ -112,19 +112,27 @@ namespace et {
             std::string video, video_ui;
             if (name.empty()) {
                 auto current_time = Utils::getCurrentTimeText();
-                video = "results/" + current_time + "_" + std::to_string(camera_id_) + ".mp4";
-                video_ui = "results/" + current_time + "_" + std::to_string(camera_id_) + "_ui.mp4";
-                output_video_name_ = "results/" + current_time + "_" + std::to_string(camera_id_);
+                video = "results/" + current_time;
+                video_ui = "results/" + current_time;
+                output_video_name_ = "results/" + current_time;
             } else {
-                video = "results/" + name + "_" + std::to_string(camera_id_) + ".mp4";
-                video_ui = "results/" + name + "_" + std::to_string(camera_id_) + "_ui.mp4";
-                output_video_name_ = "results/" + name + "_" + std::to_string(camera_id_);
+                video = "results/" + name;
+                video_ui = "results/" + name;
+                output_video_name_ = "results/" + name;
             }
+
+            video += "_" + std::to_string(camera_id_) + ".mp4";
+            video_ui += "_" + std::to_string(camera_id_) + "_ui.mp4";
+            output_video_name_ += "_" + std::to_string(camera_id_);
+
             std::clog << "Saving video to " << video << "\n";
             output_video_.open(video, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
                                et::Settings::parameters.camera_params[camera_id_].region_of_interest, false);
-            output_video_ui_.open(video_ui, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
-                                  et::Settings::parameters.camera_params[camera_id_].region_of_interest, true);
+            if (record_ui) {
+                std::clog << "Saving UI video to " << video_ui << "\n";
+                output_video_ui_.open(video_ui, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30,
+                                      et::Settings::parameters.camera_params[camera_id_].region_of_interest, true);
+            }
             output_video_frame_counter_ = 0;
         }
         mutex.unlock();
@@ -229,12 +237,12 @@ namespace et {
         return visualizer_->getAvgFramerate();
     }
 
-    void Framework::startOnlineCalibration() {
+    void Framework::startOnlineCalibration(std::string const& name) {
         std::cout << "Starting online calibration" << std::endl;
         calibration_input_.clear();
         calibration_start_time_ = std::chrono::system_clock::now();
         online_calibration_running_ = true;
-        startRecording();
+        startRecording(name, false);
     }
 
     void Framework::stopOnlineCalibration(const CalibrationOutput& calibration_output, bool calibrate_from_scratch) {

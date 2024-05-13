@@ -110,7 +110,7 @@ namespace et {
         }
 
         temporal_filterer_->filterGlints(ellipse_points);
-        if (ellipse_points.size() < 8) {
+        if (ellipse_points.size() < 5) {
             return false;
         }
 
@@ -134,7 +134,7 @@ namespace et {
             }
         });
 
-        if (left_glints < 3 || right_glints < 3) {
+        if (left_glints < 2 || right_glints < 2) {
             return false;
         }
 

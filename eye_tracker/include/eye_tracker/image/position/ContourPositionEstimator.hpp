@@ -34,6 +34,8 @@ namespace et
             cv::Point2d diff = p - q;
             return cv::sqrt(diff.x * diff.x + diff.y * diff.y);
         }
+
+        cv::Size2i template_size_{};
     };
 
 } // et

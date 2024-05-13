@@ -10,7 +10,8 @@
 
 namespace et {
 
-    bool MetaModel::ransac = true;
+    bool MetaModel::ransac = false;
+    bool MetaModel::calibration_enabled = true;
 
     MetaModel::MetaModel(int camera_id) : camera_id_(camera_id) {
         cornea_optimizer_ = new CorneaOptimizer();
@@ -89,10 +90,10 @@ namespace et {
             cornea_solver_->setInitStep(step);
             cornea_solver_->minimize(x);
             cv::Point3d real_cornea_position{};
-            
+
             cv::Vec3d optical_axis;
             Utils::anglesToVector({x.at<double>(0, 0), x.at<double>(0, 1)}, optical_axis);
-            
+
             real_cornea_position = meta_model_data.real_eye_position + eye_measurements.cornea_curvature_radius * (cv::Point3d) optical_axis;
 
             meta_model_data.real_cornea_positions.push_back(real_cornea_position);
@@ -111,6 +112,7 @@ namespace et {
             meta_model_data.estimated_angles_phi.push_back(sample.angles[1]);
             meta_model_data.pcr_distances_x.push_back(sample.pcr_distance[0]);
             meta_model_data.pcr_distances_y.push_back(sample.pcr_distance[1]);
+            meta_model_data.angle_offsets.emplace_back(real_angles - sample.angles);
             marker_numbers.push_back(total_markers);
 
             cum_samples_per_marker[total_markers + 1]++;
@@ -162,9 +164,13 @@ namespace et {
         auto mean_real_cornea_position = Utils::getMean<cv::Point3d>(meta_model_data.real_cornea_positions);
         auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.5);
         auto mean_estimated_cornea_position = Utils::getMean<cv::Point3d>(meta_model_data.estimated_cornea_positions);
-//        auto eye_position_offset = mean_real_cornea_position - mean_estimated_cornea_position;
-        auto eye_position_offset = meta_model_data.real_eye_position - mean_estimated_eye_position;
+        auto eye_position_offset = mean_real_cornea_position - mean_estimated_cornea_position;
+//        auto eye_position_offset = meta_model_data.real_eye_position - mean_estimated_eye_position;
+
+        auto angle_offset = Utils::getMean<cv::Point2d>(meta_model_data.angle_offsets);
+
         std::cout << "Cornea offset: " << eye_position_offset << std::endl;
+        std::cout << "Angle offset: " << angle_offset << std::endl;
 
 
 //        auto mean_estimated_eye_position = Utils::getTrimmmedMean(meta_model_data.estimated_eye_positions, 0.5);
@@ -192,7 +198,7 @@ namespace et {
             std::mt19937 generator(random_device());
 
             int min_fitting_size = static_cast<int>(polynomial_fit_pcr_x->getCoefficients().size());
-            int trials_num = 10'000;
+            int trials_num = 1;
             std::vector<std::vector<int>> trials{};
             std::vector<int> indices{};
             for (int i = 0; i < total_markers || i < min_fitting_size; i++) {
@@ -312,12 +318,18 @@ namespace et {
             polynomial_fit_theta->fit(input_theta_phi_sample, &output_theta_sample);
             polynomial_fit_phi->fit(input_theta_phi_sample, &output_phi_sample);
 
+            if (!calibration_enabled) {
+                eye_position_offset = {0, 0, 0};
+                angle_offset = {0, 0};
+            }
+
             et::Settings::parameters.user_params[camera_id_]->position_offset = eye_position_offset;
             et::Settings::parameters.user_params[camera_id_]->polynomial_x = polynomial_fit_pcr_x->getCoefficients();
             et::Settings::parameters.user_params[camera_id_]->polynomial_y = polynomial_fit_pcr_y->getCoefficients();
             et::Settings::parameters.user_params[camera_id_]->polynomial_theta = polynomial_fit_theta->getCoefficients();
             et::Settings::parameters.user_params[camera_id_]->polynomial_phi = polynomial_fit_phi->getCoefficients();
             et::Settings::parameters.user_params[camera_id_]->marker_depth = marker_depth;
+            et::Settings::parameters.user_params[camera_id_]->angle_offset = angle_offset;
             et::Settings::saveSettings();
         } else {
             eye_position_offset = et::Settings::parameters.user_params[camera_id_]->position_offset;
@@ -326,14 +338,24 @@ namespace et {
             polynomial_fit_theta->setCoefficients(et::Settings::parameters.user_params[camera_id_]->polynomial_theta);
             polynomial_fit_phi->setCoefficients(et::Settings::parameters.user_params[camera_id_]->polynomial_phi);
             marker_depth = et::Settings::parameters.user_params[camera_id_]->marker_depth;
+            angle_offset = et::Settings::parameters.user_params[camera_id_]->angle_offset;
+
+            if (!calibration_enabled) {
+                eye_position_offset = {0, 0, 0};
+                angle_offset = {0, 0};
+            }
         }
 
         std::vector<double> position_errors{};
+        std::vector<double> angle_errors_offset{};
         std::vector<double> angle_errors_pcr{};
         std::vector<double> angle_errors_poly_fit{};
         full_data.clear();
 
         std::vector<std::vector<double>> errors{};
+        std::vector<double> temp_angle_errors_offset{};
+        std::vector<double> temp_angle_errors_pcr{};
+        std::vector<double> temp_angle_errors_poly_fit{};
 
         for (int j = 0; j < total_samples; j++) {
             std::vector<double> data_point{};
@@ -384,10 +406,16 @@ namespace et {
 
             double estimated_theta = polynomial_fit_theta->getEstimation({meta_model_data.estimated_angles_theta[j], meta_model_data.estimated_angles_phi[j]});
             double estimated_phi = polynomial_fit_phi->getEstimation({meta_model_data.estimated_angles_theta[j], meta_model_data.estimated_angles_phi[j]});
+
+            if (!calibration_enabled) {
+                estimated_theta = meta_model_data.estimated_angles_theta[j];
+                estimated_phi = meta_model_data.estimated_angles_phi[j];
+            }
+
             predicted_angle = {estimated_theta, estimated_phi};
             Utils::anglesToVector(predicted_angle, visual_axis);
             double k = (marker_depth - meta_model_data.estimated_cornea_positions[j].z - eye_position_offset.z) / visual_axis[2];
-            predicted_marker_position = meta_model_data.estimated_cornea_positions[j] + eye_position_offset + (cv::Point3d) (k * visual_axis); //  214.18681983167573, 151.81998483981826, 92.023002624511719
+            predicted_marker_position = meta_model_data.estimated_cornea_positions[j] + eye_position_offset + (cv::Point3d) (k * visual_axis);
             vec1 = meta_model_data.real_marker_positions[j] - meta_model_data.real_eye_position;
             vec2 = predicted_marker_position - meta_model_data.real_eye_position;
             angle_error = std::acos(vec1.dot(vec2) / (cv::norm(vec1) * cv::norm(vec2))) * 180.0 / CV_PI;
@@ -398,15 +426,47 @@ namespace et {
             data_point.push_back(predicted_marker_position.y);
             data_point.push_back(predicted_marker_position.z);
 
+            predicted_angle = {meta_model_data.estimated_angles_theta[j] + angle_offset.x, meta_model_data.estimated_angles_phi[j] + angle_offset.y};
+            Utils::anglesToVector(predicted_angle, visual_axis);
+            k = (marker_depth - meta_model_data.estimated_cornea_positions[j].z - eye_position_offset.z) / visual_axis[2];
+            predicted_marker_position = meta_model_data.estimated_cornea_positions[j] + eye_position_offset + (cv::Point3d) (k * visual_axis);
+            vec1 = meta_model_data.real_marker_positions[j] - meta_model_data.real_eye_position;
+            vec2 = predicted_marker_position - meta_model_data.real_eye_position;
+            angle_error = std::acos(vec1.dot(vec2) / (cv::norm(vec1) * cv::norm(vec2))) * 180.0 / CV_PI;
+            angle_errors_offset.push_back(angle_error);
+            data_point.push_back(predicted_angle[0]);
+            data_point.push_back(predicted_angle[1]);
+            data_point.push_back(predicted_marker_position.x);
+            data_point.push_back(predicted_marker_position.y);
+            data_point.push_back(predicted_marker_position.z);
+
             full_data.push_back(data_point);
 
-            errors.push_back({position_errors.back(), angle_errors_poly_fit.back(), angle_errors_pcr.back()});
+            if (j == total_samples -1 || (j > 0 && (meta_model_data.real_marker_positions[j].x != meta_model_data.real_marker_positions[j - 1].x || meta_model_data.real_marker_positions[j].y != meta_model_data.real_marker_positions[j - 1].y))) {
+                if (j == total_samples - 1) {
+                    temp_angle_errors_offset.push_back(angle_errors_offset.back());
+                    temp_angle_errors_poly_fit.push_back(angle_errors_poly_fit.back());
+                    temp_angle_errors_pcr.push_back(angle_errors_pcr.back());
+                }
+
+                errors.push_back({Utils::getMean<double>(temp_angle_errors_offset), Utils::getMean<double>(temp_angle_errors_poly_fit), Utils::getMean<double>(temp_angle_errors_pcr)});
+                temp_angle_errors_offset.clear();
+                temp_angle_errors_poly_fit.clear();
+                temp_angle_errors_pcr.clear();
+            }
+
+            temp_angle_errors_offset.push_back(angle_errors_offset.back());
+            temp_angle_errors_poly_fit.push_back(angle_errors_poly_fit.back());
+            temp_angle_errors_pcr.push_back(angle_errors_pcr.back());
+
+//            errors.push_back({angle_errors_offset.back(), angle_errors_poly_fit.back(), angle_errors_pcr.back()});
 
         }
 
         std::string header = "real_eye_x,real_eye_y,real_eye_z,est_eye_x,est_eye_y,est_eye_z,real_cornea_x,real_cornea_y,real_cornea_z,"
                              "est_cornea_x,est_cornea_y,est_cornea_z,real_theta,real_phi,real_point_x,real_point_y,real_point_z,pcr_theta,pcr_phi,pcr_point_x,"
-                             "pcr_point_y,pcr_point_z,est_theta,est_phi,est_point_x,est_point_y,est_point_z";
+                             "pcr_point_y,pcr_point_z,est_theta,est_phi,est_point_x,est_point_y,est_point_z,offset_theta,offset_phi,offset_point_x,"
+                             "offset_point_y,offset_point_z";
 
         Utils::writeFloatCsv(full_data, "full_data.csv", false, header);
 
@@ -415,6 +475,10 @@ namespace et {
         auto mean_error = Utils::getMean<double>(position_errors);
         auto std_error = Utils::getStdDev(position_errors);
         std::cout << "Position error: " << mean_error << " ± " << std_error << std::endl;
+
+        mean_error = Utils::getMean<double>(angle_errors_offset);
+        std_error = Utils::getStdDev<double>(angle_errors_offset);
+        std::cout << "Offset error: " << mean_error << " ± " << std_error << std::endl;
 
         mean_error = Utils::getMean<double>(angle_errors_poly_fit);
         std_error = Utils::getStdDev<double>(angle_errors_poly_fit);
@@ -509,8 +573,12 @@ namespace et {
 
         std::vector<std::vector<double>> estimations{};
         cv::Point3d cornea_centre{};
-        for (int i = 0; ; i++) {
+
+        int frames_back = 0;
+
+        for (int i = 0;; i++) {
             auto analyzed_frame = image_provider->grabImage();
+
             const auto now = std::chrono::system_clock::now();
             if (analyzed_frame.pupil.empty() || analyzed_frame.glints.empty()) {
                 break;
@@ -536,13 +604,13 @@ namespace et {
                 eye_estimator->getCorneaCurvaturePosition(cornea_centre);
                 auto gaze_point = eye_estimator->getNormalizedGazePoint();
             }
-
-            if (i == (int)(calibration_output_data[current_index][0])) {
+            if (i == (int) (calibration_output_data[current_index][0]) - frames_back) {
                 cv::Point2d real_position = {calibration_output_data[current_index][1], calibration_output_data[current_index][2]};
                 cv::Point2d estimated_position = {cornea_centre.x, cornea_centre.y};
                 double distance = cv::norm(real_position - estimated_position);
-                estimations.push_back({distance});
+                estimations.push_back({cornea_centre.x, cornea_centre.y});
                 current_index++;
+                std::cout << estimated_position.x << "," << estimated_position.y << ";" << std::endl;
                 if (current_index == calibration_output_data.size()) {
                     break;
                 }

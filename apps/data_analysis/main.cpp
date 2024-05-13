@@ -43,8 +43,9 @@ int main(int argc, char *argv[])
 
     int n_cameras = 1;
 
-    user = "jgm45";
 
+
+    user = "yl962";
     auto settings = std::make_shared<et::Settings>(settings_path);
     std::shared_ptr<et::Framework> frameworks[2];
     for (int i = 0; i < n_cameras; i++)
@@ -54,38 +55,38 @@ int main(int argc, char *argv[])
             et::Settings::parameters.features_params[i][user] = et::Settings::parameters.features_params[i]["default"];
         }
         et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
-
-//        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
-        //frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/home/jgm45/Documents/hdr_display/eye_tracker/experiments/videos/test_video2_0.mp4", true);
     }
 
 
     auto meta_model = std::make_shared<et::MetaModel>(0);
 
-    bool *variables_to_disable[] = {&et::MetaModel::ransac, &et::ContinuousTemporalFilterer::ransac, &et::EyeEstimator::moving_average, &et::ModelEyeEstimator::test_all_glints, &et::EyeEstimator::calibration_enabled};
+    bool *variables_to_disable[] = {&et::ContinuousTemporalFilterer::ransac, &et::ModelEyeEstimator::test_all_glints, &et::MetaModel::calibration_enabled};
+    et::EyeEstimator::moving_average = false;
 
-    for (int j = 0; j <= 5; j++) {
-        for (int i = 0; i < 4; i++) {
+    for (int j = 0; j <= 3; j++) {
+        for (int i = 0; i < 3; i++) {
             *variables_to_disable[i] = i != j;
         }
 
         meta_model->findMetaModelFromFile("/mnt/d/Downloads/results/" + user + "_position_calib.mp4", "/mnt/d/Downloads/results/" + user + "_position_calib.csv", true);
-        for (int i = 1; i <= 3; i++) {
-            std::string video_path = "/mnt/d/Downloads/results/" + user + "_session_" + std::to_string(i) + ".mp4";
-            std::string csv_path = "/mnt/d/Downloads/results/" + user + "_session_" + std::to_string(i) + ".csv";
-            auto errors = meta_model->getEstimationsAtFrames(video_path, csv_path);
-            et::Utils::writeFloatCsv(errors, "/mnt/d/Downloads/results/errors/" + user + "_session_" + std::to_string(i) + "_errors" + std::to_string(j) + ".csv", false);
-        }
+//        for (int i = 1; i <= 3; i++) {
+//            std::string video_path = "/mnt/d/Downloads/results/" + user + "_session_" + std::to_string(i) + ".mp4";
+//            std::string csv_path = "/mnt/d/Downloads/results/" + user + "_session_" + std::to_string(i) + ".csv";
+//            auto errors = meta_model->getEstimationsAtFrames(video_path, csv_path);
+//            et::Utils::writeFloatCsv(errors, "/mnt/d/Downloads/results/errors/" + user + "_session_" + std::to_string(i) + "_errors_mod" + std::to_string(j) + ".csv", false);
+//        }
 
         for (int i = 1; i <= 4; i++) {
             std::string video_path = "/mnt/d/Downloads/results/" + user + "_gaze_" + std::to_string(i) + ".mp4";
             std::string csv_path = "/mnt/d/Downloads/results/" + user + "_gaze_" + std::to_string(i) + ".csv";
             auto errors = meta_model->findMetaModelFromFile(video_path, csv_path, false);
-            et::Utils::writeFloatCsv(errors, "/mnt/d/Downloads/results/errors/" + user + "_gaze_errors" + std::to_string(j) + ".csv", i != 1, "pos_error,angle_error,pc_error");
+            et::Utils::writeFloatCsv(errors, "/mnt/d/Downloads/results/errors/" + user + "_gaze_errors_mod" + std::to_string(j) + ".csv", i != 1, "offset_error,angle_error,pc_error");
         }
     }
 
-    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/results/yl962_position_calib.mp4", false);
+//    meta_model->findMetaModelFromFile("/mnt/d/Downloads/results/" + user + "_position_calib.mp4", "/mnt/d/Downloads/results/" + user + "_position_calib.csv", true);
+
+    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/results/jgm45_gaze_1.mp4", false);
     auto socket_server = std::make_shared<et::SocketServer>(frameworks[0], frameworks[1]);
     socket_server->startServer();
 
