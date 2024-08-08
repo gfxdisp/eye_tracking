@@ -21,7 +21,7 @@ namespace et
     {
         cv::findContours(image, contours_, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
         double best_rating{0};
-        constexpr double min_rating = 0.5;
+        constexpr double min_rating = 0.2;
 
         cv::Point2d image_centre{*pupil_search_centre_};
         auto max_distance = (double) (*pupil_search_radius_);
@@ -98,6 +98,6 @@ namespace et
             glints.push_back(mean_point);
         }
 
-        return glints.size() >= 5;
+        return glints.size() >= 4;
     }
 } // et

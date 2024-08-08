@@ -79,7 +79,7 @@ namespace et
             bayes_solver_->minimize(x);
             ellipse_centre.x = x.at<double>(0, 0);
             ellipse_centre.y = x.at<double>(0, 1);
-            ellipse_radius = x.at<double>(0, 2);
+            ellipse_radius = std::abs(x.at<double>(0, 2));
 
             counter = 0;
             // Counts all glints that lie close to the circle

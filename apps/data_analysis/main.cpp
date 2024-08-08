@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 
 
 
-    user = "yl962";
+    user = "rkm38";
     auto settings = std::make_shared<et::Settings>(settings_path);
     std::shared_ptr<et::Framework> frameworks[2];
     for (int i = 0; i < n_cameras; i++)
@@ -68,17 +68,30 @@ int main(int argc, char *argv[])
             *variables_to_disable[i] = i != j;
         }
 
+        if (user == "dh706") {
+            et::Settings::parameters.user_params[0]->glint_threshold = 98;
+        }
+
         meta_model->findMetaModelFromFile("/mnt/d/Downloads/results/" + user + "_position_calib.mp4", "/mnt/d/Downloads/results/" + user + "_position_calib.csv", true);
-//        for (int i = 1; i <= 3; i++) {
-//            std::string video_path = "/mnt/d/Downloads/results/" + user + "_session_" + std::to_string(i) + ".mp4";
-//            std::string csv_path = "/mnt/d/Downloads/results/" + user + "_session_" + std::to_string(i) + ".csv";
-//            auto errors = meta_model->getEstimationsAtFrames(video_path, csv_path);
-//            et::Utils::writeFloatCsv(errors, "/mnt/d/Downloads/results/errors/" + user + "_session_" + std::to_string(i) + "_errors_mod" + std::to_string(j) + ".csv", false);
-//        }
+        for (int i = 1; i <= 3; i++) {
+            std::string video_path = "/mnt/d/Downloads/results/" + user + "_session_" + std::to_string(i) + ".mp4";
+            std::string csv_path = "/mnt/d/Downloads/results/" + user + "_session_" + std::to_string(i) + ".csv";
+            auto errors = meta_model->getEstimationsAtFrames(video_path, csv_path);
+            et::Utils::writeFloatCsv(errors, "/mnt/d/Downloads/results/errors/" + user + "_session_" + std::to_string(i) + "_errors_mod" + std::to_string(j) + ".csv", false);
+        }
 
         for (int i = 1; i <= 4; i++) {
             std::string video_path = "/mnt/d/Downloads/results/" + user + "_gaze_" + std::to_string(i) + ".mp4";
             std::string csv_path = "/mnt/d/Downloads/results/" + user + "_gaze_" + std::to_string(i) + ".csv";
+
+            if (user == "dh706") {
+                if (i < 3) {
+                    et::Settings::parameters.user_params[0]->glint_threshold = 98;
+                } else {
+                    et::Settings::parameters.user_params[0]->glint_threshold = 119;
+                }
+            }
+
             auto errors = meta_model->findMetaModelFromFile(video_path, csv_path, false);
             et::Utils::writeFloatCsv(errors, "/mnt/d/Downloads/results/errors/" + user + "_gaze_errors_mod" + std::to_string(j) + ".csv", i != 1, "offset_error,angle_error,pc_error");
         }

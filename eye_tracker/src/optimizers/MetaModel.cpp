@@ -9,8 +9,6 @@
 #include <utility>
 
 namespace et {
-
-    bool MetaModel::ransac = false;
     bool MetaModel::calibration_enabled = true;
 
     MetaModel::MetaModel(int camera_id) : camera_id_(camera_id) {
@@ -198,7 +196,7 @@ namespace et {
             std::mt19937 generator(random_device());
 
             int min_fitting_size = static_cast<int>(polynomial_fit_pcr_x->getCoefficients().size());
-            int trials_num = 1;
+            int trials_num = 10'000;
             std::vector<std::vector<int>> trials{};
             std::vector<int> indices{};
             for (int i = 0; i < total_markers || i < min_fitting_size; i++) {
@@ -301,12 +299,12 @@ namespace et {
             output_theta_sample.clear();
             output_phi_sample.clear();
             for (int i = 0; i < total_samples; i++) {
-                if (best_x_y_samples[i] || !ransac) {
+                if (best_x_y_samples[i]) {
                     input_x_y_sample.push_back({meta_model_data.pcr_distances_x[i], meta_model_data.pcr_distances_y[i]});
                     output_x_sample.push_back(meta_model_data.real_marker_positions[i].x);
                     output_y_sample.push_back(meta_model_data.real_marker_positions[i].y);
                 }
-                if (best_theta_phi_samples[i] || !ransac) {
+                if (best_theta_phi_samples[i]) {
                     input_theta_phi_sample.push_back({meta_model_data.estimated_angles_theta[i], meta_model_data.estimated_angles_phi[i]});
                     output_theta_sample.push_back(meta_model_data.real_angles_theta[i]);
                     output_phi_sample.push_back(meta_model_data.real_angles_phi[i]);
@@ -488,6 +486,7 @@ namespace et {
         std_error = Utils::getStdDev<double>(angle_errors_pcr);
         std::cout << "Glint-pupil error: " << mean_error << " ± " << std_error << std::endl;
 
+        std::cout << "Finished calibration" << std::endl;
         return std::move(errors);
     }
 
@@ -574,7 +573,7 @@ namespace et {
         std::vector<std::vector<double>> estimations{};
         cv::Point3d cornea_centre{};
 
-        int frames_back = 0;
+        int frames_back = 500;
 
         for (int i = 0;; i++) {
             auto analyzed_frame = image_provider->grabImage();
@@ -604,13 +603,16 @@ namespace et {
                 eye_estimator->getCorneaCurvaturePosition(cornea_centre);
                 auto gaze_point = eye_estimator->getNormalizedGazePoint();
             }
-            if (i == (int) (calibration_output_data[current_index][0]) - frames_back) {
-                cv::Point2d real_position = {calibration_output_data[current_index][1], calibration_output_data[current_index][2]};
-                cv::Point2d estimated_position = {cornea_centre.x, cornea_centre.y};
-                double distance = cv::norm(real_position - estimated_position);
+
+            cv::Point2d real_position = {calibration_output_data[current_index][1], calibration_output_data[current_index][2]};
+            cv::Point2d estimated_position = {cornea_centre.x, cornea_centre.y};
+            double distance = cv::norm(real_position - estimated_position);
+
+            if ((i > (int) (calibration_output_data[current_index][0]) - frames_back && distance < 2.0) || i == (int) (calibration_output_data[current_index][0])) {
+                std::cout << real_position << estimated_position << ": " << distance << std::endl;
+                std::cout << "-------------------------------" << std::endl;
                 estimations.push_back({cornea_centre.x, cornea_centre.y});
                 current_index++;
-                std::cout << estimated_position.x << "," << estimated_position.y << ";" << std::endl;
                 if (current_index == calibration_output_data.size()) {
                     break;
                 }

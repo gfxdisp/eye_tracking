@@ -55,8 +55,8 @@ int main(int argc, char *argv[])
         }
         et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
 
-        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
-        //frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/home/jgm45/Documents/hdr_display/eye_tracker/experiments/videos/test_video2_0.mp4", true);
+//        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
+        frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/mnt/d/Downloads/results/rkm38_position_calib.mp4", true);
     }
 
 //    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/spiral_0.mp4", false);
