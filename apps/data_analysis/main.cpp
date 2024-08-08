@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 
 
 
-    user = "rkm38";
+    user = "jgm45";
     auto settings = std::make_shared<et::Settings>(settings_path);
     std::shared_ptr<et::Framework> frameworks[2];
     for (int i = 0; i < n_cameras; i++)
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
     bool *variables_to_disable[] = {&et::ContinuousTemporalFilterer::ransac, &et::ModelEyeEstimator::test_all_glints, &et::MetaModel::calibration_enabled};
     et::EyeEstimator::moving_average = false;
 
-    for (int j = 0; j <= 3; j++) {
+    for (int j = 3; j <= 3; j++) {
         for (int i = 0; i < 3; i++) {
             *variables_to_disable[i] = i != j;
         }

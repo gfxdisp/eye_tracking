@@ -10,23 +10,24 @@
 #include <string>
 #include <memory>
 
-int main(int argc, char *argv[])
-{
-    constexpr option options[] = {{"settings-path", required_argument, nullptr, 's'},
-                                  {"user",          required_argument, nullptr, 'u'},
-                                  {"headless",      no_argument,       nullptr, 'h'},
-                                  {nullptr,         no_argument,       nullptr, 0}};
+int main(int argc, char* argv[]) {
+    constexpr option options[] = {
+        {"settings-path", required_argument, nullptr, 's'},
+        {"user", required_argument, nullptr, 'u'},
+        {"headless", no_argument, nullptr, 'h'},
+        {"video", required_argument, nullptr, 'v'},
+        {nullptr, no_argument, nullptr, 0}
+    };
 
     int argument{0};
     std::string settings_path{"."};
     std::string user{"default"};
+    std::string video_path{};
     bool headless{false};
 
-    while (argument != -1)
-    {
-        argument = getopt_long(argc, argv, "s:u:h", options, nullptr);
-        switch (argument)
-        {
+    while (argument != -1) {
+        argument = getopt_long(argc, argv, "s:u:v:h", options, nullptr);
+        switch (argument) {
             case 's':
                 settings_path = optarg;
                 break;
@@ -36,6 +37,9 @@ int main(int argc, char *argv[])
             case 'h':
                 headless = true;
                 break;
+            case 'v':
+                video_path = optarg;
+                break;
             default:
                 break;
         }
@@ -44,56 +48,49 @@ int main(int argc, char *argv[])
     int n_cameras = 1;
 
 
-
     auto settings = std::make_shared<et::Settings>(settings_path);
     std::shared_ptr<et::Framework> frameworks[2];
-    for (int i = 0; i < n_cameras; i++)
-    {
-        if (!et::Settings::parameters.features_params[i].contains(user))
-        {
+    for (int i = 0; i < n_cameras; i++) {
+        if (!et::Settings::parameters.features_params[i].contains(user)) {
             et::Settings::parameters.features_params[i][user] = et::Settings::parameters.features_params[i]["default"];
         }
         et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
 
-//        frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
-        frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, "/mnt/d/Downloads/results/rkm38_position_calib.mp4", true);
+        if (video_path.empty()) {
+            frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
+        } else {
+            frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, video_path, true);
+        }
     }
 
-//    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/spiral_0.mp4", false);
+    //    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/spiral_0.mp4", false);
 
     auto socket_server = std::make_shared<et::SocketServer>(frameworks[0], frameworks[1]);
     socket_server->startServer();
 
-//    frameworks[0]->startRecording();
-    while (!socket_server->finished)
-    {
+    //    frameworks[0]->startRecording();
+    while (!socket_server->finished) {
         int key_pressed = cv::pollKey() & 0xFFFF;
 
-        for (int i = 0; i < n_cameras; i++)
-        {
-            if (!frameworks[i]->analyzeNextFrame())
-            {
+        for (int i = 0; i < n_cameras; i++) {
+            if (!frameworks[i]->analyzeNextFrame()) {
                 std::cout << "Empty image. Finishing.\n";
                 socket_server->finished = true;
                 break;
             }
 
             frameworks[i]->updateUi();
-            switch (key_pressed)
-            {
+            switch (key_pressed) {
                 case 27: // Esc
-                    if (!socket_server->isClientConnected())
-                    {
+                    if (!socket_server->isClientConnected()) {
                         socket_server->finished = true;
                     }
                     break;
-                case 'v':
-                {
+                case 'v': {
                     frameworks[i]->startRecording();
                     break;
                 }
-                case 'p':
-                {
+                case 'p': {
                     frameworks[i]->captureCameraImage();
                     break;
                 }
@@ -101,20 +98,17 @@ int main(int argc, char *argv[])
                     frameworks[i]->disableImageUpdate();
                     break;
                 case 'w':
-                    if (!headless)
-                    {
+                    if (!headless) {
                         frameworks[i]->switchToCameraImage();
                     }
                     break;
                 case 'e':
-                    if (!headless)
-                    {
+                    if (!headless) {
                         frameworks[i]->switchToPupilThreshImage();
                     }
                     break;
                 case 'r':
-                    if (!headless)
-                    {
+                    if (!headless) {
                         frameworks[i]->switchToGlintThreshImage();
                     }
                     break;
@@ -122,14 +116,13 @@ int main(int argc, char *argv[])
                     break;
             }
 
-            if (frameworks[i]->shouldAppClose())
-            {
+            if (frameworks[i]->shouldAppClose()) {
                 socket_server->finished = true;
                 break;
             }
         }
     }
-//   frameworks[0]->stopRecording();
+    //   frameworks[0]->stopRecording();
 
     socket_server->closeSocket();
     cv::destroyAllWindows();

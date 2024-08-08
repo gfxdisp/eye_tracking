@@ -20,10 +20,10 @@ namespace et
         min_height_ = 50;
         max_height_ = 250;
 
-//        min_width_ -= 100;
-//        max_width_ -= 100;
-//        min_height_ -= 100;
-//        max_height_ -= 100;
+        // min_width_ -= 100;
+        // max_width_ -= 100;
+        // min_height_ -= 100;
+        // max_height_ -= 100;
     }
 
     cv::Point2d VideoCameraFramework::getMarkerPosition() {
