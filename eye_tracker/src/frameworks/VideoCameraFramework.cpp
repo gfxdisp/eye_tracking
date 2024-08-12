@@ -1,29 +1,19 @@
 #include "eye_tracker/frameworks/VideoCameraFramework.hpp"
+
+#include <eye_tracker/eye/EyeEstimator.hpp>
+
 #include "eye_tracker/input/InputVideo.hpp"
-#include "eye_tracker/image/CameraFeatureAnalyser.hpp"
-#include "eye_tracker/eye/PolynomialEyeEstimator.hpp"
+#include "eye_tracker/image/FeatureAnalyser.hpp"
 #include "eye_tracker/Utils.hpp"
 
-namespace et
-{
-    VideoCameraFramework::VideoCameraFramework(int camera_id, bool headless, const std::string &input_video_path, bool loop) : Framework(camera_id, headless)
-    {
+namespace et {
+    VideoCameraFramework::VideoCameraFramework(int camera_id, const bool headless, const std::string& input_video_path, bool loop) : Framework(camera_id, headless) {
         image_provider_ = std::make_shared<InputVideo>(input_video_path, loop);
-        feature_detector_ = std::make_shared<CameraFeatureAnalyser>(camera_id);
-        eye_estimator_ = std::make_shared<ModelEyeEstimator>(camera_id);
+        feature_detector_ = std::make_shared<FeatureAnalyser>(camera_id);
+        eye_estimator_ = std::make_shared<EyeEstimator>(camera_id);
 
-        std::string csv_file_path = input_video_path.substr(0, input_video_path.find_last_of('.')) + ".csv";
-        csv_data_ = Utils::readFloatRowsCsv(csv_file_path, true);
-
-        min_width_ = 130;
-        max_width_ = 330;
-        min_height_ = 50;
-        max_height_ = 250;
-
-        // min_width_ -= 100;
-        // max_width_ -= 100;
-        // min_height_ -= 100;
-        // max_height_ -= 100;
+        const std::string csv_file_path = input_video_path.substr(0, input_video_path.find_last_of('.')) + ".csv";
+        csv_data_ = Utils::readCsv(csv_file_path, true);
     }
 
     cv::Point2d VideoCameraFramework::getMarkerPosition() {
@@ -32,14 +22,13 @@ namespace et
 
     bool VideoCameraFramework::analyzeNextFrame() {
         static int frame_counter = 0;
-        bool return_value = Framework::analyzeNextFrame();
+        const bool return_value = Framework::analyzeNextFrame();
         if (return_value) {
             marker_position_ = cv::Point2d(csv_data_[frame_counter][3], csv_data_[frame_counter][4]);
-//            marker_position_ = {160.2219,142.57618};
+            frame_counter = (frame_counter + 1) % static_cast<int>(csv_data_.size());
 
-            marker_position_.x = (marker_position_.x - min_width_) / (max_width_ - min_width_);
-            marker_position_.y = (marker_position_.y - min_height_) / (max_height_ - min_height_);
-            frame_counter = (frame_counter + 1) % csv_data_.size();
+            marker_position_.x = (marker_position_.x - EyeEstimator::bottom_left_gaze_window_x_mm_) / (EyeEstimator::upper_right_gaze_window_x_mm_ - EyeEstimator::bottom_left_gaze_window_x_mm_);
+            marker_position_.y = (marker_position_.y - EyeEstimator::bottom_left_gaze_window_y_mm_) / (EyeEstimator::upper_right_gaze_window_y_mm_ - EyeEstimator::bottom_left_gaze_window_y_mm_);
         }
         return return_value;
     }

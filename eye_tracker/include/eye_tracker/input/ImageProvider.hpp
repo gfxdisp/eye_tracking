@@ -5,19 +5,19 @@
 
 #include <opencv2/opencv.hpp>
 
-namespace et
-{
+namespace et {
     struct EyeImage {
-        cv::Mat pupil;
-        cv::Mat glints;
+        cv::Mat frame;
         int frame_num{0};
     };
 
-/**
- * Abstract class for image gathering.
- */
+    /**
+     * Abstract class for image gathering.
+     */
     class ImageProvider {
     public:
+        virtual ~ImageProvider() = default;
+
         ImageProvider() = default;
 
         /**
@@ -36,10 +36,9 @@ namespace et
         /**
          * Most recent image.
          */
-        cv::Mat pupil_image_{};
-        cv::Mat glints_image_{};
-        CameraParams *camera_params_{};
-        FeaturesParams *user_params_{};
+        cv::Mat frame_{};
+        CameraParams* camera_params_{};
+        FeaturesParams* user_params_{};
     };
 } // namespace et
 

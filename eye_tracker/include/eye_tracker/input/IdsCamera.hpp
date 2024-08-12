@@ -11,82 +11,47 @@
 #include <thread>
 
 namespace et {
-/**
- * Contains all information about the IDS Camera and gatheres images from
- * the camera feed.
- */
-class IdsCamera : public ImageProvider {
-public:
-    /**
-     * Initializes camera and starts a separate thread for image gathering.
-     */
-    IdsCamera(int camera_id);
-    /**
-     * Returns the newest image obtained by the camera.
-     * @param camera_id An id of the camera for which the value is returned.
-     * @return A pair of images: one for detecting pupil and one for detecting glints.
-     */
-    EyeImage grabImage() override;
-    /**
-     * Shuts down image gathering thread, closes the camera and frees images.
-     */
-    void close() override;
+    class IdsCamera : public ImageProvider {
+    public:
+        explicit IdsCamera(int camera_id);
 
-    /**
-     * Sets the exposure of the selected camera.
-     * @param exposure Exposure to set in milliseconds.
-     * @param camera_id An id of the updated camera.
-     */
-    void setExposure(double exposure);
-    /**
-     * Sets the gamma parameter of the selected camera.
-     * @param gamma Set exponent of gamma correction
-     * @param camera_id An id of the updated camera.
-     */
-    void setGamma(double gamma);
-    /**
-     * Sets the framerate of the selected camera.
-     * @param framerate Set number of frames per second.
-     * @param camera_id An id of the updated camera.
-     */
-    void setFramerate(double framerate);
+        EyeImage grabImage() override;
 
-private:
-    /**
-     * Rapidly captures the image from the camera and saves them to the buffer.
-     */
-    void imageGatheringThread();
+        void close() override;
 
-    // Size of the buffer to which the captured images are saved.
-    static constexpr int IMAGE_IN_QUEUE_COUNT = 10;
+        void setExposure(double exposure) const;
 
-    // Array of images in the buffer to which they are captured. One per eye.
-    cv::Mat image_queue_[IMAGE_IN_QUEUE_COUNT]{};
+        void setGamma(double gamma) const;
 
-    // Index of the most recent image in the buffer.
-    int image_index_{-1};
+        void setFramerate(double framerate);
 
-    // Signifies whether the capturing thread is running or not.
-    bool thread_running_{true};
+    private:
+        void imageGatheringThread();
 
-    // A thread used to gather images from the camera.
-    std::thread image_gatherer_{};
+        static constexpr int IMAGE_IN_QUEUE_COUNT = 10;
 
-    // Handles to IDS cameras. One per eye.
-    uint32_t camera_handle_{};
-    // Memory arrays to which the images are directly captured. One per eye.
-    char *image_handle_{};
-    // Ids of the memory to which the images are directly captured. One per eye.
-    int image_id_{};
-    // Framerate of the camera.
-    double framerate_{100};
+        cv::Mat image_queue_[IMAGE_IN_QUEUE_COUNT]{};
 
-    cv::Mat fake_image_{};
+        int image_index_{-1};
 
-    bool fake_camera_{};
+        bool thread_running_{true};
 
-    int image_counter_{0};
-};
-}// namespace et
+        std::thread image_gatherer_{};
+
+        uint32_t camera_handle_{};
+
+        char* image_handle_{};
+
+        int image_id_{};
+
+        double framerate_{100};
+
+        cv::Mat fake_image_{};
+
+        bool fake_camera_{};
+
+        int image_counter_{0};
+    };
+} // namespace et
 
 #endif //HDRMFS_EYE_TRACKER_IDS_CAMERA_HPP

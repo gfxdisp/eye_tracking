@@ -1,75 +1,87 @@
-#include "eye_tracker/image/FeatureAnalyser.hpp"
-#include "eye_tracker/image/position/ContourPositionEstimator.hpp"
+#include <eye_tracker/image/FeatureAnalyser.hpp>
 
-#include <opencv2/cudaimgproc.hpp>
 #include <memory>
 #include <cmath>
-#include <iostream>
 
 namespace et {
-    FeatureAnalyser::FeatureAnalyser(int camera_id) {
-        camera_id_ = camera_id;
-        glint_locations_distorted_.resize(Settings::parameters.leds_positions[camera_id].size());
-        glint_locations_undistorted_.resize(Settings::parameters.leds_positions[camera_id].size());
-        glint_validity_.resize(Settings::parameters.leds_positions[camera_id].size());
+    FeatureAnalyser::FeatureAnalyser(int camera_id) : camera_id_(camera_id) {
+        auto& leds_positions = Settings::parameters.leds_positions[camera_id];
+        glint_locations_distorted_.resize(leds_positions.size());
+        glint_locations_undistorted_.resize(leds_positions.size());
+        glint_validity_.resize(leds_positions.size());
+
+        image_preprocessor_ = std::make_shared<ImagePreprocessor>(camera_id);
+        temporal_filterer_ = std::make_shared<TemporalFilterer>(camera_id);
+        feature_estimator_ = std::make_shared<FeatureEstimator>(camera_id);
+        intrinsic_matrix_ = &Settings::parameters.camera_params[camera_id].intrinsic_matrix;
+        capture_offset_ = &Settings::parameters.camera_params[camera_id].capture_offset;
+        distortion_coefficients_ = &Settings::parameters.camera_params[camera_id].distortion_coefficients;
     }
 
-    cv::Point2d FeatureAnalyser::getPupilUndistorted() {
-        return pupil_location_undistorted_;
-    }
-
-    cv::Point2d FeatureAnalyser::getPupilDistorted() {
-        return pupil_location_distorted_;
-    }
-
-    void FeatureAnalyser::getPupilUndistorted(cv::Point2d& pupil) {
+    void FeatureAnalyser::getPupilDistorted(cv::Point2d& pupil_location_distorted) {
         mtx_features_.lock();
-        pupil = pupil_location_undistorted_;
+        pupil_location_distorted = pupil_location_distorted_;
         mtx_features_.unlock();
     }
 
-    void FeatureAnalyser::getPupilBuffered(cv::Point2d& pupil) {
+    void FeatureAnalyser::getPupilUndistorted(cv::Point2d& pupil_position_undistorted) {
         mtx_features_.lock();
-        pupil = pupil_location_buffered_;
+        pupil_position_undistorted = pupil_location_undistorted_;
         mtx_features_.unlock();
     }
 
-    int FeatureAnalyser::getPupilRadiusUndistorted() const {
-        return pupil_radius_undistorted_;
+    void FeatureAnalyser::getPupilRadiusUndistorted(double& pupil_radius_undistorted) {
+        mtx_features_.lock();
+        pupil_radius_undistorted = pupil_radius_undistorted_;
+        mtx_features_.unlock();
     }
 
-    int FeatureAnalyser::getPupilRadiusDistorted() const {
-        return pupil_radius_distorted_;
+    void FeatureAnalyser::getPupilRadiusDistorted(double& pupil_radius_distorted) {
+        mtx_features_.lock();
+        pupil_radius_distorted = pupil_radius_distorted_;
+        mtx_features_.unlock();
     }
 
-    std::vector<cv::Point2d>* FeatureAnalyser::getGlints() {
-        return &glint_locations_undistorted_;
+    void FeatureAnalyser::getGlints(std::vector<cv::Point2d>& glints) {
+        mtx_features_.lock();
+        glints = glint_locations_undistorted_;
+        mtx_features_.unlock();
     }
 
-    std::vector<cv::Point2d>* FeatureAnalyser::getDistortedGlints() {
-        return &glint_locations_distorted_;
+    void FeatureAnalyser::getDistortedGlints(std::vector<cv::Point2d>& glints) {
+        mtx_features_.lock();
+        glints = glint_locations_distorted_;
+        mtx_features_.unlock();
     }
 
-    std::vector<bool>* FeatureAnalyser::getGlintsValidity() {
-        return &glint_validity_;
+    void FeatureAnalyser::getGlintsValidity(std::vector<bool>& glint_validity) {
+        mtx_features_.lock();
+        glint_validity = glint_validity_;
+        mtx_features_.unlock();
+    }
+
+    void FeatureAnalyser::getThresholdedPupilImage(cv::Mat& image) {
+        mtx_features_.lock();
+        image = thresholded_pupil_image_.clone();
+        mtx_features_.unlock();
+    }
+
+    void FeatureAnalyser::getThresholdedGlintsImage(cv::Mat& image) {
+        mtx_features_.lock();
+        image = thresholded_glints_image_.clone();
+        mtx_features_.unlock();
     }
 
     void FeatureAnalyser::preprocessImage(const EyeImage& image) {
-        EyeImage output{
-                .pupil = cv::Mat(image.pupil.rows, image.pupil.cols, CV_8UC1),
-                .glints = cv::Mat(image.glints.rows, image.glints.cols, CV_8UC1)
-        };
-        image_preprocessor_->preprocess(image, output);
-        pupil_thresholded_image_ = output.pupil;
-        glints_thresholded_image_ = output.glints;
+        EyeImage output{.frame = cv::Mat(image.frame.rows, image.frame.cols, CV_8UC1)};
+        image_preprocessor_->preprocess(image, thresholded_pupil_image_, thresholded_glints_image_);
         frame_num_ = image.frame_num;
     }
 
     bool FeatureAnalyser::findPupil() {
         cv::Point2d estimated_pupil_location{};
         double estimated_pupil_radius{};
-        bool success = position_estimator_->findPupil(pupil_thresholded_image_, estimated_pupil_location,
-                                                      estimated_pupil_radius);
+        const bool success = feature_estimator_->findPupil(thresholded_pupil_image_, estimated_pupil_location, estimated_pupil_radius);
         if (!success) {
             return false;
         }
@@ -79,15 +91,15 @@ namespace et {
         pupil_location_distorted_ = estimated_pupil_location;
         pupil_radius_distorted_ = estimated_pupil_radius;
 
-        auto centre_undistorted = undistort(estimated_pupil_location);
+        const auto centre_undistorted = undistort(estimated_pupil_location);
         cv::Point2d pupil_left_side = estimated_pupil_location;
         pupil_left_side.x -= estimated_pupil_radius;
         cv::Point2d pupil_right_side = estimated_pupil_location;
         pupil_right_side.x += estimated_pupil_radius;
 
-        auto left_side_undistorted = undistort(pupil_left_side);
-        auto right_side_undistorted = undistort(pupil_right_side);
-        double radius_undistorted = (right_side_undistorted.x - left_side_undistorted.x) * 0.5;
+        const auto left_side_undistorted = undistort(pupil_left_side);
+        const auto right_side_undistorted = undistort(pupil_right_side);
+        const double radius_undistorted = (right_side_undistorted.x - left_side_undistorted.x) * 0.5;
         mtx_features_.lock();
         pupil_location_undistorted_ = centre_undistorted;
         pupil_radius_undistorted_ = radius_undistorted;
@@ -98,13 +110,10 @@ namespace et {
 
     bool FeatureAnalyser::findEllipsePoints() {
         std::vector<cv::Point2f> ellipse_points{};
-        int leds_per_side = (int) et::Settings::parameters.leds_positions[camera_id_].size() / 2;
-        bool success = position_estimator_->findGlints(glints_thresholded_image_, ellipse_points);
+        const static int leds_per_side = static_cast<int>(et::Settings::parameters.leds_positions[camera_id_].size()) / 2;
+        std::fill(glint_validity_.begin(), glint_validity_.end(), false);
 
-        for (int i = 0; i < leds_per_side * 2; i++) {
-            glint_validity_[i] = false;
-        }
-
+        const bool success = feature_estimator_->findGlints(thresholded_glints_image_, ellipse_points);
         if (!success) {
             return false;
         }
@@ -115,17 +124,16 @@ namespace et {
         }
 
         cv::RotatedRect ellipse = cv::fitEllipse(ellipse_points);
-        int left_glints = 0;
-        int right_glints = 0;
+        int left_glints = static_cast<int>(std::count_if(ellipse_points.begin(), ellipse_points.end(), [&ellipse](const cv::Point2d& pt) {
+            return pt.x < ellipse.center.x;
+        }));
+        int right_glints = static_cast<int>(ellipse_points.size()) - left_glints;
 
-        for (int i = 0; i < ellipse_points.size(); i++) {
-            if (ellipse_points[i].x < ellipse.center.x) {
-                left_glints++;
-            } else {
-                right_glints++;
-            }
+        if (left_glints == 0 || right_glints == 0) {
+            return false;
         }
 
+        // The points are sorted from the bottom left side of the ellipse to the top left, and then from the bottom right to the top right.
         std::sort(ellipse_points.begin(), ellipse_points.end(), [ellipse](cv::Point2f a, cv::Point2f b) {
             if ((a.x < ellipse.center.x && b.x < ellipse.center.x) || (a.x > ellipse.center.x && b.x > ellipse.center.x)) {
                 return a.y > b.y;
@@ -134,230 +142,128 @@ namespace et {
             }
         });
 
-        if (left_glints < 2 || right_glints < 2) {
-            return false;
-        }
+        cv::Point2d glints_centre = ellipse.center;
+        auto calculateRadius = [](const std::vector<cv::Point2d>& points, const cv::Point2d& center) {
+            return std::accumulate(points.begin(), points.end(), 0.0, [&center](const double sum, const cv::Point2d& point) {
+                return sum + cv::norm(point - center);
+            }) / static_cast<double>(points.size());
+        };
 
-        {
-            std::vector<cv::Point2d> sorted_left_glints{};
-            for (int i = 0; i < left_glints; i++) {
-                sorted_left_glints.push_back(ellipse_points[i]);
-            }
+        static std::vector<cv::Point2d> glint_locations_distorted(leds_per_side * 2);
+        static std::vector<bool> glint_validity(leds_per_side * 2);
 
-            cv::Point2d left_glints_centre = ellipse.center;
-            double left_glints_radius = 0;
+        glint_locations_distorted = glint_locations_distorted_;
 
-            // Calculate the radius of the left glints.
-            for (const auto& glint: sorted_left_glints) {
-                left_glints_radius += cv::norm(glint - left_glints_centre);
-            }
-            left_glints_radius /= (int) sorted_left_glints.size();
-
-
-            glint_locations_distorted_[0] = sorted_left_glints[0];
-            glint_validity_[0] = true;
-            double current_angle = atan2(sorted_left_glints[1].y - left_glints_centre.y, sorted_left_glints[1].x - left_glints_centre.x);
-            double previous_angle = atan2(sorted_left_glints[0].y - left_glints_centre.y, sorted_left_glints[0].x - left_glints_centre.x);
-
-            double expected_angle = current_angle - previous_angle;
+        auto processGlints = [&](const std::vector<cv::Point2d>& sorted_glints, const int start_index, const int glints_count, const cv::Point2d& center, const double radius) {
+            glint_locations_distorted[start_index] = sorted_glints[0];
+            glint_validity[start_index] = true;
+            double expected_angle_between_glints = atan2(sorted_glints[1].y - center.y, sorted_glints[1].x - center.x) - atan2(sorted_glints[0].y - center.y, sorted_glints[0].x - center.x);
             int counter = 1;
-            for (int i = 1; counter < leds_per_side; i++) {
-                previous_angle = atan2(glint_locations_distorted_[counter - 1].y - left_glints_centre.y, glint_locations_distorted_[counter - 1].x - left_glints_centre.x);
-                if (i >= sorted_left_glints.size()) {
-                    double angle = previous_angle + expected_angle;
-                    glint_locations_distorted_[counter].x = left_glints_centre.x + left_glints_radius * std::cos(angle);
-                    glint_locations_distorted_[counter].y = left_glints_centre.y + left_glints_radius * std::sin(angle);
-                    glint_validity_[counter] = false;
+            for (int i = 1; counter < glints_count; i++) {
+                double previous_angle = atan2(glint_locations_distorted[start_index + counter - 1].y - center.y, glint_locations_distorted[start_index + counter - 1].x - center.x);
+                // If there are no more glints, we add a virtual glint.
+                if (i >= sorted_glints.size()) {
+                    double current_angle = previous_angle + expected_angle_between_glints;
+                    glint_locations_distorted[start_index + counter] = {center.x + radius * std::cos(current_angle), center.y + radius * std::sin(current_angle)};
+                    glint_validity[start_index + counter] = false;
                     counter++;
                     i--;
                     continue;
                 }
-                current_angle = atan2(sorted_left_glints[i].y - left_glints_centre.y, sorted_left_glints[i].x - left_glints_centre.x);
-                if (current_angle - previous_angle < -M_PI) {
+                double current_angle = atan2(sorted_glints[i].y - center.y, sorted_glints[i].x - center.x);
+                if (current_angle - previous_angle < -M_PI)
                     previous_angle -= 2 * M_PI;
-                }
-                if (current_angle - previous_angle > M_PI) {
+                if (current_angle - previous_angle > M_PI)
                     previous_angle += 2 * M_PI;
-                }
-
-                if (std::abs(current_angle - previous_angle - expected_angle) < 0.15) {
-                    glint_locations_distorted_[counter] = sorted_left_glints[i];
-                    glint_validity_[counter] = true;
+                // If the angle between the glints is close to the expected angle, we treat the glint as valid.
+                if (std::abs(current_angle - previous_angle - expected_angle_between_glints) < 0.15) {
+                    glint_locations_distorted[start_index + counter] = sorted_glints[i];
+                    glint_validity[start_index + counter] = true;
                     counter++;
-                } else {
-                    double angle = previous_angle + expected_angle;
-                    glint_locations_distorted_[counter].x = left_glints_centre.x + left_glints_radius * std::cos(angle);
-                    glint_locations_distorted_[counter].y = left_glints_centre.y + left_glints_radius * std::sin(angle);
-                    glint_validity_[counter] = false;
-                    counter++;
-                    i--;
                 }
-            }
-        }
-
-        {
-            std::vector<cv::Point2d> sorted_right_glints{};
-            for (int i = 0; i < right_glints; i++) {
-                sorted_right_glints.push_back(ellipse_points[left_glints + i]);
-            }
-
-            cv::Point2d right_glints_centre = ellipse.center;
-            double right_glints_radius = 0;
-
-            // Calculate the radius of the left glints.
-            for (const auto& glint: sorted_right_glints) {
-                right_glints_radius += cv::norm(glint - right_glints_centre);
-            }
-            right_glints_radius /= (int) sorted_right_glints.size();
-
-
-            glint_locations_distorted_[leds_per_side] = sorted_right_glints[0];
-            glint_validity_[leds_per_side] = true;
-            double current_angle = atan2(sorted_right_glints[1].y - right_glints_centre.y, sorted_right_glints[1].x - right_glints_centre.x);
-            double previous_angle = atan2(sorted_right_glints[0].y - right_glints_centre.y, sorted_right_glints[0].x - right_glints_centre.x);
-
-            double expected_angle = current_angle - previous_angle;
-            int counter = 1;
-            for (int i = 1; counter < leds_per_side; i++) {
-                previous_angle = atan2(glint_locations_distorted_[leds_per_side + counter - 1].y - right_glints_centre.y, glint_locations_distorted_[leds_per_side + counter - 1].x - right_glints_centre.x);
-                if (i >= sorted_right_glints.size()) {
-                    double angle = previous_angle + expected_angle;
-                    glint_locations_distorted_[leds_per_side + counter].x = right_glints_centre.x + right_glints_radius * std::cos(angle);
-                    glint_locations_distorted_[leds_per_side + counter].y = right_glints_centre.y + right_glints_radius * std::sin(angle);
-                    glint_validity_[leds_per_side + counter] = false;
-                    counter++;
-                    i--;
-                    continue;
-                }
-                current_angle = atan2(sorted_right_glints[i].y - right_glints_centre.y, sorted_right_glints[i].x - right_glints_centre.x);
-                if (current_angle - previous_angle < -M_PI) {
-                    previous_angle -= 2 * M_PI;
-                }
-                if (current_angle - previous_angle > M_PI) {
-                    previous_angle += 2 * M_PI;
-                }
-
-                if (std::abs(current_angle - previous_angle - expected_angle) < 0.15) {
-                    glint_locations_distorted_[leds_per_side + counter] = sorted_right_glints[i];
-                    glint_validity_[leds_per_side + counter] = true;
-                    counter++;
-                } else {
-                    double angle = previous_angle + expected_angle;
-                    glint_locations_distorted_[leds_per_side + counter].x = right_glints_centre.x + right_glints_radius * std::cos(angle);
-                    glint_locations_distorted_[leds_per_side + counter].y = right_glints_centre.y + right_glints_radius * std::sin(angle);
-                    glint_validity_[leds_per_side + counter] = false;
+                // If the angle between the glints is not close to the expected angle, we add a virtual glint.
+                else {
+                    double angle = previous_angle + expected_angle_between_glints;
+                    glint_locations_distorted[start_index + counter] = {center.x + radius * std::cos(angle), center.y + radius * std::sin(angle)};
+                    glint_validity[start_index + counter] = false;
                     counter++;
                     i--;
                 }
             }
-        }
+        };
+
+        std::vector<cv::Point2d> sorted_left_glints(ellipse_points.begin(), ellipse_points.begin() + left_glints);
+        double left_glints_radius = calculateRadius(sorted_left_glints, glints_centre);
+        processGlints(sorted_left_glints, 0, leds_per_side, glints_centre, left_glints_radius);
+
+        std::vector<cv::Point2d> sorted_right_glints(ellipse_points.begin() + left_glints, ellipse_points.end());
+        double right_glints_radius = calculateRadius(sorted_right_glints, glints_centre);
+        processGlints(sorted_right_glints, leds_per_side, leds_per_side, glints_centre, right_glints_radius);
 
         ellipse_points.clear();
         for (int i = 0; i < leds_per_side * 2; i++) {
-            if (glint_validity_[i]) {
-                ellipse_points.push_back(undistort(glint_locations_distorted_[i]));
+            if (glint_validity[i]) {
+                ellipse_points.push_back(undistort(glint_locations_distorted[i]));
             }
         }
 
         if (ellipse_points.size() < 5) {
-            return false;
+            ellipse.center = glints_centre;
+        } else {
+            ellipse = cv::fitEllipse(ellipse_points);
         }
-        ellipse = cv::fitEllipse(ellipse_points);
-        glint_ellipse_undistorted_ = ellipse;
-
-//        temporal_filterer_->filterEllipse(glint_ellipse_undistorted_);
 
         mtx_features_.lock();
-        for (int i = 0; i < ellipse_points.size(); i++) {
-            glint_locations_undistorted_[i] = undistort(glint_locations_distorted_[i]) + (cv::Point2d) glint_ellipse_undistorted_.center - (cv::Point2d) ellipse.center;
+        glint_validity_ = glint_validity;
+        for (int i = 0; i < leds_per_side * 2; i++) {
+            glint_locations_undistorted_[i] = undistort(glint_locations_distorted[i]) + static_cast<cv::Point2d>(ellipse.center) - static_cast<cv::Point2d>(ellipse.center);
             glint_locations_distorted_[i] = distort(glint_locations_undistorted_[i]);
         }
-
-        glint_represent_undistorted_ = glint_ellipse_undistorted_.center;
         mtx_features_.unlock();
 
         return true;
     }
 
-    cv::Mat FeatureAnalyser::getThresholdedPupilImage() {
-        cv::Mat image_ = pupil_thresholded_image_.clone();
-        return image_;
+    cv::Point2d FeatureAnalyser::undistort(const cv::Point2d point) const {
+        cv::Point2d new_point{point};
+
+        const std::vector<cv::Point2d> points{{point.x + 1 + capture_offset_->width, point.y + 1 + capture_offset_->height}};
+        std::vector new_points{new_point};
+
+        cv::undistortPoints(points, new_points, intrinsic_matrix_->t(), *distortion_coefficients_);
+
+        new_point = new_points[0];
+        new_point.x *= intrinsic_matrix_->at<double>(0, 0);
+        new_point.y *= intrinsic_matrix_->at<double>(1, 1);
+        new_point.x += intrinsic_matrix_->at<double>(2, 0);
+        new_point.y += intrinsic_matrix_->at<double>(2, 1);
+
+        new_point.x -= 1 + capture_offset_->width;
+        new_point.y -= 1 + capture_offset_->height;
+
+        return new_point;
     }
 
-    cv::Mat FeatureAnalyser::getThresholdedGlintsImage() {
-        mtx_features_.lock();
-        cv::Mat image = glints_thresholded_image_.clone();
-        mtx_features_.unlock();
-        return image;
-    }
+    cv::Point2d FeatureAnalyser::distort(const cv::Point2d point) const {
+        const double cx = intrinsic_matrix_->at<double>(2, 0);
+        const double cy = intrinsic_matrix_->at<double>(2, 1);
+        const double fx = intrinsic_matrix_->at<double>(0, 0);
+        const double fy = intrinsic_matrix_->at<double>(1, 1);
 
-    void FeatureAnalyser::getPupilGlintVector(cv::Vec2d& pupil_glint_vector) {
-        mtx_features_.lock();
-        pupil_glint_vector = pupil_location_undistorted_ - glint_represent_undistorted_;
-        mtx_features_.unlock();
-    }
+        const double x = (point.x - cx) / fx;
+        const double y = (point.y - cy) / fy;
 
-    void FeatureAnalyser::getPupilGlintVectorFiltered(cv::Vec2d& pupil_glint_vector) {
-        mtx_features_.lock();
-        pupil_glint_vector = pupil_location_buffered_ - glint_location_filtered_;
-        mtx_features_.unlock();
-    }
+        const double r2 = x * x + y * y;
 
-    cv::RotatedRect FeatureAnalyser::getEllipseUndistorted() {
-        return glint_ellipse_undistorted_;
-    }
+        const double k1 = (*distortion_coefficients_)[0];
+        const double k2 = (*distortion_coefficients_)[1];
+        const double p1 = (*distortion_coefficients_)[2];
+        const double p2 = (*distortion_coefficients_)[3];
+        const double k3 = (*distortion_coefficients_)[4];
 
-    void FeatureAnalyser::getEllipseUndistorted(cv::RotatedRect& ellipse) {
-        mtx_features_.lock();
-        ellipse = glint_ellipse_undistorted_;
-        mtx_features_.unlock();
-    }
+        const double x_distorted = x * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2) + 2 * p1 * x * y + p2 * (r2 + 2 * x * x);
+        const double y_distorted = y * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2) + p1 * (r2 + 2 * y * y) + 2 * p2 * x * y;
 
-    void FeatureAnalyser::getFrameNum(int& frame_num) {
-        mtx_features_.lock();
-        frame_num = frame_num_;
-        mtx_features_.unlock();
-    }
-
-    cv::RotatedRect FeatureAnalyser::getEllipseDistorted() {
-        return glint_ellipse_distorted_;
-    }
-
-    void FeatureAnalyser::setGazeBufferSize(uint8_t value) {
-        buffer_size_ = value;
-    }
-
-    void FeatureAnalyser::updateGazeBuffer() {
-        if (pupil_location_buffer_.size() != buffer_size_ || glint_location_buffer_.size() != buffer_size_) {
-            pupil_location_buffer_.resize(buffer_size_);
-            glint_location_buffer_.resize(buffer_size_);
-            buffer_idx_ = 0;
-            buffer_summed_count_ = 0;
-            pupil_location_summed_.x = 0.0;
-            pupil_location_summed_.y = 0.0;
-            glint_location_summed_.x = 0.0;
-            glint_location_summed_.y = 0.0;
-        }
-
-        if (buffer_summed_count_ == buffer_size_) {
-            pupil_location_summed_ -= pupil_location_buffer_[buffer_idx_];
-            glint_location_summed_ -= glint_location_buffer_[buffer_idx_];
-        }
-
-        pupil_location_buffer_[buffer_idx_] = pupil_location_undistorted_;
-        glint_location_buffer_[buffer_idx_] = glint_represent_undistorted_;
-        pupil_location_summed_ += pupil_location_buffer_[buffer_idx_];
-        glint_location_summed_ += glint_location_buffer_[buffer_idx_];
-
-        if (buffer_summed_count_ != buffer_size_) {
-            buffer_summed_count_++;
-        }
-
-        mtx_features_.lock();
-        pupil_location_buffered_ = pupil_location_summed_ / buffer_summed_count_;
-        glint_location_filtered_ = glint_location_summed_ / buffer_summed_count_;
-        mtx_features_.unlock();
-
-        buffer_idx_ = (buffer_idx_ + 1) % buffer_size_;
+        return {x_distorted * fx + cx, y_distorted * fy + cy};
     }
 } // namespace et

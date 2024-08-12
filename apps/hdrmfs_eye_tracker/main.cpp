@@ -1,10 +1,8 @@
 #include <eye_tracker/Settings.hpp>
 #include "eye_tracker/frameworks/Framework.hpp"
-#include "eye_tracker/image/temporal_filter/ContinuousTemporalFilterer.hpp"
 #include "eye_tracker/SocketServer.hpp"
 #include "eye_tracker/frameworks/OnlineCameraFramework.hpp"
 #include "eye_tracker/frameworks/VideoCameraFramework.hpp"
-#include "eye_tracker/Utils.hpp"
 
 #include <getopt.h>
 #include <string>
@@ -16,6 +14,7 @@ int main(int argc, char* argv[]) {
         {"user", required_argument, nullptr, 'u'},
         {"headless", no_argument, nullptr, 'h'},
         {"video", required_argument, nullptr, 'v'},
+        {"calibration", required_argument, nullptr, 'c'},
         {nullptr, no_argument, nullptr, 0}
     };
 
@@ -23,10 +22,11 @@ int main(int argc, char* argv[]) {
     std::string settings_path{"."};
     std::string user{"default"};
     std::string video_path{};
+    std::string calibration_path{};
     bool headless{false};
 
     while (argument != -1) {
-        argument = getopt_long(argc, argv, "s:u:v:h", options, nullptr);
+        argument = getopt_long(argc, argv, "s:u:v:c:h", options, nullptr);
         switch (argument) {
             case 's':
                 settings_path = optarg;
@@ -40,13 +40,15 @@ int main(int argc, char* argv[]) {
             case 'v':
                 video_path = optarg;
                 break;
+            case 'c':
+                calibration_path = optarg;
+                break;
             default:
                 break;
         }
     }
 
-    int n_cameras = 1;
-
+    constexpr int n_cameras = 1;
 
     auto settings = std::make_shared<et::Settings>(settings_path);
     std::shared_ptr<et::Framework> frameworks[2];
@@ -59,18 +61,22 @@ int main(int argc, char* argv[]) {
         if (video_path.empty()) {
             frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
         } else {
+            std::clog << "Using video from: " << video_path << std::endl;
             frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, video_path, true);
+        }
+
+        if (!calibration_path.empty()) {
+            std::clog << "Calibrating from: " << calibration_path << std::endl;
+            std::shared_ptr<et::MetaModel> meta_model = std::make_shared<et::MetaModel>(i);
+            meta_model->findMetaModelOffline(calibration_path);
         }
     }
 
-    //    frameworks[0] = std::make_shared<et::VideoCameraFramework>(0, headless, "/mnt/d/Downloads/spiral_0.mp4", false);
-
-    auto socket_server = std::make_shared<et::SocketServer>(frameworks[0], frameworks[1]);
+    const auto socket_server = std::make_shared<et::SocketServer>(frameworks[0], frameworks[1]);
     socket_server->startServer();
 
-    //    frameworks[0]->startRecording();
     while (!socket_server->finished) {
-        int key_pressed = cv::pollKey() & 0xFFFF;
+        const int key_pressed = cv::pollKey() & 0xFFFF;
 
         for (int i = 0; i < n_cameras; i++) {
             if (!frameworks[i]->analyzeNextFrame()) {
@@ -122,7 +128,6 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    //   frameworks[0]->stopRecording();
 
     socket_server->closeSocket();
     cv::destroyAllWindows();

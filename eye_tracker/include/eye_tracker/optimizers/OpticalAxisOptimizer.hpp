@@ -1,28 +1,31 @@
-#ifndef EYE_TRACKER_OPTICALAXISOPTIMIZER_HPP
-#define EYE_TRACKER_OPTICALAXISOPTIMIZER_HPP
+#ifndef OPTICALAXISOPTIMIZER_HPP
+#define OPTICALAXISOPTIMIZER_HPP
 
 #include <eye_tracker/Settings.hpp>
-#include <opencv2/opencv.hpp>
+#include <opencv2/core/optim.hpp>
 
-namespace et
+namespace et {
+
+class OpticalAxisOptimizer : public cv::ConjGradSolver::Function
 {
-    class OpticalAxisOptimizer : public cv::DownhillSolver::Function
-    {
-    public:
-        void setParameters(const EyeMeasurements& eye_measurements, const cv::Point3d& eye_centre,
-                           const cv::Point3d& focus_point);
+public:
+    void setParameters(const EyeParams& eye_measurements, const cv::Vec3d& eye_centre,
+                       const cv::Vec3d& focus_point);
 
-    public:
-        int getDims() const override;
+public:
+    [[nodiscard]] int getDims() const override;
 
-        double calc(const double* x) const override;
+    double calc(const double* x) const override;
 
-    private:
+    // void getGradient(const double* x, double* grad) override;
 
-        EyeMeasurements eye_measurements_{};
-        cv::Point3d eye_centre_{};
-        cv::Point3d focus_point_{};
-    };
+private:
+
+    EyeParams eye_measurements_{};
+    cv::Vec3d eye_centre_{};
+    cv::Vec3d focus_point_{};
+};
+
 } // et
 
-#endif //EYE_TRACKER_OPTICALAXISOPTIMIZER_HPP
+#endif //OPTICALAXISOPTIMIZER_HPP

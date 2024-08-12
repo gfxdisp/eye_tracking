@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-path="/mnt/c/Users/Marek/Documents/Projects/hdr_display/eye_tracker/resources/"
-user="mw861"
-
-hdrmfs_eye_tracker -s $path -u $user
+resources_path="resources/"
+calibration_path="examples/calibration.mp4"
+video_path="examples/gaze_4.mp4"
+user="default"
+hdrmfs_eye_tracker -s $resources_path -u $user -v $video_path -c $calibration_path
