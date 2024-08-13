@@ -1,13 +1,10 @@
 #ifndef HDRMFS_EYE_TRACKER_IDS_CAMERA_HPP
 #define HDRMFS_EYE_TRACKER_IDS_CAMERA_HPP
 
-#include "eye_tracker/input/ImageProvider.hpp"
+#include <eye_tracker/input/ImageProvider.hpp>
 
 #include <opencv2/opencv.hpp>
-#include <ueye.h>
 
-#include <mutex>
-#include <string>
 #include <thread>
 
 namespace et {
@@ -32,7 +29,7 @@ namespace et {
 
         cv::Mat image_queue_[IMAGE_IN_QUEUE_COUNT]{};
 
-        int image_index_{-1};
+        int image_index_{};
 
         bool thread_running_{true};
 
@@ -44,13 +41,13 @@ namespace et {
 
         int image_id_{};
 
-        double framerate_{100};
+        double framerate_{};
 
         cv::Mat fake_image_{};
 
         bool fake_camera_{};
 
-        int image_counter_{0};
+        int image_counter_{};
     };
 } // namespace et
 

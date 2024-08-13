@@ -207,7 +207,7 @@ namespace et {
         }
 
         close(socket_handle_);
-        std::cout << "Socket closed.\n";
+        std::clog << "Socket closed.\n";
     }
 
     void SocketServer::closeSocket() const {

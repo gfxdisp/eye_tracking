@@ -2,6 +2,7 @@
 #define HDRMFS_EYE_TRACKER_UTILS_HPP
 
 #include <opencv2/core/types.hpp>
+
 #include <string>
 #include <vector>
 #include <random>

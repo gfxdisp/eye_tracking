@@ -1,12 +1,11 @@
 #ifndef HDRMFS_EYE_TRACKER_VISUALIZER_HPP
 #define HDRMFS_EYE_TRACKER_VISUALIZER_HPP
 
-#include "eye_tracker/Settings.hpp"
+#include <eye_tracker/Settings.hpp>
 
 #include <opencv2/opencv.hpp>
 
 #include <string_view>
-#include <queue>
 
 namespace et {
     class Visualizer {
@@ -90,13 +89,13 @@ namespace et {
 
         std::ostringstream fps_text_;
 
-        int frame_index_{0};
+        int frame_index_{};
 
         std::chrono::time_point<std::chrono::steady_clock> last_frame_time_;
 
-        int total_frames_{0};
+        int total_frames_{};
 
-        double total_framerate_{0};
+        double total_framerate_{};
 
         FeaturesParams* user_params_{};
 
@@ -110,13 +109,13 @@ namespace et {
 
         constexpr static int CORNEA_HISTORY_SIZE = 50;
         cv::Point2d previous_cornea_centres_[CORNEA_HISTORY_SIZE]{};
-        int cornea_history_index_{0};
-        bool cornea_history_full_{false};
+        int cornea_history_index_{};
+        bool cornea_history_full_{};
 
         constexpr static int GAZE_HISTORY_SIZE = 50;
         cv::Point2d previous_gaze_points_[GAZE_HISTORY_SIZE]{};
-        int gaze_point_index_{0};
-        bool gaze_point_history_full_{false};
+        int gaze_point_index_{};
+        bool gaze_point_history_full_{};
     };
 } // namespace et
 #endif //HDRMFS_EYE_TRACKER_VISUALIZER_HPP

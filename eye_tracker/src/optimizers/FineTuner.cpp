@@ -1,7 +1,7 @@
-#include "eye_tracker/optimizers/MetaModel.hpp"
-#include "eye_tracker/Utils.hpp"
-#include "eye_tracker/input/InputVideo.hpp"
-#include "eye_tracker/image/FeatureAnalyser.hpp"
+#include <eye_tracker/optimizers/FineTuner.hpp>
+#include <eye_tracker/Utils.hpp>
+#include <eye_tracker/input/InputVideo.hpp>
+#include <eye_tracker/image/FeatureAnalyser.hpp>
 #include <eye_tracker/eye/EyeEstimator.hpp>
 
 #include <fstream>
@@ -9,7 +9,7 @@
 #include <utility>
 
 namespace et {
-    MetaModel::MetaModel(int camera_id) : camera_id_(camera_id) {
+    FineTuner::FineTuner(int camera_id) : camera_id_(camera_id) {
         optical_axis_optimizer_ = std::make_shared<OpticalAxisOptimizer>();
         cornea_minimizer_function_ = cv::Ptr<cv::DownhillSolver::Function>(optical_axis_optimizer_);
         cornea_solver_ = cv::DownhillSolver::create();
@@ -19,14 +19,14 @@ namespace et {
         eye_estimator_ = std::make_shared<EyeEstimator>(camera_id);
     }
 
-    void MetaModel::findMetaModelOnline(std::vector<CalibrationInput> const& calibration_input, CalibrationOutput const& calibration_output) const {
+    void FineTuner::calculate(std::vector<CalibrationInput> const& calibration_input, CalibrationOutput const& calibration_output) const {
         auto eye_params = Settings::parameters.eye_params[camera_id_];
 
         double marker_depth = calibration_output.marker_positions[0].z; // Assuming that all markers are at the same depth
 
         int total_markers = 0;
 
-        MetaModelData meta_model_data{};
+        FineTuningData meta_model_data{};
         meta_model_data.real_eye_position = calibration_output.eye_position;
 
         std::vector<int> cum_samples_per_marker{};
@@ -79,7 +79,6 @@ namespace et {
             meta_model_data.estimated_cornea_positions.push_back(cornea_position);
             meta_model_data.estimated_angles_theta.push_back(angles[0]);
             meta_model_data.estimated_angles_phi.push_back(angles[1]);
-            meta_model_data.angle_offsets.emplace_back(real_angles - angles);
             marker_numbers.push_back(total_markers);
 
             cum_samples_per_marker[total_markers + 1]++;
@@ -94,11 +93,6 @@ namespace et {
         auto mean_real_cornea_position = Utils::getMean<cv::Point3d>(meta_model_data.real_cornea_positions);
         auto mean_estimated_cornea_position = Utils::getMean<cv::Point3d>(meta_model_data.estimated_cornea_positions);
         auto eye_position_offset = mean_real_cornea_position - mean_estimated_cornea_position;
-
-        auto angle_offset = Utils::getMean<cv::Point2d>(meta_model_data.angle_offsets);
-
-        std::cout << "Cornea offset: " << eye_position_offset << std::endl;
-        std::cout << "Angle offset: " << angle_offset << std::endl;
 
         std::shared_ptr<Polynomial> theta_polynomial = std::make_shared<Polynomial>(2, 2);
         std::shared_ptr<Polynomial> phi_polynomial = std::make_shared<Polynomial>(2, 2);
@@ -220,22 +214,21 @@ namespace et {
             angle_errors_poly_fit.push_back(angle_error);
         }
 
-        std::cout << std::setprecision(3) << std::fixed;
+        std::clog << std::setprecision(3) << std::fixed;
 
         auto mean_error = Utils::getMean<double>(position_errors);
         auto std_error = Utils::getStdDev(position_errors);
-        std::cout << "Position error: " << mean_error << " ± " << std_error << std::endl;
+        std::clog << "Position error: " << mean_error << " ± " << std_error << std::endl;
 
         mean_error = Utils::getMean<double>(angle_errors_poly_fit);
         std_error = Utils::getStdDev<double>(angle_errors_poly_fit);
-        std::cout << "Polynomial fit error: " << mean_error << " ± " << std_error << std::endl;
+        std::clog << "Polynomial fit error: " << mean_error << " ± " << std_error << std::endl;
 
-        std::cout << "Finished calibration" << std::endl;
+        std::clog << "Finished calibration" << std::endl;
     }
 
-    void MetaModel::findMetaModelOffline(const std::string& camera_video_path) const {
+    void FineTuner::calculate(const std::string& camera_video_path, const std::string& camera_csv_path) const {
         std::vector<CalibrationInput> calibration_input{};
-        const std::string camera_csv_path = camera_video_path.substr(0, camera_video_path.find_last_of('.')) + ".csv";
 
         CalibrationOutput calibration_output{};
         double time_per_marker = 3;
@@ -299,6 +292,6 @@ namespace et {
             calibration_input.push_back(sample);
         }
 
-        findMetaModelOnline(calibration_input, calibration_output);
+        calculate(calibration_input, calibration_output);
     }
 } // et

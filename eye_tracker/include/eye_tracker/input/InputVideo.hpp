@@ -1,7 +1,7 @@
 #ifndef HDRMFS_EYE_TRACKER_INPUT_VIDEO_HPP
 #define HDRMFS_EYE_TRACKER_INPUT_VIDEO_HPP
 
-#include "eye_tracker/input/ImageProvider.hpp"
+#include <eye_tracker/input/ImageProvider.hpp>
 
 #include <opencv2/opencv.hpp>
 
@@ -19,7 +19,7 @@ namespace et {
 
         cv::VideoCapture video_capture_{};
 
-        int frame_num_{0};
+        int frame_num_{};
         bool loop_{false};
     };
 } // namespace et

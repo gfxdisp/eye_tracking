@@ -58,9 +58,9 @@ namespace et {
 
         cv::Point2d pupil_location_undistorted_{};
 
-        double pupil_radius_distorted_{0};
+        double pupil_radius_distorted_{};
 
-        double pupil_radius_undistorted_{0};
+        double pupil_radius_undistorted_{};
 
         std::vector<cv::Point2d> glint_locations_distorted_{};
 

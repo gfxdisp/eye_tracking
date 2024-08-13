@@ -1,7 +1,7 @@
-#ifndef EYE_TRACKER_ONLINECAMERAFRAMEWORK_HPP
-#define EYE_TRACKER_ONLINECAMERAFRAMEWORK_HPP
+#ifndef HDRMFS_EYE_TRACKER_ONLINE_CAMERA_FRAMEWORK_HPP
+#define HDRMFS_EYE_TRACKER_ONLINE_CAMERA_FRAMEWORK_HPP
 
-#include "eye_tracker/frameworks/Framework.hpp"
+#include <eye_tracker/frameworks/Framework.hpp>
 
 namespace et {
     class OnlineCameraFramework : public Framework {
@@ -10,4 +10,4 @@ namespace et {
     };
 } // et
 
-#endif //EYE_TRACKER_ONLINECAMERAFRAMEWORK_HPP
+#endif //HDRMFS_EYE_TRACKER_ONLINE_CAMERA_FRAMEWORK_HPP

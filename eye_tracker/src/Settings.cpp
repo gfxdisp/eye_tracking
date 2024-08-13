@@ -234,7 +234,7 @@ namespace et {
 
     void Settings::loadSettings() {
         auto capture_params_path = std::filesystem::path(settings_folder_) / "capture_params.json";
-        std::clog << "Loading settings from " << capture_params_path << "\n";
+        std::clog << "Loading settings from " << capture_params_path << std::endl;
 
         std::ifstream file(capture_params_path);
         json j;

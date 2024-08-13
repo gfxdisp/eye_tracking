@@ -1,26 +1,13 @@
-#ifndef EYE_TRACKER_METAMODEL_HPP
-#define EYE_TRACKER_METAMODEL_HPP
+#ifndef HDRMFS_EYE_TRACKER_FINE_TUNER_HPP
+#define HDRMFS_EYE_TRACKER_FINE_TUNER_HPP
 
-#include "eye_tracker/image/FeatureAnalyser.hpp"
+#include <eye_tracker/image/FeatureAnalyser.hpp>
 #include <eye_tracker/optimizers/OpticalAxisOptimizer.hpp>
 #include <eye_tracker/eye/EyeEstimator.hpp>
 
 #include <memory>
 
 namespace et {
-    struct CalibrationSample {
-        cv::Point3d eye_position;
-        bool detected;
-        int marker_id;
-        cv::Point3d marker_position;
-        cv::RotatedRect glint_ellipse;
-        cv::Point2d pupil_position;
-        long int timestamp;
-        long int marker_time;
-        std::vector<cv::Point2d> glints;
-        std::vector<bool> glints_validity;
-    };
-
     struct CalibrationInput {
         cv::Point3d eye_position;
         cv::Point3d cornea_position;
@@ -35,7 +22,7 @@ namespace et {
         std::vector<double> timestamps;
     };
 
-    struct MetaModelData {
+    struct FineTuningData {
         cv::Point3d real_eye_position;
         std::vector<cv::Point3d> real_marker_positions;
 
@@ -44,8 +31,6 @@ namespace et {
         std::vector<cv::Point3d> real_cornea_positions;
         std::vector<cv::Point3d> estimated_cornea_positions;
 
-        std::vector<cv::Point2d> angle_offsets;
-
         std::vector<double> real_angles_theta;
         std::vector<double> estimated_angles_theta;
 
@@ -53,15 +38,15 @@ namespace et {
         std::vector<double> estimated_angles_phi;
     };
 
-    class MetaModel {
+    class FineTuner {
     public:
         static bool ransac;
 
-        explicit MetaModel(int camera_id);
+        explicit FineTuner(int camera_id);
 
-        void findMetaModelOnline(std::vector<CalibrationInput> const& calibration_input, CalibrationOutput const& calibration_output) const;
+        void calculate(std::vector<CalibrationInput> const& calibration_input, CalibrationOutput const& calibration_output) const;
 
-        void findMetaModelOffline(const std::string& video_path) const;
+        void calculate(const std::string& video_path, const std::string& camera_csv_path) const;
 
     private:
         std::shared_ptr<OpticalAxisOptimizer> optical_axis_optimizer_{};
@@ -74,4 +59,4 @@ namespace et {
     };
 } // et
 
-#endif //EYE_TRACKER_METAMODEL_HPP
+#endif // HDRMFS_EYE_TRACKER_FINE_TUNER_HPP

@@ -77,7 +77,7 @@ namespace et {
         const auto current{std::chrono::steady_clock::now()};
         if (current - framerate_timer_ > 1s) {
             framerate_timer_ = current;
-            std::clog << "[" << full_output_window_name_ << "] Frames per second: " << fps_text_.str() << "\n";
+            std::clog << "[" << full_output_window_name_ << "] Frames per second: " << fps_text_.str() << std::endl;
         }
     }
 

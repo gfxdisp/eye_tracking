@@ -1,8 +1,7 @@
-#include "eye_tracker/frameworks/OnlineCameraFramework.hpp"
-#include "eye_tracker/input/IdsCamera.hpp"
-#include "eye_tracker/image/FeatureAnalyser.hpp"
-#include "eye_tracker/eye/EyeEstimator.hpp"
-
+#include <eye_tracker/frameworks/OnlineCameraFramework.hpp>
+#include <eye_tracker/input/IdsCamera.hpp>
+#include <eye_tracker/image/FeatureAnalyser.hpp>
+#include <eye_tracker/eye/EyeEstimator.hpp>
 
 #include <memory>
 

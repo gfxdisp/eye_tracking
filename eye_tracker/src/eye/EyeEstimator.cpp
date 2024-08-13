@@ -1,10 +1,6 @@
-#include<iostream>
-
-#include "eye_tracker/eye/EyeEstimator.hpp"
-
-
-#include "eye_tracker/Utils.hpp"
-#include "eye_tracker/optimizers/MetaModel.hpp"
+#include <eye_tracker/eye/EyeEstimator.hpp>
+#include <eye_tracker/Utils.hpp>
+#include <eye_tracker/optimizers/FineTuner.hpp>
 
 namespace et {
     EyeEstimator::EyeEstimator(const int camera_id) : camera_id_{camera_id} {

@@ -2,7 +2,7 @@
 #define HDRMFS_EYE_TRACKER_FRAMEWORK_HPP
 
 #include <eye_tracker/Visualizer.hpp>
-#include <eye_tracker/optimizers/MetaModel.hpp>
+#include <eye_tracker/optimizers/FineTuner.hpp>
 
 #include <fstream>
 #include <vector>
@@ -67,7 +67,7 @@ namespace et {
         std::shared_ptr<ImageProvider> image_provider_{};
         std::shared_ptr<FeatureAnalyser> feature_detector_{};
         std::shared_ptr<Visualizer> visualizer_{};
-        std::shared_ptr<MetaModel> meta_model_{};
+        std::shared_ptr<FineTuner> fine_tuner_{};
 
         EyeImage analyzed_frame_{};
 

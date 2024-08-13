@@ -1,7 +1,7 @@
-#include "eye_tracker/frameworks/Framework.hpp"
-#include "eye_tracker/Utils.hpp"
-#include "eye_tracker/input/InputVideo.hpp"
-#include "eye_tracker/image/FeatureAnalyser.hpp"
+#include <eye_tracker/frameworks/Framework.hpp>
+#include <eye_tracker/Utils.hpp>
+#include <eye_tracker/input/InputVideo.hpp>
+#include <eye_tracker/image/FeatureAnalyser.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -20,7 +20,7 @@ namespace et {
             visualization_type_ = VisualizationType::CAMERA_IMAGE;
         }
         visualizer_ = std::make_shared<Visualizer>(camera_id, headless);
-        meta_model_ = std::make_shared<MetaModel>(camera_id);
+        fine_tuner_ = std::make_shared<FineTuner>(camera_id);
     }
 
     bool Framework::analyzeNextFrame() {
@@ -210,7 +210,7 @@ namespace et {
     }
 
     void Framework::startCalibration(std::string const& name) {
-        std::cout << "Starting calibration" << std::endl;
+        std::clog << "Starting calibration" << std::endl;
         calibration_input_.clear();
         calibration_start_time_ = std::chrono::system_clock::now();
         calibration_running_ = true;
@@ -218,10 +218,10 @@ namespace et {
     }
 
     void Framework::stopCalibration(const CalibrationOutput& calibration_output) {
-        std::cout << "Stopping calibration" << std::endl;
+        std::clog << "Stopping calibration" << std::endl;
         stopRecording();
         calibration_running_ = false;
-        meta_model_->findMetaModelOnline(calibration_input_, calibration_output);
+        fine_tuner_->calculate(calibration_input_, calibration_output);
         eye_estimator_->updateFineTuning();
     }
 

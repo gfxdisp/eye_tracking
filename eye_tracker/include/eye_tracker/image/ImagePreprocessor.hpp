@@ -1,12 +1,10 @@
-#ifndef HDRMFS_EYE_TRACKER_IMAGEPREPROCESSOR_HPP
-#define HDRMFS_EYE_TRACKER_IMAGEPREPROCESSOR_HPP
+#ifndef HDRMFS_EYE_TRACKER_IMAGE_PREPROCESSOR_HPP
+#define HDRMFS_EYE_TRACKER_IMAGE_PREPROCESSOR_HPP
 
-#include "eye_tracker/input/ImageProvider.hpp"
+#include <eye_tracker/input/ImageProvider.hpp>
 
 #include <opencv2/core/cuda.hpp>
-#include <opencv2/cudafilters.hpp>
 #include <opencv2/cudaimgproc.hpp>
-#include <opencv2/opencv.hpp>
 
 namespace et {
     class ImagePreprocessor {
@@ -32,4 +30,4 @@ namespace et {
     };
 } // et
 
-#endif //HDRMFS_EYE_TRACKER_IMAGEPREPROCESSOR_HPP
+#endif //HDRMFS_EYE_TRACKER_IMAGE_PREPROCESSOR_HPP

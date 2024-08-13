@@ -1,8 +1,8 @@
-#ifndef HDRMFS_EYE_TRACKER_EYEESTIMATOR_HPP
-#define HDRMFS_EYE_TRACKER_EYEESTIMATOR_HPP
+#ifndef HDRMFS_EYE_TRACKER_EYE_ESTIMATOR_HPP
+#define HDRMFS_EYE_TRACKER_EYE_ESTIMATOR_HPP
 
 #include <eye_tracker/optimizers/NodalPointOptimizer.hpp>
-#include "eye_tracker/Settings.hpp"
+#include <eye_tracker/Settings.hpp>
 #include <eye_tracker/optimizers/Polynomial.hpp>
 
 #include <opencv2/core/mat.hpp>
@@ -115,4 +115,4 @@ namespace et {
     };
 } // namespace et
 
-#endif // HDRMFS_EYE_TRACKER_EYEESTIMATOR_HPP
+#endif // HDRMFS_EYE_TRACKER_EYE_ESTIMATOR_HPP

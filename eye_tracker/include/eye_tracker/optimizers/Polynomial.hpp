@@ -1,7 +1,6 @@
 #ifndef HDRMFS_EYE_TRACKER_POLYNOMIAL_HPP
 #define HDRMFS_EYE_TRACKER_POLYNOMIAL_HPP
 
-#include <string>
 #include <vector>
 
 namespace et

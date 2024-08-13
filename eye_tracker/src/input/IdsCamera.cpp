@@ -1,13 +1,18 @@
-#include "eye_tracker/input/IdsCamera.hpp"
+#include <eye_tracker/input/IdsCamera.hpp>
+#ifdef UEYE_INCLUDED
+#include <ueye.h>
+#endif // UEYE_INCLUDED
 
-#include <cassert>
-#include <chrono>
 #include <iostream>
 #include <thread>
 
 
 namespace et {
     IdsCamera::IdsCamera(int camera_id) {
+#ifdef UEYE_INCLUDED
+        image_index_ = -1;
+        framerate_ = 100;
+
         const auto path = (Settings::settings_folder_ / ("fake_" + std::to_string(camera_id) + ".png"));
         fake_image_ = cv::imread(path.string(), cv::IMREAD_GRAYSCALE);
 
@@ -24,7 +29,7 @@ namespace et {
         int camera_index = -1;
 
         for (int i = 0; i < all_camera_count; i++) {
-            std::clog << "Connected camera: " << std::string(camera_list->uci[i].Model) << ", " << std::string(camera_list->uci[i].SerNo) << "\n";
+            std::clog << "Connected camera: " << std::string(camera_list->uci[i].Model) << ", " << std::string(camera_list->uci[i].SerNo) << std::endl;
             if (std::string(camera_list->uci[i].SerNo) == camera_params_->serial_number) {
                 camera_index = i;
                 break;
@@ -72,9 +77,11 @@ namespace et {
 
         delete[] camera_list;
         image_gatherer_ = std::thread{&IdsCamera::imageGatheringThread, this};
+#endif // UEYE_INCLUDED
     }
 
     void IdsCamera::imageGatheringThread() {
+#ifdef UEYE_INCLUDED
         int new_image_index{image_index_};
 
         while (thread_running_) {
@@ -90,33 +97,46 @@ namespace et {
             }
             image_index_ = new_image_index;
         }
+#endif // UEYE_INCLUDED
     }
 
     EyeImage IdsCamera::grabImage() {
+#ifdef UEYE_INCLUDED
         frame_ = image_queue_[image_index_];
         return {frame_, image_counter_++};
+#else // UEYE_INCLUDED
+        return {};
+#endif // UEYE_INCLUDED
     }
 
     void IdsCamera::close() {
+#ifdef UEYE_INCLUDED
         thread_running_ = false;
         image_gatherer_.join();
         is_FreeImageMem(camera_handle_, image_handle_, image_id_);
         is_ExitCamera(camera_handle_);
+#endif // UEYE_INCLUDED
     }
 
     void IdsCamera::setExposure(double exposure) const {
+#ifdef UEYE_INCLUDED
         is_Exposure(camera_handle_, IS_EXPOSURE_CMD_SET_EXPOSURE, &exposure, sizeof(exposure));
+#endif // UEYE_INCLUDED
     }
 
     void IdsCamera::setGamma(double gamma) const {
+#ifdef UEYE_INCLUDED
         int scaled_gamma = static_cast<int>(gamma * 100);
         is_Gamma(camera_handle_, IS_GAMMA_CMD_SET, &scaled_gamma, sizeof(scaled_gamma));
+#endif // UEYE_INCLUDED
     }
 
     void IdsCamera::setFramerate(double framerate) {
+#ifdef UEYE_INCLUDED
         is_SetFrameRate(camera_handle_, framerate, &framerate_);
         if (framerate_ != framerate) {
-            std::cout << "Requested " << framerate << " FPS, set to " << framerate_ << " FPS.\n";
+            std::clog << "Requested " << framerate << " FPS, set to " << framerate_ << " FPS.\n";
         }
+#endif // UEYE_INCLUDED
     }
 } // namespace et

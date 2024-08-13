@@ -21,8 +21,8 @@ int main(int argc, char* argv[]) {
     int argument{0};
     std::string settings_path{"."};
     std::string user{"default"};
-    std::string video_path{};
-    std::string calibration_path{};
+    std::string shown_video_path{};
+    std::string calibration_video_path{};
     bool headless{false};
 
     while (argument != -1) {
@@ -38,10 +38,10 @@ int main(int argc, char* argv[]) {
                 headless = true;
                 break;
             case 'v':
-                video_path = optarg;
+                shown_video_path = optarg;
                 break;
             case 'c':
-                calibration_path = optarg;
+                calibration_video_path = optarg;
                 break;
             default:
                 break;
@@ -58,17 +58,19 @@ int main(int argc, char* argv[]) {
         }
         et::Settings::parameters.user_params[i] = &et::Settings::parameters.features_params[i][user];
 
-        if (video_path.empty()) {
-            frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
-        } else {
-            std::clog << "Using video from: " << video_path << std::endl;
-            frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, video_path, true);
+        if (!calibration_video_path.empty()) {
+            std::clog << "Calibrating from: " << calibration_video_path << std::endl;
+            std::shared_ptr<et::FineTuner> fine_tuner = std::make_shared<et::FineTuner>(i);
+            auto calibration_csv_path = calibration_video_path.substr(0, calibration_video_path.find_last_of('.')) + ".csv";
+            fine_tuner->calculate(calibration_video_path, calibration_csv_path);
         }
 
-        if (!calibration_path.empty()) {
-            std::clog << "Calibrating from: " << calibration_path << std::endl;
-            std::shared_ptr<et::MetaModel> meta_model = std::make_shared<et::MetaModel>(i);
-            meta_model->findMetaModelOffline(calibration_path);
+        if (shown_video_path.empty()) {
+            frameworks[i] = std::make_shared<et::OnlineCameraFramework>(i, headless);
+        } else {
+            std::clog << "Showing video from: " << shown_video_path << std::endl;
+            auto shown_video_csv_path = shown_video_path.substr(0, shown_video_path.find_last_of('.')) + ".csv";
+            frameworks[i] = std::make_shared<et::VideoCameraFramework>(i, headless, true, shown_video_path, shown_video_csv_path);
         }
     }
 
@@ -80,7 +82,7 @@ int main(int argc, char* argv[]) {
 
         for (int i = 0; i < n_cameras; i++) {
             if (!frameworks[i]->analyzeNextFrame()) {
-                std::cout << "Empty image. Finishing.\n";
+                std::clog << "Empty image. Finishing.\n";
                 socket_server->finished = true;
                 break;
             }
