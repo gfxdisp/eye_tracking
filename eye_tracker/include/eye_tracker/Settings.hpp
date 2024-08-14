@@ -109,12 +109,22 @@ namespace et {
         EyeParams eye_params[2]{};
     };
 
+    /**
+     * @brief Class that handles the settings of the eye tracker. It loads and saves the settings from a JSON file. It contains all the parameters needed for the eye tracker to work, such as camera matrices, detection parameters, and eye features dimensions.
+     */
     class Settings {
     public:
+        /**
+         * @brief Constructor that loads the settings from a JSON file.
+         * @param settings_folder The folder where the settings JSON file is located.
+         */
         explicit Settings(const std::string& settings_folder);
 
         static void loadSettings();
 
+        /**
+         * @brief Saves the current settings to a JSON file, overwriting the existing one.
+         */
         static void saveSettings();
 
         static Parameters parameters;

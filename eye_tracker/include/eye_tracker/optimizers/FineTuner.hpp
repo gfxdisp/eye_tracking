@@ -38,14 +38,27 @@ namespace et {
         std::vector<double> estimated_angles_phi;
     };
 
+    /**
+     * @brief The FineTuner class is responsible for fine tuning the eye estimation parameters based on the user's calibration.
+     */
     class FineTuner {
     public:
         static bool ransac;
 
         explicit FineTuner(int camera_id);
 
+        /**
+         * @brief Calculates the fine tuning parameters based on the calibration data.
+         * @param calibration_input Vector of calibration input data, typically captured after calling Framework::startCalibration.
+         * @param calibration_output The output of the calibration process, containing the real eye positions, marker positions and timestamps.
+         */
         void calculate(std::vector<CalibrationInput> const& calibration_input, CalibrationOutput const& calibration_output) const;
 
+        /**
+         * @brief Calculates the fine tuning parameters based on the calibration data.
+         * @param video_path Path to the video file captured during the calibration process.
+         * @param camera_csv_path Path to the CSV file containing the calibration data, specifically the real eye positions, marker positions, and timestamps.
+         */
         void calculate(const std::string& video_path, const std::string& camera_csv_path) const;
 
     private:
