@@ -5,6 +5,19 @@ This repository contains the source code for the eye-tracking application used i
 The application uses an IDS uEye camera to track the user's eye and gaze direction, and displays the results on the screen.
 In the case of missing camera, the application can be run on a pre-recorded video file.
 
+## Repository structure
+
+- `eye_tracker` - source code of the eye-tracking library.
+- `apps` - source code of the `hdrmfs_eye_tracker` application that shows the example usage of the library.
+- `examples` - example videos and calibration files. Specifically, it contains:
+  - `calibration` - video and csv file recorded during the initial calibration of the user.
+  - `gaze_X` - video and csv file recorded during the gaze experiment for one of the four eye positions (Section 9.1 of the paper, paragraph "Gaze direction").
+  - `position_X` - video and csv file recorded during the eye position experiment for one of the three sessions (Section 9.1 of the paper, paragraph "Eye position").
+- `resources` - contains all the external resources used by the application:
+  - `settings.json` - contains all the necessary parameters for the application.
+  - `fake_X.png` - image placed instead of the camera stream when the X-th camera is not available.
+  - `template_X.png` - template used for template matching for glint detection for X-th camera.
+
 ## Installing dependencies
 
 The application has been run and tested on Ubuntu 20.04. Any other version might be incompatible.
