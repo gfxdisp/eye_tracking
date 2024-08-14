@@ -9,12 +9,23 @@
 #include <thread>
 
 namespace et {
+    /**
+     * @brief The SocketServer class is responsible for handling the communication between the eye tracker and the HDRMFS desktop application.
+     */
     class SocketServer {
     public:
+        /**
+         * @brief Construct a new Socket Server object.
+         * @param eye_tracker_left Framework used for the left eye.
+         * @param eye_tracker_right Framework used for the right eye.
+         */
         SocketServer(const std::shared_ptr<Framework>& eye_tracker_left, const std::shared_ptr<Framework>& eye_tracker_right);
 
         ~SocketServer();
 
+        /**
+         * @brief Createa a new server thread which will listen for incoming messages: get eye data, start calibration, stop calibration, start recording, stop recording.
+         */
         void startServer();
 
         void openSocket();

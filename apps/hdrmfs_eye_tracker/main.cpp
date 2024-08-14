@@ -1,8 +1,8 @@
 #include <eye_tracker/Settings.hpp>
-#include "eye_tracker/frameworks/Framework.hpp"
-#include "eye_tracker/SocketServer.hpp"
-#include "eye_tracker/frameworks/OnlineCameraFramework.hpp"
-#include "eye_tracker/frameworks/VideoCameraFramework.hpp"
+#include <eye_tracker/frameworks/Framework.hpp>
+#include <eye_tracker/SocketServer.hpp>
+#include <eye_tracker/frameworks/OnlineCameraFramework.hpp>
+#include <eye_tracker/frameworks/VideoCameraFramework.hpp>
 
 #include <getopt.h>
 #include <string>
