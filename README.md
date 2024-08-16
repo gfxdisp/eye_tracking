@@ -48,7 +48,7 @@ Run `install.sh` script to build the application. It will create a `build` direc
 
 ## Running
 
-Too run the application, you can use the `run.sh` script: it will start the application with the default settings,
+To run the application, you can use the `run.sh` script: it will start the application with the default settings,
 fine-tune the calibration parameters using the provided video and csv files, and present the tracking from the specified video on the screen.
 
 The application can be manually run with the following parameters:
