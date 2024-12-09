@@ -15,15 +15,6 @@ namespace et {
         THRESHOLD_GLINTS
     };
 
-    struct EyeDataToSend {
-        cv::Point3d cornea_centre;
-        cv::Point3d eye_centre;
-        cv::Point2d pupil;
-        cv::Vec3d gaze_direction;
-        double pupil_diameter;
-        int frame_num;
-    };
-
     /**
      * @brief The Framework class is the main class of the eye tracker. It is responsible for the initialization of the different components (image provider, feature detector, visualizer, fine tuner) and the analysis of the camera images.
      */
@@ -38,8 +29,6 @@ namespace et {
          * @return True if the frame was successfully captured and analyzed, false otherwise.
          */
         virtual bool analyzeNextFrame();
-
-        void getEyeDataPackage(EyeDataToSend& eye_data_package) const;
 
         /**
          * Starts the recording of the eye video. The video will be saved in the "results/" directory.

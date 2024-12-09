@@ -237,15 +237,6 @@ namespace et {
         }
     }
 
-    void Framework::getEyeDataPackage(EyeDataToSend& eye_data_package) const {
-        eye_estimator_->getCorneaCentrePositionWCS(eye_data_package.cornea_centre);
-        eye_estimator_->getEyeCentrePositionWCS(eye_data_package.eye_centre);
-        feature_detector_->getPupilUndistorted(eye_data_package.pupil);
-        eye_estimator_->getGazeDirection(eye_data_package.gaze_direction);
-        eye_estimator_->getPupilDiameter(eye_data_package.pupil_diameter);
-        eye_data_package.frame_num = output_video_frame_counter_;
-    }
-
     Framework::~Framework() {
         stopRecording();
         stopEyeVideoRecording();

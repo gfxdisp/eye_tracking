@@ -1,6 +1,5 @@
 #include <eye_tracker/Settings.hpp>
 #include <eye_tracker/frameworks/Framework.hpp>
-#include <eye_tracker/SocketServer.hpp>
 #include <eye_tracker/frameworks/OnlineCameraFramework.hpp>
 #include <eye_tracker/frameworks/VideoCameraFramework.hpp>
 
@@ -74,25 +73,22 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    const auto socket_server = std::make_shared<et::SocketServer>(frameworks[0], frameworks[1]);
-    socket_server->startServer();
+    bool finished = false;
 
-    while (!socket_server->finished) {
+    while (!finished) {
         const int key_pressed = cv::pollKey() & 0xFFFF;
 
         for (int i = 0; i < n_cameras; i++) {
             if (!frameworks[i]->analyzeNextFrame()) {
                 std::clog << "Empty image. Finishing.\n";
-                socket_server->finished = true;
+                finished = true;
                 break;
             }
 
             frameworks[i]->updateUi();
             switch (key_pressed) {
                 case 27: // Esc
-                    if (!socket_server->isClientConnected()) {
-                        socket_server->finished = true;
-                    }
+                    finished = true;
                     break;
                 case 'v': {
                     frameworks[i]->startRecording();
@@ -125,13 +121,12 @@ int main(int argc, char* argv[]) {
             }
 
             if (frameworks[i]->shouldAppClose()) {
-                socket_server->finished = true;
+                finished = true;
                 break;
             }
         }
     }
 
-    socket_server->closeSocket();
     cv::destroyAllWindows();
     et::Settings::saveSettings();
 
